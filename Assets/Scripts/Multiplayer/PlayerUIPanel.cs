@@ -1,5 +1,6 @@
 using UnityEngine;
 using TMPro;
+using System.Collections; // Required for using Coroutines
 
 // This script goes on the root of your Player UI Prefab.
 public class PlayerUIPanel : MonoBehaviour
@@ -18,12 +19,11 @@ public class PlayerUIPanel : MonoBehaviour
     private PlayerData _assignedPlayerData;
     public PlayerData AssignedPlayerData => _assignedPlayerData; // Public getter for the GameUIManager
 
-    // --- NEW: Gradient Definitions ---
-    // We define the colors here so they are easy to change.
+    // --- Gradient Definitions ---
     private readonly VertexGradient goldGradient = new VertexGradient(new Color(1, 0.847f, 0), new Color(1, 0.847f, 0), new Color(1, 0.569f, 0), new Color(1, 0.569f, 0));
     private readonly VertexGradient silverGradient = new VertexGradient(Color.white, Color.white, new Color(0.688f, 0.688f, 0.688f), new Color(0.688f, 0.688f, 0.688f));
     private readonly VertexGradient bronzeGradient = new VertexGradient(new Color(1, 0.706f, 0.184f), new Color(1, 0.706f, 0.184f), new Color(0.482f, 0.325f, 0.055f), new Color(0.482f, 0.325f, 0.055f));
-    private readonly VertexGradient defaultGradient = new VertexGradient(new Color(0.482f, 0.482f, 0.482f), new Color(0.482f, 0.482f, 0.482f), new Color(0.18f, 0.18f, 0.18f), new Color(0.18f, 0.18f, 0.18f));
+    private readonly VertexGradient defaultGradient = new VertexGradient(new Color(0.482f, 0.482f, 0.482f), new Color(0.482f, 0.482f, 0.18f, 0.18f), new Color(0.18f, 0.18f, 0.18f), new Color(0.18f, 0.18f, 0.18f));
 
 
     private void Awake()
@@ -61,8 +61,11 @@ public class PlayerUIPanel : MonoBehaviour
         {
             if (_assignedPlayerData.IsOwner)
             {
-                pitchDetector.enabled = true;
-                pitchDetector.ActivateAndStartMicrophone();
+                // --- START OF MODIFICATIONS ---
+                // We use a coroutine to handle the startup sequence safely.
+                // This ensures the microphone is fully started before the pitch detector tries to use it.
+                StartCoroutine(InitializeLocalPlayerSystems());
+                // --- END OF MODIFICATIONS ---
             }
             else
             {
@@ -70,6 +73,27 @@ public class PlayerUIPanel : MonoBehaviour
             }
         }
     }
+
+    /// <summary>
+    /// This coroutine safely starts the microphone and then activates the pitch detector.
+    /// </summary>
+    private IEnumerator InitializeLocalPlayerSystems()
+    {
+        // 1. Enable the pitch detector component so it can run its logic.
+        pitchDetector.enabled = true;
+
+        // 2. Tell the SharedMicrophoneManager to start the microphone for this player.
+        // We use the playerIndex from the pitchDetector component itself.
+        SharedMicrophoneManager.Instance.StartMicrophone(pitchDetector.playerIndex);
+
+        // 3. Wait until the SharedMicrophoneManager confirms that the microphone is actually recording.
+        // This is crucial to prevent errors.
+        yield return new WaitUntil(() => SharedMicrophoneManager.Instance.IsRecording);
+
+        // 4. Now that the mic is confirmed to be running, activate the pitch detector.
+        pitchDetector.Activate();
+    }
+
 
     /// <summary>
     /// This method now also handles updating the color based on the placement.
@@ -80,8 +104,6 @@ public class PlayerUIPanel : MonoBehaviour
 
         placementText.text = GetPlacementString(placement);
 
-        // --- THIS IS THE NEW LOGIC ---
-        // Set the color gradient based on the placement value.
         switch (placement)
         {
             case 1:
