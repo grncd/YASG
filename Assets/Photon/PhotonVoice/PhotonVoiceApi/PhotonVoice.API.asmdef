@@ -1,0 +1,17 @@
+{
+    "name": "PhotonVoice.API",
+    "rootNamespace": "",
+    "references": [
+        "PhotonRealtime",
+        "uWindowCapture.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
