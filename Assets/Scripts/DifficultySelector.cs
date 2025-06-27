@@ -14,7 +14,7 @@ public class DifficultySelector : MonoBehaviour
     {
        
 
-        if(PlayerPrefs.GetInt("multiplayer") == 0 || transform.parent.parent.gameObject.GetComponent<CanvasGroup>() != null)
+        if(PlayerPrefs.GetInt("multiplayer") == 0 && transform.parent.parent.gameObject.GetComponent<CanvasGroup>() != null)
         {
             transform.parent.parent.gameObject.GetComponent<CanvasGroup>().alpha = 0f;
             if (PlayerPrefs.GetInt(gameObject.name) == 0)
