@@ -52,7 +52,7 @@ public class DifficultySelector : MonoBehaviour
 
     public void CycleDiffs()
     {
-        if(PlayerPrefs.GetInt("multiplayer") == 0)
+        if(PlayerPrefs.GetInt("multiplayer") == 0 && transform.parent.parent.gameObject.GetComponent<CanvasGroup>() != null)
         {
             if (ProfileManager.Instance.GetProfileByName(PlayerPrefs.GetString(gameObject.name + "Name")).difficulty == 2)
             {
@@ -83,7 +83,7 @@ public class DifficultySelector : MonoBehaviour
 
     private void UpdateDisplay()
     {
-        if(PlayerPrefs.GetInt("multiplayer") == 0)
+        if(PlayerPrefs.GetInt("multiplayer") == 0 && transform.parent.parent.gameObject.GetComponent<CanvasGroup>() != null)
         {
             if (ProfileManager.Instance.GetProfileByName(PlayerPrefs.GetString(gameObject.name + "Name")).difficulty == 0) // easy
             {
