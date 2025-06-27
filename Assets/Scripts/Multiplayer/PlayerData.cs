@@ -24,6 +24,7 @@ public class PlayerData : NetworkBehaviour
     public readonly SyncVar<int> Level = new SyncVar<int>(1);
     public readonly SyncVar<float> PercentageToNextLevel = new SyncVar<float>();
     public readonly SyncVar<int> TotalScore = new SyncVar<int>();
+    public readonly SyncVar<int> Difficulty = new SyncVar<int>();
     public readonly SyncVar<bool> IsHost = new SyncVar<bool>();
     public readonly SyncVar<bool> IsMasterProcessor = new SyncVar<bool>();
     public readonly SyncVar<bool> IsReady = new SyncVar<bool>(false);
@@ -42,6 +43,7 @@ public class PlayerData : NetworkBehaviour
         Level.OnChange += OnLevelChanged;
         PercentageToNextLevel.OnChange += OnPercentageChanged;
         TotalScore.OnChange += OnTotalScoreChanged;
+        Difficulty.OnChange += OnDifficultyChanged;
         IsHost.OnChange += OnIsHostChanged;
         IsMasterProcessor.OnChange += OnIsMasterProcessorChanged;
         IsReady.OnChange += OnIsReadyChanged;
@@ -57,6 +59,7 @@ public class PlayerData : NetworkBehaviour
         Level.OnChange -= OnLevelChanged;
         PercentageToNextLevel.OnChange -= OnPercentageChanged;
         TotalScore.OnChange -= OnTotalScoreChanged;
+        Difficulty.OnChange -= OnDifficultyChanged;
         IsHost.OnChange -= OnIsHostChanged;
         IsMasterProcessor.OnChange -= OnIsMasterProcessorChanged;
         IsReady.OnChange -= OnIsReadyChanged;
@@ -183,6 +186,12 @@ public class PlayerData : NetworkBehaviour
         // Example: UIManager.Instance.UpdatePlayerScore(this, newScore);
     }
 
+    private void OnDifficultyChanged(int oldDiff, int newDiff, bool asServer)
+    {
+        Debug.Log($"Player difficulty changed to {newDiff}");
+        // Example: UIManager.Instance.UpdatePlayerScore(this, newScore);
+    }
+
     private void OnIsHostChanged(bool oldStatus, bool newStatus, bool asServer)
     {
         Debug.Log($"Player host status changed to {newStatus}");
@@ -256,6 +265,13 @@ public class PlayerData : NetworkBehaviour
     public void RequestAddScore_ServerRpc(int amount)
     {
         TotalScore.Value += amount;
+        // You could add logic here to update Level and PercentageToNextLevel based on the new score.
+    }
+
+    [ServerRpc(RequireOwnership = true)]
+    public void RequestChangeDiff_ServerRpc(int diff)
+    {
+        Difficulty.Value = diff;
         // You could add logic here to update Level and PercentageToNextLevel based on the new score.
     }
 

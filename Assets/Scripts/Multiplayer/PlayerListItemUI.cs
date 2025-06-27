@@ -10,6 +10,7 @@ public class PlayerListItemUI : MonoBehaviour
     // Assign these in the Inspector of your playerPrefab
     public TextMeshProUGUI playerNameText;
     public MPImage xpFillImage;
+    public TextMeshProUGUI difficultyText;
     public TextMeshProUGUI levelText;
     public TextMeshProUGUI totalScoreText;
     public GameObject readyIndicator;
@@ -33,6 +34,7 @@ public class PlayerListItemUI : MonoBehaviour
         _playerData.Level.OnChange += OnLevelChanged;
         _playerData.PercentageToNextLevel.OnChange += OnPercentageChanged;
         _playerData.TotalScore.OnChange += OnTotalScoreChanged;
+        _playerData.Difficulty.OnChange += OnDifficultyChanged;
         _playerData.IsReady.OnChange += OnIsReadyChanged;
         _playerData.IsHost.OnChange += OnIsHostChanged;
         _playerData.IsMasterProcessor.OnChange += OnIsMasterProcessorChanged;
@@ -43,6 +45,7 @@ public class PlayerListItemUI : MonoBehaviour
         OnLevelChanged(0, _playerData.Level.Value, false);
         OnPercentageChanged(0, _playerData.PercentageToNextLevel.Value, false);
         OnTotalScoreChanged(0, _playerData.TotalScore.Value, false);
+        OnDifficultyChanged(0, 1, false);
         OnIsReadyChanged(false, _playerData.IsReady.Value, false);
         OnIsHostChanged(false, _playerData.IsHost.Value, false);
         OnIsMasterProcessorChanged(false, _playerData.IsMasterProcessor.Value, false);
@@ -95,6 +98,23 @@ public class PlayerListItemUI : MonoBehaviour
         else
         {
             totalScoreText.text = "Total Score: 0";
+        }
+    }
+
+    private void OnDifficultyChanged(int oldDiff, int newDiff, bool asServer)
+    {
+        if(newDiff == 0)
+        {
+            difficultyText.text = "Easy";
+            difficultyText.color = new Color(0.3042734f, 1f, 0.2588235f);
+        }else if (newDiff == 1)
+        {
+            difficultyText.text = "Medium";
+            difficultyText.color = new Color(0.9826014f, 1f, 0.259434f);
+        }else if (newDiff == 2)
+        {
+            difficultyText.text = "Hard";
+            difficultyText.color = new Color(1f, 0.2588235f, 0.2657269f);
         }
     }
 

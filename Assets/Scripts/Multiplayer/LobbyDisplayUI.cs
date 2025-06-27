@@ -14,6 +14,7 @@ public class LobbyDisplayUI : MonoBehaviour
     public Transform playerListContainer;
     public GameObject playerListItemPrefab;
     public TextMeshProUGUI creatorNameDisplay;
+    public TextMeshProUGUI ipAddress;
 
     [Header("Song Display")]
     public TextMeshProUGUI songTitleText;
@@ -38,6 +39,8 @@ public class LobbyDisplayUI : MonoBehaviour
     {
         Debug.Log("LobbyDisplayUI: OnEnable called.");
         PlayerPrefs.SetInt("multiplayer", 1);
+
+        ipAddress.text = PlayerPrefs.GetString("masterIp");
 
         // Subscribe to the static event to be notified when RoomManager is spawned.
         RoomManager.OnInstanceAvailable += HandleRoomManagerAvailable;

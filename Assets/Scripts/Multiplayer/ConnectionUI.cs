@@ -4,6 +4,7 @@ using FishNet.Connection;
 using TMPro;
 using UnityEngine;
 using System.Collections;
+using System.Net.NetworkInformation;
 
 public class ConnectionUI : MonoBehaviour
 {
@@ -35,13 +36,15 @@ public class ConnectionUI : MonoBehaviour
     /// Called by the "Create Room" button's OnClick event.
     /// This acts as the HOST.
     /// </summary>
-    public void CreateRoom()
+    public void CreateRoom(string ip)
     {
         if (string.IsNullOrWhiteSpace(roomNameInput.text))
         {
             Debug.LogWarning("Please enter a room name before creating a room.");
             return;
         }
+
+        PlayerPrefs.SetString("masterIp", ip);
 
         _networkManager.SceneManager.OnClientLoadedStartScenes += OnClientLoadedStartScenes_TriggerNameSet;
         _networkManager.ServerManager.StartConnection();
@@ -61,6 +64,8 @@ public class ConnectionUI : MonoBehaviour
     public void JoinRoom()
     {
         Debug.Log("ConnectionUI: JoinRoom button clicked.");
+
+        PingHost(PlayerPrefs.GetString("masterIp"));
 
         // Start the client connection. The client does not start a server.
         _networkManager.ClientManager.StartConnection();
@@ -99,5 +104,21 @@ public class ConnectionUI : MonoBehaviour
 
         Debug.Log("ConnectionUI: PlayerData.LocalPlayerInstance is now available! Calling RPC to set room name.");
         PlayerData.LocalPlayerInstance.RequestSetRoomName_ServerRpc(roomNameInput.text);
+    }
+
+    public bool PingHost(string ipAddress, int timeout = 1000)
+    {
+        try
+        {
+            using (System.Net.NetworkInformation.Ping ping = new System.Net.NetworkInformation.Ping())
+            {
+                PingReply reply = ping.Send(ipAddress, timeout);
+                return reply.Status == IPStatus.Success;
+            }
+        }
+        catch
+        {
+            return false;
+        }
     }
 }
