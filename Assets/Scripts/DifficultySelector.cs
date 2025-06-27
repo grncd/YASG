@@ -103,12 +103,12 @@ public class DifficultySelector : MonoBehaviour
         }
         else
         {
-            if (PlayerPrefs.GetInt(gameObject.name + "Difficulty") == 0) // easy
+            if (PlayerPrefs.GetInt("Player1Difficulty") == 0) // easy
             {
                 transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = "Easy";
                 transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.3042734f, 1f, 0.2588235f);
             }
-            else if (PlayerPrefs.GetInt(gameObject.name + "Difficulty") == 1) // medium
+            else if (PlayerPrefs.GetInt("Player1Difficulty") == 1) // medium
             {
                 transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = "Medium";
                 transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.9826014f, 1f, 0.259434f);
