@@ -232,6 +232,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     public void PreCompile(string url, string name,string artist,string length, Track track)
     {
 
+
         if(ProfileManager.Instance.GetActiveProfiles().Count == 0)
         {
             alertManager.ShowError("You don't have any active profiles!", "Please go to the Settings (cogwheel on the bottom left) and either create a new profile or activate an existing one.", "Dismiss");
@@ -309,6 +310,15 @@ public class LevelResourcesCompiler : MonoBehaviour
     }
     public async Task StartCompile(string url,string name,string artist,string length,string cover)
     {
+        if (Application.isEditor)
+        {
+            PlayerPrefs.SetString("dataPath", "C:\\YASGdata");
+        }
+        else
+        {
+            PlayerPrefs.SetString("dataPath", "C:\\YASGdataTesting");
+        }
+        dataPath = PlayerPrefs.GetString("dataPath");
         UnityEngine.Debug.Log($"CALLED: {url}, {name}, {artist}, {length}, {cover}");
         name = name.Replace("\\", " ");
         songInfo.transform.GetChild(4).GetComponent<AudioSource>().Play();
@@ -486,6 +496,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
         else
         {
+            dataPath = PlayerPrefs.GetString("dataPath");
             // 1. Find your mp3 file in the folder
             var mp3Path = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
             UnityEngine.Debug.Log(mp3Path);
