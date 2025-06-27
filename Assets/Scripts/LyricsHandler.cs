@@ -95,7 +95,7 @@ public class LyricsHandler : MonoBehaviour
             temp.GetChild(3).GetComponent<TextMeshProUGUI>().text = PlayerPrefs.GetString("Player4Name");
             temp.GetComponent<RealTimePitchDetector>().device = PlayerPrefs.GetInt("MicPlayer4");
         }
-        if (PlayerPrefs.GetInt("saved") == 0 || !File.Exists($"{PlayerPrefs.GetString("dataPath")}\\downloads\\" + currentSong + ".txt"))
+        if (!File.Exists($"{PlayerPrefs.GetString("dataPath")}\\downloads\\" + currentSong + ".txt"))
         {
             System.IO.File.Move($"{PlayerPrefs.GetString("dataPath")}\\downloads\\" + currentSong + ".lrc", $"{PlayerPrefs.GetString("dataPath")}\\downloads\\" + currentSong + ".txt");
         }
