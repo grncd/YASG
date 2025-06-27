@@ -30292,7 +30292,7 @@ MonoBehaviour:
   playerListContainer: {fileID: 684189735}
   playerListItemPrefab: {fileID: 4995786121002669205, guid: 4057854b48684504fbe3e83a4e62a99e, type: 3}
   creatorNameDisplay: {fileID: 539674225}
-  ipAddress: {fileID: 0}
+  ipAddress: {fileID: 1675438134}
   songTitleText: {fileID: 840963222}
   songArtistText: {fileID: 1969640663}
   songLengthText: {fileID: 179610731}

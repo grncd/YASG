@@ -65,17 +65,17 @@ public class DifficultySelector : MonoBehaviour
         }
         else
         {
-            if (PlayerPrefs.GetInt(gameObject.name + "Difficulty") == 2)
+            if (PlayerPrefs.GetInt("Player1Difficulty") == 2)
             {
-                PlayerPrefs.SetInt(gameObject.name + "Difficulty", 0);
+                PlayerPrefs.SetInt("Player1Difficulty", 0);
             }
             else
             {
-                PlayerPrefs.SetInt(gameObject.name + "Difficulty", PlayerPrefs.GetInt(gameObject.name + "Difficulty") + 1);
+                PlayerPrefs.SetInt("Player1Difficulty", PlayerPrefs.GetInt("Player1Difficulty") + 1);
             }
             if (PlayerData.LocalPlayerInstance != null)
             {
-                PlayerData.LocalPlayerInstance.RequestChangeDiff_ServerRpc(PlayerPrefs.GetInt(gameObject.name + "Difficulty"));
+                PlayerData.LocalPlayerInstance.RequestChangeDiff_ServerRpc(PlayerPrefs.GetInt("Player1Difficulty"));
             }
         }
         UpdateDisplay();
