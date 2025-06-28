@@ -546,7 +546,7 @@ public class RealTimePitchDetector : MonoBehaviour
         {
             currentLeniencyCoefficient *= 0.8f;
         }
-        Debug.Log("[GRACE] " + currentLeniencyCoefficient);
+        //Debug.Log("[GRACE] " + currentLeniencyCoefficient);
 
         if (diffIndex == 0) // easy
         {
@@ -564,7 +564,7 @@ public class RealTimePitchDetector : MonoBehaviour
             if (vocalArrowS == null) reason += " vocalArrowS is null;";
             if (vocalArrow == 30f) reason += " vocalArrow is 30f;";
             if (AudioClipPitchProcessor.Instance.currentPitch == 0f) reason += " AudioClipPitchProcessor.Instance.currentPitch is 0f;";
-            Debug.Log(reason);
+            //Debug.Log(reason);
         }
 
         bool ppJudge = (PP != null && PP.judgeInt);
@@ -756,7 +756,7 @@ public class RealTimePitchDetector : MonoBehaviour
                 string reason = "Scoring condition fail:";
                 if (!ppJudge) reason += $" PP null ({PP == null}) or judgeInt false ({PP?.judgeInt});";
                 if (!songNotOver) reason += $" LH null ({LyricsHandler.Instance == null}) or songOver true ({LyricsHandler.Instance?.songOver});";
-                Debug.Log(reason);
+                //Debug.Log(reason);
             }
 
             if (bestDifference < leniencyThreshold && ppJudge && songNotOver)
@@ -793,7 +793,7 @@ public class RealTimePitchDetector : MonoBehaviour
                         }
                     }
                     scoreDisplay.text = scoreText;
-                    if (debugMode) Debug.Log($"[RealTimePitchDetector] SCORED! Increment: {scoreIncrement}, New Score: {score}, Displayed: '{scoreText}'");
+                    //if (debugMode) Debug.Log($"[RealTimePitchDetector] SCORED! Increment: {scoreIncrement}, New Score: {score}, Displayed: '{scoreText}'");
                 }
                 else if (debugMode)
                 {

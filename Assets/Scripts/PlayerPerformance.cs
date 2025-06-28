@@ -34,6 +34,7 @@ public class PlayerPerformance : MonoBehaviour
     private int diffIndex = 1;
     private bool paused = false;
     private bool local;
+    private int remoteScore = 0;
 
     // Added to store the start time of the current lyric line
     private float currentLineStartTime = 0f;
@@ -82,6 +83,17 @@ public class PlayerPerformance : MonoBehaviour
 
     void Update()
     {
+        if (!local)
+        {
+            if (string.IsNullOrEmpty(transform.GetChild(4).GetComponent<TextMeshProUGUI>().text))
+            {
+                remoteScore = 0;
+            }else
+            {
+                remoteScore = int.Parse(transform.GetChild(4).GetComponent<TextMeshProUGUI>().text.Replace(",", ""));
+            }
+            Debug.Log(remoteScore);
+        }
         if (!LyricsHandler.Instance.songOver)
         {
             UpdatePerformanceBar();
@@ -122,7 +134,14 @@ public class PlayerPerformance : MonoBehaviour
         }
         else
         {
-            scoreAtLineStart = scoreManager._localScore;
+            if (local)
+            {
+                scoreAtLineStart = scoreManager._localScore;
+            }
+            else
+            {
+                scoreAtLineStart = remoteScore;
+            }
         }
         totalPossibleScoreForLine = CalculatePerfectScoreForLine(lineIndex);
 
@@ -133,152 +152,86 @@ public class PlayerPerformance : MonoBehaviour
 
     private void CheckStars()
     {
+        // 1. Determine the correct current score to use for this check
+        float currentScore = 0;
         if (PlayerPrefs.GetInt("multiplayer") == 0)
         {
-            if (local)
-            {
-                if (stars < 6)
-                {
-                    if (scoreManager.score > 159167 * (stars + 1))
-                    {
-                        stars++;
-                        GameObject star = Instantiate(starPrefab, starsLocation);
-                        fxControl.clip = starFX;
-                        fxControl.Play();
-                        star.SetActive(true);
-                    }
-                }
-            }
-            else
-            {
-                if (stars < 6)
-                {
-                    string scoreText = transform.GetChild(4).GetComponent<TextMeshProUGUI>().text;
-                    if (int.Parse(scoreText.Replace(",","")) > 159167 * (stars + 1))
-                    {
-                        stars++;
-                        GameObject star = Instantiate(starPrefab, starsLocation);
-                        fxControl.clip = starFX;
-                        fxControl.Play();
-                        star.SetActive(true);
-                    }
-                }
-            }
+            // Single Player Mode
+            currentScore = local ? scoreManager.score : remoteScore; // Note: 'remoteScore' logic in SP seems unlikely, but we'll keep your structure.
         }
         else
         {
-            if (stars < 6)
+            // Multiplayer Mode
+            currentScore = local ? scoreManager._localScore : remoteScore;
+        }
+
+        // 2. Use the unified 'currentScore' variable for the check
+        if (stars < 6)
+        {
+            // Use a constant for the score-per-star to make it easier to change
+            const int SCORE_PER_STAR = 159167;
+            if (currentScore > SCORE_PER_STAR * (stars + 1))
             {
-                if (scoreManager._localScore > 159167 * (stars + 1))
-                {
-                    stars++;
-                    GameObject star = Instantiate(starPrefab, starsLocation);
-                    fxControl.clip = starFX;
-                    fxControl.Play();
-                    star.SetActive(true);
-                }
+                stars++;
+                GameObject star = Instantiate(starPrefab, starsLocation);
+                fxControl.clip = starFX;
+                fxControl.Play();
+                star.SetActive(true);
             }
         }
-        
     }
 
     private void UpdatePerformanceBar()
     {
-        if (PlayerPrefs.GetInt("multiplayer") == 0)
+        if (!judgeInt) return; // No need to update if we are not judging
+
+        // 1. Determine the correct current score source for this frame
+        float currentScore = 0;
+        bool isMultiplayer = PlayerPrefs.GetInt("multiplayer") == 1;
+
+        if (isMultiplayer)
         {
-            if (local)
-            {
-                if (judgeInt)
-                {
-                    if (scoreManager.score >= 1000000f && !perfect)
-                    {
-                        perfect = true;
-                        transform.GetChild(4).GetComponent<Animator>().Play("1milli");
-                        transform.GetChild(4).GetComponent<TextMeshProUGUI>().color = new Color(1f, 0.7100834f, 0f);
-                        foreach (Transform child in transform.GetChild(5))
-                        {
-                            child.GetComponent<MPImage>().color = new Color(1f, 0.7100834f, 0f);
-                            child.GetChild(0).GetComponent<MPImage>().color = new Color(1f, 0.7100834f, 0f);
-                        }
-
-                        fxControl.clip = perfectFX;
-                        fxControl.Play();
-                    }
-                    if (totalPossibleScoreForLine > 0)
-                    {
-                        CheckStars();
-                        float gainedScore = scoreManager.score - scoreAtLineStart;
-                        float performanceRatio = gainedScore / totalPossibleScoreForLine;
-                        currentRatio = performanceRatio;
-                        // Smooth transition
-                        displayedFillAmount = Mathf.Lerp(displayedFillAmount, performanceRatio, Time.deltaTime * smoothingSpeed);
-                        performanceBar.fillAmount = displayedFillAmount;
-                    }
-                }
-            }
-            else
-            {
-                string scoreText = transform.GetChild(4).GetComponent<TextMeshProUGUI>().text;
-                if (judgeInt)
-                {
-                    if (int.Parse(scoreText.Replace(",", "")) >= 1000000f && !perfect)
-                    {
-                        perfect = true;
-                        transform.GetChild(4).GetComponent<Animator>().Play("1milli");
-                        transform.GetChild(4).GetComponent<TextMeshProUGUI>().color = new Color(1f, 0.7100834f, 0f);
-                        foreach (Transform child in transform.GetChild(5))
-                        {
-                            child.GetComponent<MPImage>().color = new Color(1f, 0.7100834f, 0f);
-                            child.GetChild(0).GetComponent<MPImage>().color = new Color(1f, 0.7100834f, 0f);
-                        }
-
-                        fxControl.clip = perfectFX;
-                        fxControl.Play();
-                    }
-                    if (totalPossibleScoreForLine > 0)
-                    {
-                        CheckStars();
-                        float gainedScore = int.Parse(scoreText.Replace(",", "")) - scoreAtLineStart;
-                        float performanceRatio = gainedScore / totalPossibleScoreForLine;
-                        currentRatio = performanceRatio;
-                        // Smooth transition
-                        displayedFillAmount = Mathf.Lerp(displayedFillAmount, performanceRatio, Time.deltaTime * smoothingSpeed);
-                        performanceBar.fillAmount = displayedFillAmount;
-                    }
-                }
-            }
+            currentScore = local ? scoreManager._localScore : remoteScore;
         }
-        else
+        else // Single Player
         {
-            if (judgeInt)
-            {
-                if (scoreManager._localScore >= 1000000f && !perfect)
-                {
-                    perfect = true;
-                    transform.GetChild(4).GetComponent<Animator>().Play("1milli");
-                    transform.GetChild(4).GetComponent<TextMeshProUGUI>().color = new Color(1f, 0.7100834f, 0f);
-                    foreach (Transform child in transform.GetChild(5))
-                    {
-                        child.GetComponent<MPImage>().color = new Color(1f, 0.7100834f, 0f);
-                        child.GetChild(0).GetComponent<MPImage>().color = new Color(1f, 0.7100834f, 0f);
-                    }
-
-                    fxControl.clip = perfectFX;
-                    fxControl.Play();
-                }
-                if (totalPossibleScoreForLine > 0)
-                {
-                    CheckStars();
-                    float gainedScore = scoreManager._localScore - scoreAtLineStart;
-                    float performanceRatio = gainedScore / totalPossibleScoreForLine;
-                    currentRatio = performanceRatio;
-                    // Smooth transition
-                    displayedFillAmount = Mathf.Lerp(displayedFillAmount, performanceRatio, Time.deltaTime * smoothingSpeed);
-                    performanceBar.fillAmount = displayedFillAmount;
-                }
-            }
+            currentScore = scoreManager.score;
         }
-        
+
+        // 2. Use 'currentScore' for all logic below
+        if (currentScore >= 1000000f && !perfect)
+        {
+            perfect = true;
+            transform.GetChild(4).GetComponent<Animator>().Play("1milli");
+            transform.GetChild(4).GetComponent<TextMeshProUGUI>().color = new Color(1f, 0.7100834f, 0f);
+            foreach (Transform child in transform.GetChild(5))
+            {
+                child.GetComponent<MPImage>().color = new Color(1f, 0.7100834f, 0f);
+                child.GetChild(0).GetComponent<MPImage>().color = new Color(1f, 0.7100834f, 0f);
+            }
+
+            fxControl.clip = perfectFX;
+            fxControl.Play();
+        }
+
+        if (totalPossibleScoreForLine > 0)
+        {
+            CheckStars(); // CheckStars will now work correctly
+
+            // <<< THE MAIN FIX IS HERE >>>
+            // Calculate gained score using the correct source
+            float gainedScore = currentScore - scoreAtLineStart;
+
+            // Ensure gainedScore isn't negative, which can happen with network fluctuations
+            gainedScore = Mathf.Max(0, gainedScore);
+
+            float performanceRatio = gainedScore / totalPossibleScoreForLine;
+            currentRatio = performanceRatio;
+
+            // Smooth transition
+            displayedFillAmount = Mathf.Lerp(displayedFillAmount, performanceRatio, Time.deltaTime * smoothingSpeed);
+            performanceBar.fillAmount = displayedFillAmount;
+        }
     }
 
     public void Judge()
