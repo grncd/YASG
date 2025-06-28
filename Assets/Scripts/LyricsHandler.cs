@@ -108,6 +108,8 @@ public class LyricsHandler : MonoBehaviour
         if (canPause && PlayerPrefs.GetInt("multiplayer") == 0)
         {
             paused = !paused;
+            PP.Pause();
+            APP.Pause();
             if (paused)
             {
                 pauseFX.Play();
