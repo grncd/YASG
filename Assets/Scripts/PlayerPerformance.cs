@@ -43,7 +43,14 @@ public class PlayerPerformance : MonoBehaviour
     void Start()
     {
         scoreManager = GetComponent<RealTimePitchDetector>();
-        diffIndex = PlayerPrefs.GetInt(gameObject.name + "Difficulty");
+        if(PlayerPrefs.GetInt("multiplayer") == 0)
+        {
+            diffIndex = PlayerPrefs.GetInt(gameObject.name + "Difficulty");
+        }
+        else
+        {
+            diffIndex = PlayerPrefs.GetInt("Player1Difficulty");
+        }
         fxControl = this.gameObject.GetComponent<AudioSource>();
         if (LyricsHandler.Instance != null)
         {
