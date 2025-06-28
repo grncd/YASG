@@ -136,6 +136,45 @@ public class ProfileManager : MonoBehaviour
         return false;
     }
 
+    public bool SetProfileTotalScore(string profileName, int score)
+    {
+        Profile profile = GetProfileByName(profileName);
+        if (profile != null)
+        {
+            profile.totalScore = score;
+
+            // Calculate total required XP for all previous levels
+            int totalRequiredForPreviousLevels = 0;
+            for (int lvl = 1; lvl < profile.level; lvl++)
+            {
+                totalRequiredForPreviousLevels += GetRequiredXPForLevel(lvl);
+            }
+
+            int requiredForThisLevel = GetRequiredXPForLevel(profile.level);
+
+            // Handle level-ups
+            while (profile.totalScore >= totalRequiredForPreviousLevels + requiredForThisLevel)
+            {
+                profile.level += 1;
+                totalRequiredForPreviousLevels += requiredForThisLevel;
+                requiredForThisLevel = GetRequiredXPForLevel(profile.level);
+            }
+
+            // Calculate progress percentage
+            profile.progressRemaining = ((float)(profile.totalScore - totalRequiredForPreviousLevels) / requiredForThisLevel) * 100f;
+
+            Debug.Log("Total score (cumulative): " + profile.totalScore);
+            Debug.Log("Level: " + profile.level);
+            Debug.Log("Progress towards next level (%): " + profile.progressRemaining);
+
+            SaveProfilesToFile();
+            return true;
+        }
+
+        Debug.LogWarning($"Profile '{profileName}' not found for setting total score.");
+        return false;
+    }
+
     private int GetRequiredXPForLevel(int level)
     {
         // First level starts at 1,750,000 XP, then increases by 750,000 per level

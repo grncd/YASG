@@ -180,7 +180,30 @@ public class LyricsHandler : MonoBehaviour
     {
         fadeOut.Play("FadeOut");
         await Task.Delay(TimeSpan.FromSeconds(1));
-        SceneManager.LoadSceneAsync("Results");
+
+        if (PlayerPrefs.GetInt("multiplayer") == 1)
+        {
+            // Online logic
+            if (PlayerData.LocalPlayerInstance != null && PlayerData.LocalPlayerInstance.IsHost.Value)
+            {
+                // 1. Tell the server to calculate and set the final placements for everyone.
+                PlayerData.LocalPlayerInstance.RequestSetFinalPlacements_ServerRpc();
+
+                // 2. Tell the server to calculate final XP and Level for everyone.
+                PlayerData.LocalPlayerInstance.RequestFinalXPCalculation_ServerRpc();
+
+                // 3. Wait a brief moment to ensure the SyncVars have time to propagate.
+                await Task.Delay(TimeSpan.FromMilliseconds(250));
+
+                // 4. Load the "Results" scene for everyone.
+                FishNet.InstanceFinder.NetworkManager.SceneManager.LoadGlobalScenes(new FishNet.Managing.Scened.SceneLoadData("Results"));
+            }
+        }
+        else
+        {
+            // Offline logic
+            SceneManager.LoadScene("Results");
+        }
     }
 
     public void StartLyrics()

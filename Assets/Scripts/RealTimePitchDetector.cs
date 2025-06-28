@@ -812,15 +812,20 @@ public class RealTimePitchDetector : MonoBehaviour
 
         if (LyricsHandler.Instance != null && LyricsHandler.Instance.songOver)
         {
+            // --- THIS IS THE CHANGE ---
             if (PlayerPrefs.GetInt("multiplayer") == 0)
             {
+                // This offline logic is fine, it can stay.
                 PlayerPrefs.SetInt(gameObject.name + "Score", Mathf.RoundToInt(score));
                 PlayerPrefs.SetInt(gameObject.name + "Placement", placement);
             }
             else
             {
-                PlayerPrefs.SetInt("Player1Score", Mathf.RoundToInt(_localScore));
-                PlayerPrefs.SetInt("Player1Placement", placement);
+                // In multiplayer, we no longer need to do anything here.
+                // The final CurrentGameScore has already been synced to the server.
+                // The server will calculate and sync the final placement.
+                // We can disable this component now that the song is over for this player.
+                this.enabled = false;
             }
         }
     }

@@ -1,235 +1,281 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+using System.Linq;
 using TMPro;
-using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using MPUIKIT;
 
 public class ResultsScreen : MonoBehaviour
 {
-    private int playerId;
-    public GameObject starPrefab;
-    private AudioSource starFX;
+    // This nested class holds all the UI elements for one player's results panel.
+    [System.Serializable]
+    public class PlayerResultPanel
+    {
+        public GameObject panelRoot;
+        public TextMeshProUGUI playerNameText;
+        public TextMeshProUGUI scoreText;
+        public TextMeshProUGUI placementText;
+        public Transform starsLocation;
+        public TextMeshProUGUI perfectsText;
+        public TextMeshProUGUI greatsText;
+        public TextMeshProUGUI mehsText;
+        public MPImage progressBar;
+        public TextMeshProUGUI levelText;
+    }
 
-    private string profileName;
-    private int achievedScore;
-    private int formerScore;
-    private int newScore;
-    private int formerLevel;
-    private int newLevel;
-    private bool animPlaying = false;
-    private MPImage progressBar;
-    private TextMeshProUGUI levelText;
-    private ParticleSystem particles;
+    [Header("UI Setup")]
+    public List<PlayerResultPanel> resultPanels;
+    public GameObject starPrefab;
+
+    [Header("Audio")]
     public AudioSource levelFX;
     public AudioSource levelUpFX;
-    // scoreDisplay.text = Mathf.RoundToInt(score).ToString("#,#")
-    private async void Start()
+    public AudioSource starFX;
+
+    // We define the color gradients here for easy access.
+    private readonly VertexGradient goldGradient = new VertexGradient(new Color(1, 0.847f, 0), new Color(1, 0.847f, 0), new Color(1, 0.569f, 0), new Color(1, 0.569f, 0));
+    private readonly VertexGradient silverGradient = new VertexGradient(Color.white, Color.white, new Color(0.688f, 0.688f, 0.688f), new Color(0.688f, 0.688f, 0.688f));
+    private readonly VertexGradient bronzeGradient = new VertexGradient(new Color(1, 0.706f, 0.184f), new Color(1, 0.706f, 0.184f), new Color(0.482f, 0.325f, 0.055f), new Color(0.482f, 0.325f, 0.055f));
+    private readonly VertexGradient defaultGradient = new VertexGradient(new Color(0.482f, 0.482f, 0.482f), new Color(0.482f, 0.482f, 0.18f, 0.18f), new Color(0.18f, 0.18f, 0.18f), new Color(0.18f, 0.18f, 0.18f));
+
+
+    void Start()
     {
         Application.targetFrameRate = -1;
 
-        playerId = int.Parse(Regex.Replace(gameObject.name, "[^0-9]", ""));
-
-        if (PlayerPrefs.GetInt("Player" + playerId.ToString()) == 1)
+        // --- DUAL-MODE LOGIC ---
+        // Check PlayerPrefs to see if we are in multiplayer mode.
+        if (PlayerPrefs.GetInt("multiplayer") == 1)
         {
-            starFX = gameObject.GetComponent<AudioSource>();
-            DisplaySequence();
+            StartMultiplayerResults();
         }
         else
         {
-            gameObject.SetActive(false);
-            return;
+            StartLocalResults();
         }
-
-        AudioSource musicSource = GameObject.Find("Music")?.GetComponent<AudioSource>();
-        Destroy(musicSource.gameObject);
-
-        particles = transform.GetChild(5).GetChild(1).GetComponent<ParticleSystem>();
-        profileName = PlayerPrefs.GetString("Player" + playerId.ToString() + "Name");
-        achievedScore = PlayerPrefs.GetInt("Player" + playerId.ToString() + "Score");
-        formerScore = ProfileManager.Instance.GetProfileByName(profileName).totalScore;
-        newScore = formerScore + achievedScore;
-        formerLevel = ProfileManager.Instance.GetProfileByName(profileName).level;
-
-        ProfileManager.Instance.AddProfileTotalScore(profileName, achievedScore);
-
-        newLevel = ProfileManager.Instance.GetProfileByName(profileName).level;
-        LevelUpResult result = AnalyzeScoreChange(formerScore, newScore);
-        progressBar = transform.GetChild(5).GetChild(0).gameObject.GetComponent<MPImage>();
-        levelText = transform.GetChild(5).GetChild(0).GetChild(0).GetChild(0).gameObject.GetComponent<TextMeshProUGUI>();
-        levelText.text = formerLevel.ToString();
-        progressBar.fillAmount = result.previousLevelProgressPercent / 100f;  // Set initial fill
-
-        await Task.Delay(TimeSpan.FromSeconds(3.5f));
-        if (result.leveledUp)
-        {
-            levelUpFX.Play();
-            ChangeLevel();
-        }
-        else
-        {
-            levelFX.Play();
-        }
-        await AnimateProgressBar(result.previousLevelProgressPercent, result.newLevelProgressPercent, 1.5f);
     }
 
-    public async void ChangeLevel()
+    // ==========================================================
+    // MULTIPLAYER RESULTS LOGIC
+    // ==========================================================
+    private void StartMultiplayerResults()
     {
-        await Task.Delay(TimeSpan.FromSeconds(0.75f));
-        particles.Play();
-        levelText.text = newLevel.ToString();
+        ProfileManager.Instance.SetProfileTotalScore(ProfileManager.Instance.GetActiveProfiles()[0].name, PlayerData.LocalPlayerInstance.TotalScore.Value);
+
+        Debug.Log("Starting Results Screen in MULTIPLAYER mode.");
+
+        // Deactivate all panels initially.
+        foreach (var panel in resultPanels) panel.panelRoot.SetActive(false);
+
+        // Find all PlayerData objects that have persisted from the game scene.
+        List<PlayerData> allPlayers = new List<PlayerData>(FindObjectsOfType<PlayerData>());
+
+        // We will populate based on the ClientId to keep the slots consistent.
+        foreach (PlayerData player in allPlayers)
+        {
+            int slotIndex = player.Owner.ClientId;
+            if (slotIndex < resultPanels.Count)
+            {
+                PlayerResultPanel panel = resultPanels[slotIndex];
+                panel.panelRoot.SetActive(true);
+
+                // Populate all UI fields using the synced data from PlayerData.
+                panel.playerNameText.text = player.PlayerName.Value;
+                panel.scoreText.text = player.CurrentGameScore.Value.ToString("#,#");
+                panel.placementText.text = GetPlacementString(player.Placement.Value);
+
+                SetPlacementColor(panel.placementText, player.Placement.Value);
+
+                panel.perfectsText.text = "x" + player.Perfects.Value;
+                panel.greatsText.text = "x" + player.Greats.Value;
+                panel.mehsText.text = "x" + player.Mehs.Value;
+
+                // --- Level Up Animation ---
+                // We calculate the "before" progress based on the final "after" state.
+                float xpGainedRatio = (float)player.CurrentGameScore.Value / GetRequiredXPForLevel(player.Level.Value);
+                float previousLevelProgress = player.PercentageToNextLevel.Value - xpGainedRatio;
+
+                bool leveledUp = previousLevelProgress < 0;
+                if (leveledUp)
+                {
+                    previousLevelProgress += 1.0f; // Wrap around from the previous level
+                }
+
+                StartCoroutine(AnimatePlayerXP(panel, player.Level.Value, previousLevelProgress, player.PercentageToNextLevel.Value, leveledUp));
+
+                // Animate stars
+                StartCoroutine(AnimateStars(panel.starsLocation, player.Stars.Value));
+            }
+        }
     }
 
-    private async Task AnimateProgressBar(float fromPercent, float toPercent, float duration)
+    // ==========================================================
+    // LOCAL/OFFLINE RESULTS LOGIC
+    // ==========================================================
+    private void StartLocalResults()
     {
-        float startFill = fromPercent / 100f;
-        float endFill = toPercent / 100f;
+        Debug.Log("Starting Results Screen in LOCAL mode.");
 
-        if (endFill < startFill)
+        for (int i = 0; i < resultPanels.Count; i++)
         {
-            float firstPhaseDuration = duration * 0.5f;
-            float secondPhaseDuration = duration * 0.5f;
+            int playerId = i + 1; // Local player IDs are 1-4
+            PlayerResultPanel panel = resultPanels[i];
 
-            // --- Phase 1: EaseInSine to 100% ---
-            float elapsed = 0f;
+            if (PlayerPrefs.GetInt("Player" + playerId) == 1)
+            {
+                panel.panelRoot.SetActive(true);
+
+                string profileName = PlayerPrefs.GetString("Player" + playerId + "Name");
+                int achievedScore = PlayerPrefs.GetInt("Player" + playerId + "Score");
+                int placement = PlayerPrefs.GetInt("Player" + playerId + "Placement") + 1;
+
+                panel.playerNameText.text = profileName;
+                panel.scoreText.text = achievedScore.ToString("#,#");
+                panel.placementText.text = GetPlacementString(placement);
+                SetPlacementColor(panel.placementText, placement);
+
+                panel.perfectsText.text = "x" + PlayerPrefs.GetInt("Player" + playerId + "Perfect");
+                panel.greatsText.text = "x" + PlayerPrefs.GetInt("Player" + playerId + "Great");
+                panel.mehsText.text = "x" + PlayerPrefs.GetInt("Player" + playerId + "Meh");
+
+                // The local version does the profile modification directly.
+                Profile profile = ProfileManager.Instance.GetProfileByName(profileName);
+                if (profile != null)
+                {
+                    int formerScore = profile.totalScore;
+                    int formerLevel = profile.level;
+
+                    // This method handles the level up logic internally for the local profile
+                    ProfileManager.Instance.AddProfileTotalScore(profileName, achievedScore);
+
+                    profile = ProfileManager.Instance.GetProfileByName(profileName); // Re-fetch to get updated values
+
+                    float previousPercent = ((float)(formerScore - GetXpForPreviousLevels(formerLevel)) / GetRequiredXPForLevel(formerLevel));
+
+                    StartCoroutine(AnimatePlayerXP(panel, profile.level, previousPercent, profile.progressRemaining / 100f, profile.level > formerLevel));
+                    StartCoroutine(AnimateStars(panel.starsLocation, PlayerPrefs.GetInt("Player" + playerId + "Stars")));
+                }
+            }
+            else
+            {
+                panel.panelRoot.SetActive(false);
+            }
+        }
+    }
+
+    // ==========================================================
+    // SHARED ANIMATION AND HELPER LOGIC
+    // ==========================================================
+    private IEnumerator AnimatePlayerXP(PlayerResultPanel panel, int finalLevel, float fromProgress, float toProgress, bool leveledUp)
+    {
+        // Animate the progress bar and level text for a given panel.
+        // For simplicity, we can show the final level immediately.
+        panel.levelText.text = finalLevel.ToString();
+        panel.progressBar.fillAmount = fromProgress;
+
+        yield return new WaitForSeconds(3.5f);
+
+        if (leveledUp) levelUpFX.Play();
+        else levelFX.Play();
+
+        float duration = 1.5f;
+        float elapsed = 0f;
+
+        if (leveledUp)
+        {
+            // Animate to 100%
+            float firstPhaseDuration = duration * (1f - fromProgress); // Duration based on how much is left
             while (elapsed < firstPhaseDuration)
             {
+                panel.progressBar.fillAmount = Mathf.Lerp(fromProgress, 1f, elapsed / firstPhaseDuration);
                 elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / firstPhaseDuration);
-                float easedT = 1f - Mathf.Cos((t * Mathf.PI) / 2f); // EaseInSine
-                progressBar.fillAmount = Mathf.Lerp(startFill, 1f, easedT);
-                await Task.Yield();
+                yield return null;
             }
-            progressBar.fillAmount = 1f;
+            panel.progressBar.fillAmount = 0f; // Reset for the new level
+            elapsed = 0f; // Reset timer for the next phase
 
-            await Task.Delay(TimeSpan.FromMilliseconds(100));
-
-            progressBar.fillAmount = 0f;
-
-            // --- Phase 2: EaseOutSine from 0% to target ---
-            elapsed = 0f;
+            // Animate from 0% to the new progress
+            float secondPhaseDuration = duration * toProgress;
             while (elapsed < secondPhaseDuration)
             {
+                panel.progressBar.fillAmount = Mathf.Lerp(0f, toProgress, elapsed / secondPhaseDuration);
                 elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / secondPhaseDuration);
-                float easedT = Mathf.Sin((t * Mathf.PI) / 2f); // EaseOutSine
-                progressBar.fillAmount = Mathf.Lerp(0f, endFill, easedT);
-                await Task.Yield();
+                yield return null;
             }
-            progressBar.fillAmount = endFill;
         }
         else
         {
-            // Simple fill → still use EaseInOutSine
-            float elapsed = 0f;
             while (elapsed < duration)
             {
+                panel.progressBar.fillAmount = Mathf.Lerp(fromProgress, toProgress, elapsed / duration);
                 elapsed += Time.deltaTime;
-                float t = Mathf.Clamp01(elapsed / duration);
-                float easedT = -(Mathf.Cos(Mathf.PI * t) - 1f) / 2f; // EaseInOutSine
-                progressBar.fillAmount = Mathf.Lerp(startFill, endFill, easedT);
-                await Task.Yield();
+                yield return null;
             }
-            progressBar.fillAmount = endFill;
         }
+        panel.progressBar.fillAmount = toProgress;
     }
 
-    private async void DisplaySequence()
+    private IEnumerator AnimateStars(Transform starParent, int starCount)
     {
-        gameObject.transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = PlayerPrefs.GetString("Player" + playerId.ToString() + "Name");
-        gameObject.transform.GetChild(1).GetComponent<TextMeshProUGUI>().text = PlayerPrefs.GetInt("Player" + playerId.ToString() + "Score").ToString("#,#");
-        gameObject.transform.GetChild(3).GetChild(3).GetComponent<TextMeshProUGUI>().text = "x" + PlayerPrefs.GetInt("Player" + playerId.ToString() + "Perfect").ToString();
-        gameObject.transform.GetChild(3).GetChild(4).GetComponent<TextMeshProUGUI>().text = "x" + PlayerPrefs.GetInt("Player" + playerId.ToString() + "Great").ToString();
-        gameObject.transform.GetChild(3).GetChild(5).GetComponent<TextMeshProUGUI>().text = "x" + PlayerPrefs.GetInt("Player" + playerId.ToString() + "Meh").ToString();
-        if (PlayerPrefs.GetInt("Player" + playerId.ToString() + "Placement") == 0)
+        // Clear any existing stars first
+        foreach (Transform child in starParent) Destroy(child.gameObject);
+
+        yield return new WaitForSeconds(2.5f);
+        for (int i = 0; i < starCount; i++)
         {
-            gameObject.transform.GetChild(4).GetComponent<TextMeshProUGUI>().colorGradient = new VertexGradient(new Color(1, 0.847f, 0), new Color(1, 0.847f, 0), new Color(1, 0.569f, 0), new Color(1, 0.569f, 0));
-            gameObject.transform.GetChild(4).GetComponent<TextMeshProUGUI>().text = "1st";
-        }
-        else if (PlayerPrefs.GetInt("Player" + playerId.ToString() + "Placement") == 1)
-        {
-            gameObject.transform.GetChild(4).GetComponent<TextMeshProUGUI>().colorGradient = new VertexGradient(new Color(1, 1, 1), new Color(1, 1, 1), new Color(0.6886792f, 0.6886792f, 0.6886792f), new Color(0.6886792f, 0.6886792f, 0.6886792f));
-            gameObject.transform.GetChild(4).GetComponent<TextMeshProUGUI>().text = "2nd";
-        }
-        else if (PlayerPrefs.GetInt("Player" + playerId.ToString() + "Placement") == 2)
-        {
-            gameObject.transform.GetChild(4).GetComponent<TextMeshProUGUI>().colorGradient = new VertexGradient(new Color(1, 0.706f, 0.184f), new Color(1, 0.706f, 0.184f), new Color(0.482f, 0.325f, 0.055f), new Color(0.482f, 0.325f, 0.055f));
-            gameObject.transform.GetChild(4).GetComponent<TextMeshProUGUI>().text = "3rd";
-        }
-        else
-        {
-            gameObject.transform.GetChild(4).GetComponent<TextMeshProUGUI>().colorGradient = new VertexGradient(new Color(0.482f, 0.482f, 0.482f), new Color(0.482f, 0.482f, 0.482f), new Color(0.18f, 0.18f, 0.18f), new Color(0.18f, 0.18f, 0.18f));
-            gameObject.transform.GetChild(4).GetComponent<TextMeshProUGUI>().text = "" + (PlayerPrefs.GetInt("Player" + playerId.ToString() + "Placement") + 1) + "th";
-        }
-        await Task.Delay(TimeSpan.FromSeconds(2.5f));
-        for (int i = 0; i < PlayerPrefs.GetInt("Player" + playerId.ToString() + "Stars"); i++)
-        {
-            Instantiate(starPrefab, gameObject.transform.GetChild(2));
-            starFX.pitch += 0.1f;
-            starFX.Play();
-            await Task.Delay(TimeSpan.FromMilliseconds(300));
+            Instantiate(starPrefab, starParent);
+            if (starFX != null)
+            {
+                starFX.pitch = 1.0f + (i * 0.1f);
+                starFX.Play();
+            }
+            yield return new WaitForSeconds(0.3f);
         }
     }
-    public void BackToMenu()
+
+    private void SetPlacementColor(TextMeshProUGUI placementText, int placement)
     {
-        SceneManager.LoadScene("Menu", LoadSceneMode.Single);
-    }
-
-    public class LevelUpResult
-    {
-        public bool leveledUp;
-        public int levelsGained;
-        public float previousLevelProgressPercent; // % before the score gain
-        public float newLevelProgressPercent;      // % after the score gain
-    }
-
-    public static LevelUpResult AnalyzeScoreChange(int oldTotalScore, int newTotalScore)
-    {
-        LevelUpResult result = new LevelUpResult();
-
-        // -------- Calculate old level and % progress --------
-        int oldLevel = 1;
-        int oldXpForPrevLevels = 0;
-
-        while (oldTotalScore >= oldXpForPrevLevels + GetRequiredXPForLevel(oldLevel))
+        if (placementText == null) return;
+        switch (placement)
         {
-            oldXpForPrevLevels += GetRequiredXPForLevel(oldLevel);
-            oldLevel++;
+            case 1: placementText.colorGradient = goldGradient; break;
+            case 2: placementText.colorGradient = silverGradient; break;
+            case 3: placementText.colorGradient = bronzeGradient; break;
+            default: placementText.colorGradient = defaultGradient; break;
         }
-
-        int xpIntoOldLevel = oldTotalScore - oldXpForPrevLevels;
-        int xpForOldLevel = GetRequiredXPForLevel(oldLevel);
-        result.previousLevelProgressPercent = ((float)xpIntoOldLevel / xpForOldLevel) * 100f;
-
-        // -------- Calculate new level and % progress --------
-        int newLevel = 1;
-        int newXpForPrevLevels = 0;
-
-        while (newTotalScore >= newXpForPrevLevels + GetRequiredXPForLevel(newLevel))
-        {
-            newXpForPrevLevels += GetRequiredXPForLevel(newLevel);
-            newLevel++;
-        }
-
-        int xpIntoNewLevel = newTotalScore - newXpForPrevLevels;
-        int xpForNewLevel = GetRequiredXPForLevel(newLevel);
-        result.newLevelProgressPercent = ((float)xpIntoNewLevel / xpForNewLevel) * 100f;
-
-        // -------- Calculate level difference --------
-        result.levelsGained = newLevel - oldLevel;
-        result.leveledUp = result.levelsGained > 0;
-
-        return result;
     }
 
-    private static int GetRequiredXPForLevel(int level)
+    private string GetPlacementString(int placement)
+    {
+        if (placement <= 0) return "";
+        switch (placement)
+        {
+            case 1: return "1st";
+            case 2: return "2nd";
+            case 3: return "3rd";
+            default: return placement + "th";
+        }
+    }
+
+    private int GetRequiredXPForLevel(int level)
     {
         return Mathf.RoundToInt(1350000f + 500000f * (level - 1));
     }
 
+    private int GetXpForPreviousLevels(int level)
+    {
+        int totalXp = 0;
+        for (int i = 1; i < level; i++)
+        {
+            totalXp += GetRequiredXPForLevel(i);
+        }
+        return totalXp;
+    }
+
+    public void BackToMenu()
+    {
+        SceneManager.LoadScene("Menu");
+    }
 }

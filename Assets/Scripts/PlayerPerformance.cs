@@ -101,10 +101,23 @@ public class PlayerPerformance : MonoBehaviour
         else
         {
             // wrapping up
-            PlayerPrefs.SetInt(gameObject.name + "Stars", stars);
-            PlayerPrefs.SetInt(gameObject.name + "Meh", mehCount);
-            PlayerPrefs.SetInt(gameObject.name + "Great", greatCount);
-            PlayerPrefs.SetInt(gameObject.name + "Perfect", perfectCount);
+            if(PlayerPrefs.GetInt("multiplayer") == 0)
+            {
+                PlayerPrefs.SetInt(gameObject.name + "Stars", stars);
+                PlayerPrefs.SetInt(gameObject.name + "Meh", mehCount);
+                PlayerPrefs.SetInt(gameObject.name + "Great", greatCount);
+                PlayerPrefs.SetInt(gameObject.name + "Perfect", perfectCount);
+            }
+        }
+        if (LyricsHandler.Instance != null && LyricsHandler.Instance.songOver && local)
+        {
+            // If the song is over and we haven't sent our final stats yet...
+            // (We can use a simple bool flag to ensure this only runs once).
+            if (!_finalStatsSent)
+            {
+                SendFinalStatsToServer();
+                _finalStatsSent = true;
+            }
         }
     }
 
@@ -157,7 +170,7 @@ public class PlayerPerformance : MonoBehaviour
         if (PlayerPrefs.GetInt("multiplayer") == 0)
         {
             // Single Player Mode
-            currentScore = local ? scoreManager.score : remoteScore; // Note: 'remoteScore' logic in SP seems unlikely, but we'll keep your structure.
+            currentScore = scoreManager.score;
         }
         else
         {
@@ -178,6 +191,16 @@ public class PlayerPerformance : MonoBehaviour
                 fxControl.Play();
                 star.SetActive(true);
             }
+        }
+    }
+
+    private bool _finalStatsSent = false;
+    private void SendFinalStatsToServer()
+    {
+        Debug.Log("Song over. Sending final performance stats to server.");
+        if (PlayerData.LocalPlayerInstance != null)
+        {
+            PlayerData.LocalPlayerInstance.RequestUpdatePerformanceStats_ServerRpc(perfectCount, greatCount, mehCount, stars);
         }
     }
 

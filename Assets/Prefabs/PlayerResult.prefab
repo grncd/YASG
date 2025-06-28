@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 2003206230039898836}
   - component: {fileID: 85807567730315523}
   - component: {fileID: 4909231500726844496}
-  - component: {fileID: 1698857068824722147}
   - component: {fileID: 2495049235857910178}
   m_Layer: 0
   m_Name: PlayerResult
@@ -159,21 +158,6 @@ MonoBehaviour:
     - {r: 0, g: 0, b: 0, a: 0}
     - {r: 0, g: 0, b: 0, a: 0}
     m_Rotation: 0
---- !u!114 &1698857068824722147
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 310078399589422073}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0d6cf003554f89c409ba9a58e76870bc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  starPrefab: {fileID: 8579780331156368963, guid: 80c50a709500adc479d20322f860db64, type: 3}
-  levelFX: {fileID: 0}
-  levelUpFX: {fileID: 0}
 --- !u!82 &2495049235857910178
 AudioSource:
   m_ObjectHideFlags: 0

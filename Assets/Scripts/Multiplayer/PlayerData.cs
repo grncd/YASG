@@ -9,6 +9,7 @@ using System.Collections;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System;
+using System.Linq;
 
 public class PlayerData : NetworkBehaviour
 {
@@ -20,7 +21,7 @@ public class PlayerData : NetworkBehaviour
     #endregion
 
     #region SyncVars
-    public readonly SyncVar<string> PlayerName = new SyncVar<string>("");
+    public readonly SyncVar<string> PlayerName = new SyncVar<string>(""); 
     public readonly SyncVar<int> Level = new SyncVar<int>(1);
     public readonly SyncVar<float> PercentageToNextLevel = new SyncVar<float>();
     public readonly SyncVar<int> TotalScore = new SyncVar<int>();
@@ -30,6 +31,11 @@ public class PlayerData : NetworkBehaviour
     public readonly SyncVar<bool> IsReady = new SyncVar<bool>(false);
     public readonly SyncVar<bool> IsGameReady = new SyncVar<bool>(false);
     public readonly SyncVar<int> CurrentGameScore = new SyncVar<int>();
+    public readonly SyncVar<int> Perfects = new SyncVar<int>();
+    public readonly SyncVar<int> Greats = new SyncVar<int>();
+    public readonly SyncVar<int> Mehs = new SyncVar<int>();
+    public readonly SyncVar<int> Stars = new SyncVar<int>();
+    public readonly SyncVar<int> Placement = new SyncVar<int>();
     #endregion
 
     private SimpleHttpFileServer _httpServer;
@@ -49,6 +55,11 @@ public class PlayerData : NetworkBehaviour
         IsReady.OnChange += OnIsReadyChanged;
         IsGameReady.OnChange += OnIsGameReadyChanged;
         CurrentGameScore.OnChange += OnCurrentGameScoreChanged;
+        Perfects.OnChange += OnPerfectsChanged;
+        Greats.OnChange += OnGreatsChanged;
+        Mehs.OnChange += OnMehsChanged;
+        Stars.OnChange += OnStarsChanged;
+        Placement.OnChange += OnPlacementChanged;
     }
 
     public override void OnStopNetwork()
@@ -65,6 +76,11 @@ public class PlayerData : NetworkBehaviour
         IsReady.OnChange -= OnIsReadyChanged;
         IsGameReady.OnChange -= OnIsGameReadyChanged;
         CurrentGameScore.OnChange -= OnCurrentGameScoreChanged;
+        Perfects.OnChange -= OnPerfectsChanged;
+        Greats.OnChange -= OnGreatsChanged;
+        Mehs.OnChange -= OnMehsChanged;
+        Stars.OnChange -= OnStarsChanged;
+        Placement.OnChange -= OnPlacementChanged;
     }
 
     private void Awake()
@@ -204,11 +220,41 @@ public class PlayerData : NetworkBehaviour
         // This is mostly for internal logic, but you could show a UI icon for it.
     }
 
+    private void OnPlacementChanged(int oldPlacement, int newPlacement, bool asServer)
+    {
+        Debug.Log($"Player '{PlayerName.Value}' placement changed to {newPlacement}");
+    }
+
+
     private void OnIsReadyChanged(bool oldStatus, bool newStatus, bool asServer)
     {
         Debug.Log($"Player '{PlayerName.Value}' ready status changed to {newStatus}");
         // Example: Update the UI to show a green checkmark or change the color of the player's nameplate.
         // UIManager.Instance.UpdatePlayerReadyIndicator(this, newStatus);
+    }
+
+    private void OnPerfectsChanged(int oldPerfects, int newPerfects, bool asServer)
+    {
+        Debug.Log($"Player perfects changed to {newPerfects}");
+        // Example: UIManager.Instance.UpdatePlayerScore(this, newScore);
+    }
+
+    private void OnGreatsChanged(int oldPerfects, int newPerfects, bool asServer)
+    {
+        Debug.Log($"Player greats changed to {newPerfects}");
+        // Example: UIManager.Instance.UpdatePlayerScore(this, newScore);
+    }
+
+    private void OnMehsChanged(int oldPerfects, int newPerfects, bool asServer)
+    {
+        Debug.Log($"Player mehs changed to {newPerfects}");
+        // Example: UIManager.Instance.UpdatePlayerScore(this, newScore);
+    }
+
+    private void OnStarsChanged(int oldPerfects, int newPerfects, bool asServer)
+    {
+        Debug.Log($"Player stars changed to {newPerfects}");
+        // Example: UIManager.Instance.UpdatePlayerScore(this, newScore);
     }
     #endregion
 
@@ -253,6 +299,28 @@ public class PlayerData : NetworkBehaviour
 
 
     [ServerRpc(RequireOwnership = true)]
+    public void RequestSetFinalPlacements_ServerRpc()
+    {
+        // SECURITY: Only the host should be able to trigger final placement calculation.
+        if (!this.IsHost.Value) return;
+
+        Debug.Log("Host is setting final placements for all players.");
+
+        // Find all players and sort them by their final game score.
+        List<PlayerData> sortedPlayers = FindObjectsOfType<PlayerData>()
+            .OrderByDescending(p => p.CurrentGameScore.Value)
+            .ToList();
+
+        // Iterate through the sorted list and set the Placement SyncVar for each player.
+        for (int i = 0; i < sortedPlayers.Count; i++)
+        {
+            PlayerData rankedPlayer = sortedPlayers[i];
+            int placement = i + 1; // 1st, 2nd, 3rd...
+            rankedPlayer.Placement.Value = placement;
+        }
+    }
+
+    [ServerRpc(RequireOwnership = true)]
     public void RequestSetRoomName_ServerRpc(string newRoomName)
     {
         if (RoomManager.Instance != null)
@@ -272,8 +340,77 @@ public class PlayerData : NetworkBehaviour
     public void RequestChangeDiff_ServerRpc(int diff)
     {
         Difficulty.Value = diff;
-        // You could add logic here to update Level and PercentageToNextLevel based on the new score.
     }
+
+    [ServerRpc(RequireOwnership = true)]
+    public void RequestUpdatePerformanceStats_ServerRpc(int perfects, int greats, int mehs, int stars)
+    {
+        Debug.Log($"Server receiving final stats for player {PlayerName.Value}: P:{perfects}, G:{greats}, M:{mehs}, S:{stars}");
+        this.Perfects.Value = perfects;
+        this.Greats.Value = greats;
+        this.Mehs.Value = mehs;
+        this.Stars.Value = stars;
+    }
+
+    private int GetRequiredXPForLevel(int level)
+    {
+        return Mathf.RoundToInt(1350000f + 500000f * (level - 1));
+    }
+
+
+    // --- Add this NEW ServerRpc to the RPC region ---
+    // This will be called by the host at the end of a song.
+    [ServerRpc(RequireOwnership = true)]
+    public void RequestFinalXPCalculation_ServerRpc()
+    {
+        // SECURITY: Only the host should be able to trigger the end-of-game calculations.
+        if (!this.IsHost.Value)
+        {
+            Debug.LogWarning($"Client {Owner.ClientId} tried to finalize XP, but is not the host.");
+            return;
+        }
+
+        Debug.Log("Host is finalizing XP and levels for all players.");
+
+        // The host iterates through EVERY connected player on the server.
+        foreach (var playerConn in ServerManager.Clients.Values)
+        {
+            if (playerConn.FirstObject == null) continue;
+
+            PlayerData targetPlayer = playerConn.FirstObject.GetComponent<PlayerData>();
+            if (targetPlayer != null)
+            {
+                // --- This is your level-up logic, now running authoritatively on the server ---
+
+                // Add the game score to the player's cumulative total score.
+                targetPlayer.TotalScore.Value += targetPlayer.CurrentGameScore.Value;
+
+                // Calculate total required XP for all levels UP TO the player's current level.
+                int totalRequiredForPreviousLevels = 0;
+                for (int lvl = 1; lvl < targetPlayer.Level.Value; lvl++)
+                {
+                    totalRequiredForPreviousLevels += GetRequiredXPForLevel(lvl);
+                }
+
+                int requiredForThisLevel = GetRequiredXPForLevel(targetPlayer.Level.Value);
+
+                // Handle multiple level-ups in a loop.
+                while (targetPlayer.TotalScore.Value >= totalRequiredForPreviousLevels + requiredForThisLevel)
+                {
+                    targetPlayer.Level.Value++; // Level up!
+                    totalRequiredForPreviousLevels += requiredForThisLevel;
+                    requiredForThisLevel = GetRequiredXPForLevel(targetPlayer.Level.Value);
+                }
+
+                // Calculate progress percentage for the new current level.
+                int xpIntoCurrentLevel = targetPlayer.TotalScore.Value - totalRequiredForPreviousLevels;
+                targetPlayer.PercentageToNextLevel.Value = ((float)xpIntoCurrentLevel / requiredForThisLevel); // Store as 0.0-1.0
+
+                Debug.Log($"Finalized stats for {targetPlayer.PlayerName.Value}: Level {targetPlayer.Level.Value}, Progress {targetPlayer.PercentageToNextLevel.Value * 100f}%");
+            }
+        }
+    }
+
 
     [ServerRpc(RequireOwnership = true)]
     public void RequestSetReadyStatus_ServerRpc(bool isReady)
