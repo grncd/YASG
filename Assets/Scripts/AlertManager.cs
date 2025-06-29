@@ -7,11 +7,30 @@ public class AlertManager : MonoBehaviour
 {
 
     public static AlertManager Instance { get; private set; }
+    public GameObject menuGO;
+    public GameObject mpGO;
+    public GameObject localGO;
 
     private void Awake()
     {
         Instance = this;
-        PlayerPrefs.SetInt("multiplayer", 0);
+        if(PlayerPrefs.GetInt("fromMP") == 0)
+        {
+            PlayerPrefs.SetInt("multiplayer", 0);
+        }
+        else
+        {
+            menuGO.SetActive(false);
+            PlayerPrefs.SetInt("fromMP", 0);
+            if(PlayerPrefs.GetInt("multiplayer") == 0)
+            {
+                localGO.SetActive(false);
+            }
+            else
+            {
+                mpGO.SetActive(false);
+            }
+        }
     }
 
     public void ShowInfo(string title, string info, string button)

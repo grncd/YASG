@@ -276,6 +276,7 @@ public class ResultsScreen : MonoBehaviour
 
     public void BackToMenu()
     {
+        PlayerPrefs.SetInt("fromMP", 1);
         SceneManager.LoadScene("Menu");
     }
 }
