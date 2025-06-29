@@ -10,6 +10,7 @@ using System.Runtime.CompilerServices;
 using System;
 using System.Threading.Tasks;
 using UnityEngine.SceneManagement;
+using FishNet.Managing.Scened;
 
 public class LyricsHandler : MonoBehaviour
 {
@@ -128,13 +129,13 @@ public class LyricsHandler : MonoBehaviour
     public void BackToMenu()
     {
         Time.timeScale = 1f;
-        SceneManager.LoadScene("Menu", LoadSceneMode.Single);
+        UnityEngine.SceneManagement.SceneManager.LoadScene("Menu", LoadSceneMode.Single);
     }
 
     public void Retry()
     {
         Time.timeScale = 1f;
-        SceneManager.LoadScene("Main");
+        UnityEngine.SceneManagement.SceneManager.LoadScene("Main");
     }
 
     public void LoadTextFile(string path)
@@ -195,14 +196,15 @@ public class LyricsHandler : MonoBehaviour
                 // 3. Wait a brief moment to ensure the SyncVars have time to propagate.
                 await Task.Delay(TimeSpan.FromMilliseconds(250));
 
-                // 4. Load the "Results" scene for everyone.
-                FishNet.InstanceFinder.NetworkManager.SceneManager.LoadGlobalScenes(new FishNet.Managing.Scened.SceneLoadData("Results"));
+                SceneLoadData sld = new SceneLoadData("Results");
+                sld.ReplaceScenes = ReplaceOption.All;
+                FishNet.InstanceFinder.NetworkManager.SceneManager.LoadGlobalScenes(sld);
             }
         }
         else
         {
             // Offline logic
-            SceneManager.LoadScene("Results");
+            UnityEngine.SceneManagement.SceneManager.LoadScene("Results");
         }
     }
 
