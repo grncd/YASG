@@ -970,7 +970,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
                 //if (pitchSlider2 != null) pitchSlider2.value = Mathf.Clamp(currentPitch, minFrequency, maxFrequency);
                 //if (pitchSlider3 != null) pitchSlider3.value = Mathf.Clamp(currentPitch, minFrequency, maxFrequency);
                 //if (pitchSlider4 != null) pitchSlider4.value = Mathf.Clamp(currentPitch, minFrequency, maxFrequency);
-                //if (debugMode && pitchSliderDBG != null) pitchSliderDBG.value = Mathf.Clamp(currentPitch, minFrequency, maxFrequency);
+                if (debugMode && pitchSliderDBG != null) pitchSliderDBG.value = Mathf.Clamp(currentPitch, minFrequency, maxFrequency);
             }
         }
         else if (audioSource != null && !audioSource.isPlaying && currentPitch != 0f)

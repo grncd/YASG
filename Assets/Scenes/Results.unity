@@ -2252,7 +2252,7 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 0}
+      - m_Target: {fileID: 428633573}
         m_TargetAssemblyTypeName: ResultsScreen, Assembly-CSharp
         m_MethodName: BackToMenu
         m_Mode: 1

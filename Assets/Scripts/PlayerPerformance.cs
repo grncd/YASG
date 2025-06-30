@@ -356,11 +356,11 @@ public class PlayerPerformance : MonoBehaviour
         {
             if (!scoreManager.enableAdvancedAntiMonotony)
             {
-                return (validNoteCount * AudioClipPitchProcessor.Instance.scoreIncrement) * 0.38f;
+                return (validNoteCount * AudioClipPitchProcessor.Instance.scoreIncrement) * 0.366f;
             }
             else
             {
-                return (validNoteCount * AudioClipPitchProcessor.Instance.scoreIncrement) * 0.38f * 0.85f;
+                return (validNoteCount * AudioClipPitchProcessor.Instance.scoreIncrement) * 0.366f * 0.85f;
             }
         }
     }
