@@ -42,6 +42,7 @@ public class PlayerUIPanel : MonoBehaviour
 
     public void AssignPlayer(PlayerData playerData)
     {
+        // If we were already assigned to a player, unsubscribe from their old events.
         if (_assignedPlayerData != null)
         {
             _assignedPlayerData.PlayerName.OnChange -= OnPlayerNameChanged;
@@ -51,21 +52,25 @@ public class PlayerUIPanel : MonoBehaviour
         _assignedPlayerData = playerData;
         gameObject.SetActive(true);
 
+        // --- Subscribe to the new player's data changes ---
         _assignedPlayerData.PlayerName.OnChange += OnPlayerNameChanged;
         _assignedPlayerData.CurrentGameScore.OnChange += OnCurrentGameScoreChanged;
 
         OnPlayerNameChanged("", _assignedPlayerData.PlayerName.Value, false);
         OnCurrentGameScoreChanged(0, _assignedPlayerData.CurrentGameScore.Value, false);
 
+        // The activation logic for the pitch detector is still correct.
         if (pitchDetector != null)
         {
             if (_assignedPlayerData.IsOwner)
             {
+                Debug.Log($"Enabling and Activating Pitch Detector for local player: {_assignedPlayerData.PlayerName.Value}");
                 pitchDetector.enabled = true;
                 pitchDetector.ActivateAndStartMicrophone();
             }
             else
             {
+                Debug.Log($"Disabling Pitch Detector for remote player: {_assignedPlayerData.PlayerName.Value}");
                 pitchDetector.enabled = false;
             }
         }
