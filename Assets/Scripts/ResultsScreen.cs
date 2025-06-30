@@ -33,6 +33,7 @@ public class ResultsScreen : MonoBehaviour
     public AudioSource levelFX;
     public AudioSource levelUpFX;
     public AudioSource starFX;
+    private string currentSongUrl;
 
     // We define the color gradients here for easy access.
     private readonly VertexGradient goldGradient = new VertexGradient(new Color(1, 0.847f, 0), new Color(1, 0.847f, 0), new Color(1, 0.569f, 0), new Color(1, 0.569f, 0));
@@ -45,8 +46,12 @@ public class ResultsScreen : MonoBehaviour
     {
         Application.targetFrameRate = -1;
 
-        // --- DUAL-MODE LOGIC ---
-        // Check PlayerPrefs to see if we are in multiplayer mode.
+        currentSongUrl = PlayerPrefs.GetString("currentSongURL");
+        if (string.IsNullOrEmpty(currentSongUrl))
+        {
+            Debug.LogError("Could not find 'currentSongURL' in PlayerPrefs. Highscores will not be saved.");
+        }
+
         if (PlayerPrefs.GetInt("multiplayer") == 1)
         {
             StartMultiplayerResults();
@@ -92,6 +97,16 @@ public class ResultsScreen : MonoBehaviour
                 panel.greatsText.text = "x" + player.Greats.Value;
                 panel.mehsText.text = "x" + player.Mehs.Value;
 
+                if (!string.IsNullOrEmpty(currentSongUrl))
+                {
+                    HighscoreManager.Instance.SetHighscore(
+                        currentSongUrl,
+                        player.PlayerName.Value,
+                        player.CurrentGameScore.Value,
+                        player.Stars.Value
+                    );
+                }
+
                 // --- Level Up Animation ---
                 // We calculate the "before" progress based on the final "after" state.
                 float xpGainedRatio = (float)player.CurrentGameScore.Value / GetRequiredXPForLevel(player.Level.Value);
@@ -130,6 +145,17 @@ public class ResultsScreen : MonoBehaviour
                 string profileName = PlayerPrefs.GetString("Player" + playerId + "Name");
                 int achievedScore = PlayerPrefs.GetInt("Player" + playerId + "Score");
                 int placement = PlayerPrefs.GetInt("Player" + playerId + "Placement") + 1;
+                int stars = PlayerPrefs.GetInt("Player" + playerId + "Stars"); 
+
+                if (!string.IsNullOrEmpty(currentSongUrl))
+                {
+                    HighscoreManager.Instance.SetHighscore(
+                        currentSongUrl,
+                        profileName,
+                        achievedScore,
+                        stars
+                    );
+                }
 
                 panel.playerNameText.text = profileName;
                 panel.scoreText.text = achievedScore.ToString("#,#");
@@ -155,7 +181,7 @@ public class ResultsScreen : MonoBehaviour
                     float previousPercent = ((float)(formerScore - GetXpForPreviousLevels(formerLevel)) / GetRequiredXPForLevel(formerLevel));
 
                     StartCoroutine(AnimatePlayerXP(panel, profile.level, previousPercent, profile.progressRemaining / 100f, profile.level > formerLevel));
-                    StartCoroutine(AnimateStars(panel.starsLocation, PlayerPrefs.GetInt("Player" + playerId + "Stars")));
+                    StartCoroutine(AnimateStars(panel.starsLocation, stars));
                 }
             }
             else

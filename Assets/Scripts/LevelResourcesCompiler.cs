@@ -52,6 +52,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     public GameObject bgGM;
     private bool fakeLoading = false;
     private float elapsedFakeLoading = 0f;
+    public GameObject starHSPrefab;
 
     public static LevelResourcesCompiler Instance { get; private set; }
 
@@ -284,6 +285,47 @@ public class LevelResourcesCompiler : MonoBehaviour
         songInfo.transform.GetChild(4).GetChild(0).GetChild(6).GetComponent<Button>().onClick.AddListener(delegate { songInfo.transform.GetChild(4).GetChild(0).GetChild(6).gameObject.SetActive(false); });
 
         SetAlbumCoverFromTrack(track, songInfo.transform.GetChild(4).GetChild(0).GetComponent<MPImage>(), songInfo.transform.GetChild(4).GetChild(0).GetChild(2).GetComponent<MPImage>());
+
+        Transform highscorePanel = songInfo.transform.GetChild(4).GetChild(0).GetChild(7);
+        HighscoreEntry highscore = HighscoreManager.Instance.GetHighscore(url);
+
+        if (highscore != null)
+        {
+            highscorePanel.gameObject.SetActive(true);
+
+            // Get UI components based on the paths you provided
+            TextMeshProUGUI scoreText = highscorePanel.GetChild(0).GetComponent<TextMeshProUGUI>();
+            Transform starsLocation = highscorePanel.GetChild(1).transform;
+            TextMeshProUGUI byText = highscorePanel.GetChild(2).GetComponent<TextMeshProUGUI>();
+
+            // Set text values
+            scoreText.text = highscore.score.ToString("#,#");
+            byText.text = "By: " + highscore.playerName;
+
+            // Clear any old stars that might be there from a previous selection
+            foreach (Transform child in starsLocation)
+            {
+                Destroy(child.gameObject);
+            }
+
+            // Instantiate the correct number of stars
+            if (starHSPrefab != null)
+            {
+                for (int i = 0; i < highscore.stars; i++)
+                {
+                    Instantiate(starHSPrefab, starsLocation);
+                }
+            }
+            else
+            {
+                UnityEngine.Debug.LogWarning("starHSPrefab is not assigned in the LevelResourcesCompiler Inspector!");
+            }
+        }
+        else
+        {
+            // If no highscore exists for this song, hide the panel
+            highscorePanel.gameObject.SetActive(false);
+        }
     }
 
     public void AddFavorite(string name, string artist, string length, string cover, string url)
@@ -320,6 +362,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
         dataPath = PlayerPrefs.GetString("dataPath");
         UnityEngine.Debug.Log($"CALLED: {url}, {name}, {artist}, {length}, {cover}");
+        PlayerPrefs.SetString("currentSongURL", url);
         name = name.Replace("\\", " ");
         songInfo.transform.GetChild(4).GetComponent<AudioSource>().Play();
         if (!CheckFile(name + ".txt"))
