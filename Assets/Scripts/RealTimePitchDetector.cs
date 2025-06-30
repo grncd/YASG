@@ -808,7 +808,7 @@ public class RealTimePitchDetector : MonoBehaviour
             }
             else if (debugMode)
             {
-                Debug.Log($"[RealTimePitchDetector] NO SCORE. BestDiff: {bestDifference:F1}, Threshold: {leniencyThreshold:F1}, PPJudge: {ppJudge}, SongNotOver: {songNotOver}, ScoreInc: {scoreIncrement}");
+                //Debug.Log($"[RealTimePitchDetector] NO SCORE. BestDiff: {bestDifference:F1}, Threshold: {leniencyThreshold:F1}, PPJudge: {ppJudge}, SongNotOver: {songNotOver}, ScoreInc: {scoreIncrement}");
             }
         }
         else

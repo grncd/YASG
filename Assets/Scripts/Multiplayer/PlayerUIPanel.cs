@@ -1,5 +1,6 @@
 using UnityEngine;
 using TMPro;
+using System.Collections;
 
 // This script goes on the root of your Player UI Prefab.
 public class PlayerUIPanel : MonoBehaviour
@@ -74,6 +75,19 @@ public class PlayerUIPanel : MonoBehaviour
                 pitchDetector.enabled = false;
             }
         }
+        StartCoroutine(FixNames());
+    }
+
+    private IEnumerator FixNames()
+    {
+        const int repetitions = 12;
+        const float delay = 1f;
+
+        for (int i = 0; i < repetitions; i++)
+        {
+            OnPlayerNameChanged("", _assignedPlayerData.PlayerName.Value, false);
+            yield return new WaitForSeconds(delay);
+        }
     }
 
     /// <summary>
@@ -126,6 +140,7 @@ public class PlayerUIPanel : MonoBehaviour
         if (playerNameText != null)
         {
             playerNameText.text = newName;
+            Debug.Log(newName);
         }
     }
 

@@ -92,7 +92,7 @@ public class PlayerPerformance : MonoBehaviour
             {
                 remoteScore = int.Parse(transform.GetChild(4).GetComponent<TextMeshProUGUI>().text.Replace(",", ""));
             }
-            Debug.Log(remoteScore);
+            //Debug.Log(remoteScore);
         }
         if (!LyricsHandler.Instance.songOver)
         {
