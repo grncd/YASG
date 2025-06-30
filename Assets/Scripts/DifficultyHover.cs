@@ -60,7 +60,7 @@ public class DifficultyHover : MonoBehaviour
                 animTimeElapsed = 0f;
             }
         }
-        Debug.Log(animTimeElapsed);
+        //Debug.Log(animTimeElapsed);
         if (!booting)
         {
             dropdown.position = new Vector3(0, EaseOutCubic(animTimeElapsed * 4f) * -1.645f, 0);

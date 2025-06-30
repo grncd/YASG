@@ -362,10 +362,13 @@ public class LevelResourcesCompiler : MonoBehaviour
                         PlayerPrefs.SetString("fullLocation", Path.Combine(dataPath, value));
                         //if (PlayerPrefs.GetInt("multiplayer") == 1)
                         //{
-                            //status.text = "Sending files to players...";
-                            //await Task.Delay(TimeSpan.FromMilliseconds(2500));
+                        //status.text = "Sending files to players...";
+                        //await Task.Delay(TimeSpan.FromMilliseconds(2500));
                         //}
-                        //LoadMain();
+                        if (PlayerPrefs.GetInt("multiplayer") == 0)
+                        {
+                            LoadMain();
+                        }
                         found = true;
                         break;
                     }
@@ -456,7 +459,10 @@ public class LevelResourcesCompiler : MonoBehaviour
             //await Task.Delay(TimeSpan.FromMilliseconds(2500));
         //}
         status.text = "Loading Main Scene...";
-        //LoadMain();
+        if (PlayerPrefs.GetInt("multiplayer") == 0)
+        {
+            LoadMain();
+        }
     }
 
     private async Task RunPythonDirectly()

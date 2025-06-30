@@ -98,6 +98,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
     public AudioMixerGroup musicControl;
     public float overallSongActivity;
     public bool paused = false;
+    public Transform playersParent;
 
     // Precomputed values for optimization
     private int minLag;
@@ -120,6 +121,13 @@ public class AudioClipPitchProcessor : MonoBehaviour
     private void Awake()
     {
         Instance = this;
+        if(PlayerPrefs.GetInt("multiplayer") == 1)
+        {
+            foreach (Transform child in playersParent)
+            {
+                Destroy(child.gameObject);
+            }
+        }
     }
 
     private string GetCacheFilePath(string audioClipPath)
@@ -593,15 +601,21 @@ public class AudioClipPitchProcessor : MonoBehaviour
         loadingScreen.SetActive(false);
 
         await Task.Delay(TimeSpan.FromSeconds(1.2f));
-        // ... (countdown and play logic)
-        UnityEngine.Debug.Log("Audio processing finished. Reporting GameReady status to the server.");
-        if (PlayerData.LocalPlayerInstance != null)
+        if(PlayerPrefs.GetInt("multiplayer") == 1)
         {
-            PlayerData.LocalPlayerInstance.RequestReportGameReady_ServerRpc();
+            UnityEngine.Debug.Log("Audio processing finished. Reporting GameReady status to the server.");
+            if (PlayerData.LocalPlayerInstance != null)
+            {
+                PlayerData.LocalPlayerInstance.RequestReportGameReady_ServerRpc();
+            }
+            else
+            {
+                UnityEngine.Debug.LogError("Cannot report GameReady status because LocalPlayerInstance is null!");
+            }
         }
         else
         {
-            UnityEngine.Debug.LogError("Cannot report GameReady status because LocalPlayerInstance is null!");
+            StartCoroutine(FinalCountdown_Coroutine());
         }
     }
 

@@ -128,7 +128,13 @@ public class RealTimePitchDetector : MonoBehaviour
     private bool _scoreIncrementInitialized = false;
 
 
-
+    private void Start()
+    {
+        if(PlayerPrefs.GetInt("multiplayer") == 0)
+        {
+            Setup();
+        }
+    }
 
     public void Setup()
     {
@@ -202,7 +208,15 @@ public class RealTimePitchDetector : MonoBehaviour
         }
 
         _isInitialized = true;
-        Debug.Log("[RealTimePitchDetector] Setup complete. Waiting for activation signal to start microphone.");
+        if(PlayerPrefs.GetInt("multiplayer") == 0)
+        {
+            ActivateAndStartMicrophone();
+            Debug.Log("Start function called");
+        }
+        else
+        {
+            Debug.Log("[RealTimePitchDetector] Setup complete. Waiting for activation signal to start microphone.");
+        }
     }
 
     public void ActivateAndStartMicrophone()
@@ -234,7 +248,7 @@ public class RealTimePitchDetector : MonoBehaviour
         List<float> validPitches = new List<float>();
         foreach (float p in pitchHistory)
         {
-            if (p > pitchThreshold) // Only consider actual sung/rapped pitches
+            if (p > pitchThreshold) // Only consider actual sung pitches
             {
                 validPitches.Add(p);
             }
@@ -303,6 +317,8 @@ public class RealTimePitchDetector : MonoBehaviour
 
     IEnumerator StartRecordingCoroutine()
     {
+
+        Debug.Log("Recording coroutine called");
         if (PlayerPrefs.GetInt("multiplayer") == 0)
         {
             diffIndex = PlayerPrefs.GetInt(gameObject.name + "Difficulty");

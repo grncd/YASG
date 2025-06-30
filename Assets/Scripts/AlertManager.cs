@@ -24,11 +24,11 @@ public class AlertManager : MonoBehaviour
             PlayerPrefs.SetInt("fromMP", 0);
             if(PlayerPrefs.GetInt("multiplayer") == 0)
             {
-                localGO.SetActive(false);
+                localGO.SetActive(true);
             }
             else
             {
-                mpGO.SetActive(false);
+                mpGO.SetActive(true);
             }
         }
     }

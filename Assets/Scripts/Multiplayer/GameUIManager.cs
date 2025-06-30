@@ -18,6 +18,10 @@ public class GameUIManager : MonoBehaviour
 
     void OnEnable()
     {
+        if(PlayerPrefs.GetInt("multiplayer") == 0)
+        {
+            enabled = false;
+        }
         _updateCoroutine = StartCoroutine(UpdateUIAndPlacements());
     }
 

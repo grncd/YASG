@@ -29,16 +29,25 @@ public class PlayerUIPanel : MonoBehaviour
 
     private void Awake()
     {
-        if (pitchDetector == null)
+        if(PlayerPrefs.GetInt("multiplayer") == 0)
         {
-            pitchDetector = GetComponentInChildren<RealTimePitchDetector>(true); // Search inactive children too
+            enabled = false;
+        }
+        else
+        {
+            if (pitchDetector == null)
+            {
+                pitchDetector = GetComponentInChildren<RealTimePitchDetector>(true); // Search inactive children too
+            }
+
+            if (pitchDetector != null)
+            {
+                pitchDetector.Setup();
+                pitchDetector.enabled = false;
+            }
         }
 
-        if (pitchDetector != null)
-        {
-            pitchDetector.Setup();
-            pitchDetector.enabled = false;
-        }
+        
     }
 
     public void AssignPlayer(PlayerData playerData)
