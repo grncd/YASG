@@ -27750,7 +27750,7 @@ MonoBehaviour:
   DIH2: {fileID: 138221494}
   bgDarken: {fileID: 1667790199}
   bgGM: {fileID: 1030584430}
-  starHSPrefab: {fileID: 0}
+  starHSPrefab: {fileID: 8579780331156368963, guid: 80c50a709500adc479d20322f860db64, type: 3}
 --- !u!4 &1667038467
 Transform:
   m_ObjectHideFlags: 0
