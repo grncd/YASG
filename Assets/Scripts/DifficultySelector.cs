@@ -83,41 +83,44 @@ public class DifficultySelector : MonoBehaviour
 
     private void UpdateDisplay()
     {
-        if(PlayerPrefs.GetInt("multiplayer") == 0 && transform.parent.parent.gameObject.GetComponent<CanvasGroup>() != null)
-        {
-            if (ProfileManager.Instance.GetProfileByName(PlayerPrefs.GetString(gameObject.name + "Name")).difficulty == 0) // easy
+        if (ProfileManager.Instance.GetProfileByName(PlayerPrefs.GetString(gameObject.name + "Name")) != null){
+            if (PlayerPrefs.GetInt("multiplayer") == 0 && transform.parent.parent.gameObject.GetComponent<CanvasGroup>() != null)
             {
-                transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().text = "Easy";
-                transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.3042734f, 1f, 0.2588235f);
+                if (ProfileManager.Instance.GetProfileByName(PlayerPrefs.GetString(gameObject.name + "Name")).difficulty == 0) // easy
+                {
+                    transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().text = "Easy";
+                    transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.3042734f, 1f, 0.2588235f);
+                }
+                else if (ProfileManager.Instance.GetProfileByName(PlayerPrefs.GetString(gameObject.name + "Name")).difficulty == 1) // medium
+                {
+                    transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().text = "Medium";
+                    transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.9826014f, 1f, 0.259434f);
+                }
+                else // hard
+                {
+                    transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().text = "Hard";
+                    transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(1f, 0.2588235f, 0.2657269f);
+                }
             }
-            else if (ProfileManager.Instance.GetProfileByName(PlayerPrefs.GetString(gameObject.name + "Name")).difficulty == 1) // medium
+            else
             {
-                transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().text = "Medium";
-                transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.9826014f, 1f, 0.259434f);
-            }
-            else // hard
-            {
-                transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().text = "Hard";
-                transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(1f, 0.2588235f, 0.2657269f);
+                if (PlayerPrefs.GetInt("Player1Difficulty") == 0) // easy
+                {
+                    transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = "Easy";
+                    transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.3042734f, 1f, 0.2588235f);
+                }
+                else if (PlayerPrefs.GetInt("Player1Difficulty") == 1) // medium
+                {
+                    transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = "Medium";
+                    transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.9826014f, 1f, 0.259434f);
+                }
+                else // hard
+                {
+                    transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = "Hard";
+                    transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(1f, 0.2588235f, 0.2657269f);
+                }
             }
         }
-        else
-        {
-            if (PlayerPrefs.GetInt("Player1Difficulty") == 0) // easy
-            {
-                transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = "Easy";
-                transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.3042734f, 1f, 0.2588235f);
-            }
-            else if (PlayerPrefs.GetInt("Player1Difficulty") == 1) // medium
-            {
-                transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = "Medium";
-                transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.9826014f, 1f, 0.259434f);
-            }
-            else // hard
-            {
-                transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = "Hard";
-                transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(1f, 0.2588235f, 0.2657269f);
-            }
-        }
+        
     }
 }

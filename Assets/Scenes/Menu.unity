@@ -15386,6 +15386,7 @@ GameObject:
   - component: {fileID: 900319358}
   - component: {fileID: 900319357}
   - component: {fileID: 900319356}
+  - component: {fileID: 900319359}
   m_Layer: 6
   m_Name: Container
   m_TagString: Untagged
@@ -15554,6 +15555,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 900319354}
   m_CullTransparentMesh: 1
+--- !u!114 &900319359
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 900319354}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 50a3fae92afaeb64c86e1508583d965e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &903125536
 GameObject:
   m_ObjectHideFlags: 0
@@ -25794,7 +25807,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8579780331156368962, guid: 80c50a709500adc479d20322f860db64, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 23.4
+      value: 23.399994
       objectReference: {fileID: 0}
     - target: {fileID: 8579780331156368962, guid: 80c50a709500adc479d20322f860db64, type: 3}
       propertyPath: m_AnchoredPosition.y
