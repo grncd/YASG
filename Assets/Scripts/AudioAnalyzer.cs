@@ -6,14 +6,17 @@ public class AudioAnalyzer : MonoBehaviour
     public Material audioMaterial;
 
     [Header("Audio Analysis")]
-    // The number of samples to take from the audio. Must be a power of 2.
     [SerializeField, Tooltip("Number of samples, must be a power of 2")]
     private int numSamples = 512;
 
+    // --- NEW ---
+    [Header("Intensity Controls")]
+    [SerializeField, Tooltip("The minimum intensity value, for a constant ambient glow.")]
+    private float minimumIntensity = 0.2f;
+
     [Header("Frequency Band Ranges")]
-    [SerializeField] private int lowFrequencyThreshold = 200;  // e.g., up to 250 Hz
-    [SerializeField] private int midFrequencyThreshold = 4000; // e.g., 250 Hz to 4000 Hz
-    // High frequency is anything above mid
+    [SerializeField] private int lowFrequencyThreshold = 200;
+    [SerializeField] private int midFrequencyThreshold = 4000;
 
     [Header("Intensity Multipliers")]
     [SerializeField] private float lowMultiplier = 0.9f;
@@ -27,7 +30,6 @@ public class AudioAnalyzer : MonoBehaviour
     private float[] spectrumData;
     private float currentLow, currentMid, currentHigh;
 
-    // Shader property IDs for efficiency
     private int lowIntensityID;
     private int midIntensityID;
     private int highIntensityID;
@@ -43,18 +45,21 @@ public class AudioAnalyzer : MonoBehaviour
 
         spectrumData = new float[numSamples];
 
-        // Cache the shader property IDs
         lowIntensityID = Shader.PropertyToID("_LowIntensity");
         midIntensityID = Shader.PropertyToID("_MidIntensity");
         highIntensityID = Shader.PropertyToID("_HighIntensity");
+
+        // --- NEW ---
+        // Initialize the values at the minimum intensity to prevent starting at 0.
+        currentLow = minimumIntensity;
+        currentMid = minimumIntensity;
+        currentHigh = minimumIntensity;
     }
 
     void Update()
     {
-        // Get the audio spectrum data
         AudioListener.GetSpectrumData(spectrumData, 0, FFTWindow.BlackmanHarris);
 
-        // Calculate average intensity for each frequency band
         float lowSum = 0;
         float midSum = 0;
         float highSum = 0;
@@ -65,7 +70,6 @@ public class AudioAnalyzer : MonoBehaviour
 
         for (int i = 0; i < numSamples; i++)
         {
-            float freq = i * sampleRate / numSamples;
             if (i <= lowIndexCap)
             {
                 lowSum += spectrumData[i];
@@ -80,10 +84,12 @@ public class AudioAnalyzer : MonoBehaviour
             }
         }
 
-        // Apply multipliers
-        float targetLow = lowSum * lowMultiplier;
-        float targetMid = midSum * midMultiplier;
-        float targetHigh = highSum * highMultiplier;
+        // --- CHANGED LOGIC ---
+        // We now add the minimumIntensity as a base, ensuring the value never drops below it.
+        // This preserves the proportional reaction of the audio on top of the base glow.
+        float targetLow = minimumIntensity + (lowSum * lowMultiplier);
+        float targetMid = minimumIntensity + (midSum * midMultiplier);
+        float targetHigh = minimumIntensity + (highSum * highMultiplier);
 
         // Smooth the transitions to prevent overly jittery visuals
         currentLow = Mathf.Lerp(currentLow, targetLow, smoothing);

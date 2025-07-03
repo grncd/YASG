@@ -12789,10 +12789,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   audioMaterial: {fileID: 2100000, guid: b34f40b271be2d5438e40a2f43e23747, type: 2}
   numSamples: 512
+  minimumIntensity: 0.18
   lowFrequencyThreshold: 300
   midFrequencyThreshold: 3500
-  lowMultiplier: 1.5
-  midMultiplier: 0.6
+  lowMultiplier: 0.55
+  midMultiplier: 0.35
   highMultiplier: 0.4
   smoothing: 0.1
 --- !u!4 &1941691837

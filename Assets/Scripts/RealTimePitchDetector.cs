@@ -47,7 +47,7 @@ public class RealTimePitchDetector : MonoBehaviour
     private float _previousLowShelfQ = -1f;
 
     [Header("Advanced Anti-Monotony Settings")]
-    public bool enableAdvancedAntiMonotony = true;
+    public bool enableAdvancedAntiMonotony = false;
 
     // --- User Pitch Activity ---
     [Tooltip("How many seconds of user pitch history to analyze for activity.")]
