@@ -73,28 +73,28 @@ public class LyricsHandler : MonoBehaviour
             var temp = playersParent.transform.GetChild(0);
             temp.gameObject.SetActive(true);
             temp.GetChild(3).GetComponent<TextMeshProUGUI>().text = PlayerPrefs.GetString("Player1Name");
-            temp.GetComponent<RealTimePitchDetector>().device = PlayerPrefs.GetInt("MicPlayer1");
+            //temp.GetComponent<RealTimePitchDetector>().device = PlayerPrefs.GetInt("MicPlayer1");
         }
         if (PlayerPrefs.GetInt("Player2") == 1)
         {
             var temp = playersParent.transform.GetChild(1);
             temp.gameObject.SetActive(true);
             temp.GetChild(3).GetComponent<TextMeshProUGUI>().text = PlayerPrefs.GetString("Player2Name");
-            temp.GetComponent<RealTimePitchDetector>().device = PlayerPrefs.GetInt("MicPlayer2");
+            //temp.GetComponent<RealTimePitchDetector>().device = PlayerPrefs.GetInt("MicPlayer2");
         }
         if (PlayerPrefs.GetInt("Player3") == 1)
         {
             var temp = playersParent.transform.GetChild(2);
             temp.gameObject.SetActive(true);
             temp.GetChild(3).GetComponent<TextMeshProUGUI>().text = PlayerPrefs.GetString("Player3Name");
-            temp.GetComponent<RealTimePitchDetector>().device = PlayerPrefs.GetInt("MicPlayer3");
+            //temp.GetComponent<RealTimePitchDetector>().device = PlayerPrefs.GetInt("MicPlayer3");
         }
         if (PlayerPrefs.GetInt("Player4") == 1)
         {
             var temp = playersParent.transform.GetChild(3);
             temp.gameObject.SetActive(true);
             temp.GetChild(3).GetComponent<TextMeshProUGUI>().text = PlayerPrefs.GetString("Player4Name");
-            temp.GetComponent<RealTimePitchDetector>().device = PlayerPrefs.GetInt("MicPlayer4");
+            //temp.GetComponent<RealTimePitchDetector>().device = PlayerPrefs.GetInt("MicPlayer4");
         }
         if (!File.Exists($"{PlayerPrefs.GetString("dataPath")}\\downloads\\" + currentSong + ".txt"))
         {
