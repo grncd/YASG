@@ -21,7 +21,7 @@ public class LyricsHandler : MonoBehaviour
     private int prevIndex = -1;
     public GameObject pausePanel;
 
-    private List<(float time, string line)> parsedLyrics = new List<(float, string)>();
+    public List<(float time, string line)> parsedLyrics = new List<(float, string)>();
     private List<float> lineDurations = new List<float>();
     public AudioClipPitchProcessor APP;
     public PlayerPerformance PP;
@@ -160,6 +160,7 @@ public class LyricsHandler : MonoBehaviour
             APP.Pause();
         }
         float elapsedTime = Time.time - startTime;
+        
         if (isPlaying)
         {
             progressTime.value = Math.Clamp(elapsedTime / processedAudioLength, 0.005f, 1f);
@@ -264,6 +265,7 @@ public class LyricsHandler : MonoBehaviour
         {
             if (elapsedTime >= parsedLyrics[i].time)
             {
+                
                 if (i != currentLineIndex || (firstLine == false && i == 0))
                 {
                     firstLine = true;
