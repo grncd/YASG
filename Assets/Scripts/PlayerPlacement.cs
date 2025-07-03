@@ -35,23 +35,23 @@ public class PlayerPlacement : MonoBehaviour
         {
             if (i == 0)
             {
-                pair.Key.transform.GetChild(14).GetChild(0).GetComponent<TextMeshProUGUI>().colorGradient = new VertexGradient(new Color(1, 0.847f, 0), new Color(1, 0.847f, 0), new Color(1, 0.569f, 0), new Color(1, 0.569f, 0));
-                pair.Key.transform.GetChild(14).GetChild(0).GetComponent<TextMeshProUGUI>().text = "1st";
+                pair.Key.transform.GetChild(15).GetChild(0).GetComponent<TextMeshProUGUI>().colorGradient = new VertexGradient(new Color(1, 0.847f, 0), new Color(1, 0.847f, 0), new Color(1, 0.569f, 0), new Color(1, 0.569f, 0));
+                pair.Key.transform.GetChild(15).GetChild(0).GetComponent<TextMeshProUGUI>().text = "1st";
             }
             else if (i == 1)
             {
-                pair.Key.transform.GetChild(14).GetChild(0).GetComponent<TextMeshProUGUI>().colorGradient = new VertexGradient(new Color(1, 1, 1), new Color(1, 1, 1), new Color(0.6886792f, 0.6886792f, 0.6886792f), new Color(0.6886792f, 0.6886792f, 0.6886792f));
-                pair.Key.transform.GetChild(14).GetChild(0).GetComponent<TextMeshProUGUI>().text = "2nd";
+                pair.Key.transform.GetChild(15).GetChild(0).GetComponent<TextMeshProUGUI>().colorGradient = new VertexGradient(new Color(1, 1, 1), new Color(1, 1, 1), new Color(0.6886792f, 0.6886792f, 0.6886792f), new Color(0.6886792f, 0.6886792f, 0.6886792f));
+                pair.Key.transform.GetChild(15).GetChild(0).GetComponent<TextMeshProUGUI>().text = "2nd";
             }
             else if (i == 2)
             {
-                pair.Key.transform.GetChild(14).GetChild(0).GetComponent<TextMeshProUGUI>().colorGradient = new VertexGradient(new Color(1, 0.706f, 0.184f), new Color(1, 0.706f, 0.184f), new Color(0.482f, 0.325f, 0.055f), new Color(0.482f, 0.325f, 0.055f));
-                pair.Key.transform.GetChild(14).GetChild(0).GetComponent<TextMeshProUGUI>().text = "3rd";
+                pair.Key.transform.GetChild(15).GetChild(0).GetComponent<TextMeshProUGUI>().colorGradient = new VertexGradient(new Color(1, 0.706f, 0.184f), new Color(1, 0.706f, 0.184f), new Color(0.482f, 0.325f, 0.055f), new Color(0.482f, 0.325f, 0.055f));
+                pair.Key.transform.GetChild(15).GetChild(0).GetComponent<TextMeshProUGUI>().text = "3rd";
             }
             else
             {
-                pair.Key.transform.GetChild(14).GetChild(0).GetComponent<TextMeshProUGUI>().colorGradient = new VertexGradient(new Color(0.482f, 0.482f, 0.482f), new Color(0.482f, 0.482f, 0.482f), new Color(0.18f, 0.18f, 0.18f), new Color(0.18f, 0.18f, 0.18f));
-                pair.Key.transform.GetChild(14).GetChild(0).GetComponent<TextMeshProUGUI>().text = ""+(i+1)+"th";
+                pair.Key.transform.GetChild(15).GetChild(0).GetComponent<TextMeshProUGUI>().colorGradient = new VertexGradient(new Color(0.482f, 0.482f, 0.482f), new Color(0.482f, 0.482f, 0.482f), new Color(0.18f, 0.18f, 0.18f), new Color(0.18f, 0.18f, 0.18f));
+                pair.Key.transform.GetChild(15).GetChild(0).GetComponent<TextMeshProUGUI>().text = ""+(i+1)+"th";
             }
             pair.Key.placement = i;
             i++;
