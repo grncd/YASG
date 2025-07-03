@@ -8744,6 +8744,10 @@ PrefabInstance:
       propertyPath: m_AnchorMax.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5716486182101922908, guid: d5cd1d0e61a189a4dbdf3c0b7a6e0fc1, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6546718904912422395, guid: d5cd1d0e61a189a4dbdf3c0b7a6e0fc1, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -12754,6 +12758,58 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: -20, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &1941691835
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1941691837}
+  - component: {fileID: 1941691836}
+  m_Layer: 0
+  m_Name: AudioAnalyzer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1941691836
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1941691835}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b92d53f26eb5f74b9fde962d5f2259b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  audioMaterial: {fileID: 2100000, guid: b34f40b271be2d5438e40a2f43e23747, type: 2}
+  numSamples: 512
+  lowFrequencyThreshold: 300
+  midFrequencyThreshold: 3500
+  lowMultiplier: 1.5
+  midMultiplier: 0.6
+  highMultiplier: 0.4
+  smoothing: 0.1
+--- !u!4 &1941691837
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1941691835}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.4431107, y: 0.040583406, z: 125.658394}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 10
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1950619989
 GameObject:
   m_ObjectHideFlags: 0

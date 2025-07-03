@@ -1,8 +1,13 @@
-Shader "Custom/ShaderToyUI_2"
+Shader "Custom/ShaderToyUI_Audio_Reactive"
 {
     Properties
     {
         _TimeMult("Time Multiplier", Float) = 1.0
+        _LowIntensity("Low Frequency Intensity", Range(0, 5)) = 0.0
+        _MidIntensity("Mid Frequency Intensity", Range(0, 5)) = 0.0
+        _HighIntensity("High Frequency Intensity", Range(0, 5)) = 0.0
+        // --- NEW PROPERTY ---
+        _GlowRadius("Glow Radius", Range(0.1, 1.0)) = 0.6
     }
         SubShader
     {
@@ -16,6 +21,10 @@ Shader "Custom/ShaderToyUI_2"
             #include "UnityCG.cginc"
 
             float _TimeMult;
+            float _LowIntensity;
+            float _MidIntensity;
+            float _HighIntensity;
+            float _GlowRadius; // New variable for the radius
 
             struct appdata
             {
@@ -42,6 +51,13 @@ Shader "Custom/ShaderToyUI_2"
                 float c = cos(a);
                 float s = sin(a);
                 return float2(c * p.x - s * p.y, s * p.x + c * p.y);
+            }
+
+            float hash(float3 p)
+            {
+                p = frac(p * 0.3183099 + 0.1);
+                p *= 17.0;
+                return frac(p.x * p.y * p.z * (p.x + p.y + p.z));
             }
 
             float map(float3 p)
@@ -75,7 +91,7 @@ Shader "Custom/ShaderToyUI_2"
                 dir = dir.yzx;
 
                 float3 pos = float3(0, 0, time);
-                float3 col = float3(0.0, 0.0, 0.0);  // Corrected here
+                float3 col = float3(0.0, 0.0, 0.0);
                 float t = 0.0;
                 float tt = 0.0;
 
@@ -90,7 +106,57 @@ Shader "Custom/ShaderToyUI_2"
                 col = float3(t * 0.1, t * 0.1, t * 0.1);
                 col = sqrt(col);
 
-                fixed4 fragColor = fixed4(0.05 * t + abs(dir) * col + max(0.0, map(ip - 0.1) - tt), 1.0);
+                // --- BLURRY AUDIO REACTIVE GLOW LOGIC ---
+
+                // 1. Define the scale for the glowing regions.
+                // This is the same value used in the previous version.
+                float regionScale = 3.0;
+                float3 p_scaled = ip * regionScale;
+
+                // 2. Get the integer part for the cell ID and the fractional part for the position inside the cell.
+                float3 p_int = floor(p_scaled);  // The cell's unique ID
+                float3 p_frac = frac(p_scaled); // The position within the cell (0..1)
+
+                // 3. Generate a random value based on the cell's ID.
+                float h = hash(p_int);
+
+                // 4. Determine the base intensity for this cell based on the hash.
+                float audioIntensity = 0.0;
+                if (h < 0.33)
+                {
+                    audioIntensity = pow(_LowIntensity, 2.0);
+                }
+                else if (h < 0.66)
+                {
+                    audioIntensity = pow(_MidIntensity, 2.0);
+                }
+                else
+                {
+                    audioIntensity = pow(_HighIntensity, 2.0);
+                }
+
+                // 5. Calculate the blur/falloff.
+                // Find the distance from the center of the cell (0.5).
+                float distFromCenter = length(p_frac - 0.5);
+
+                // Use smoothstep to create a soft, circular glow.
+                // The glow is 1.0 at the center and fades to 0.0 at the edge defined by _GlowRadius.
+                // A smaller _GlowRadius makes the spots smaller/sharper. A larger one makes them bigger/softer.
+                float blurFalloff = 1.0 - smoothstep(0.0, _GlowRadius, distFromCenter);
+
+                // 6. Calculate the final glow, which is now white as you requested.
+                float3 audioGlow = float3(1.0, 1.0, 1.0) * audioIntensity * blurFalloff;
+
+                // --- MODIFIED FINAL COLOR CALCULATION ---
+
+                // Calculate the original scene color
+                float3 sceneColor = 0.05 * t + abs(dir) * col + max(0.0, map(ip - 0.1) - tt);
+
+                // Add the audio-reactive glow on top
+                sceneColor += audioGlow;
+
+                // Final output
+                fixed4 fragColor = fixed4(sceneColor, 1.0);
                 fragColor.a = 1.0 / (t * t * t * t);
                 return fragColor;
             }
