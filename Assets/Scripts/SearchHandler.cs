@@ -31,7 +31,10 @@ public class SearchHandler : MonoBehaviour
         {
             Destroy(child.gameObject);
         }
-        StartCoroutine(SearchRoutine(search));
+        if (!string.IsNullOrEmpty(search))
+        {
+            StartCoroutine(SearchRoutine(search));
+        }
     }
 
     IEnumerator TokenAndRequestRoutine()

@@ -35,7 +35,7 @@ public class AlertManager : MonoBehaviour
 
     public void ShowInfo(string title, string info, string button)
     {
-        SelectorOutline.Instance.defaultObject = this.transform.GetChild(1).GetChild(5).gameObject;
+        SelectorOutline.Instance.defaultObject = this.transform.GetChild(2).GetChild(5).gameObject;
         SelectorOutline.Instance.RestrictButtonSelection(gameObject);
         this.transform.GetChild(2).GetChild(3).GetComponent<TextMeshProUGUI>().text = title;
         this.transform.GetChild(2).GetChild(4).GetComponent<TextMeshProUGUI>().text = info;
@@ -63,7 +63,7 @@ public class AlertManager : MonoBehaviour
 
     public void ShowError(string title, string info, string button)
     {
-        SelectorOutline.Instance.defaultObject = this.transform.GetChild(1).GetChild(5).gameObject;
+        SelectorOutline.Instance.defaultObject = this.transform.GetChild(0).GetChild(5).gameObject;
         SelectorOutline.Instance.RestrictButtonSelection(gameObject);
         this.transform.GetChild(0).GetChild(3).GetComponent<TextMeshProUGUI>().text = title;
         this.transform.GetChild(0).GetChild(4).GetComponent<TextMeshProUGUI>().text = info;

@@ -21,6 +21,9 @@ public class AutoScrollToSelection : MonoBehaviour
     private GameObject lastSelected;
     private Coroutine scrollingCoroutine;
 
+    private Vector3 lastMousePos;
+    private string lastInput = "controller"; // "mouse" or "controller"
+
     void Start()
     {
         scrollRect = GetComponent<ScrollRect>();
@@ -31,22 +34,79 @@ public class AutoScrollToSelection : MonoBehaviour
 
     void Update()
     {
-        GameObject currentSelected = EventSystem.current.currentSelectedGameObject;
-
-        // Check if the selection has changed and is a child of our scrollable content.
-        if (currentSelected != null && currentSelected != lastSelected && currentSelected.transform.IsChildOf(contentPanel))
+        DetectInputDevice();
+        if(lastInput == "controller")
         {
-            if (scrollingCoroutine != null)
+            GameObject currentSelected = EventSystem.current.currentSelectedGameObject;
+
+            // Check if the selection has changed and is a child of our scrollable content.
+            if (currentSelected != null && currentSelected != lastSelected && currentSelected.transform.IsChildOf(contentPanel))
             {
-                StopCoroutine(scrollingCoroutine);
+                if (scrollingCoroutine != null)
+                {
+                    StopCoroutine(scrollingCoroutine);
+                }
+                scrollingCoroutine = StartCoroutine(ScrollToView(currentSelected.GetComponent<RectTransform>()));
             }
-            scrollingCoroutine = StartCoroutine(ScrollToView(currentSelected.GetComponent<RectTransform>()));
+
+            lastSelected = currentSelected;
+        }
+    }
+
+    void DetectInputDevice()
+    {
+        bool isKeyboardPressed = IsKeyboardInput();
+        bool isControllerMoved = IsControllerInput();
+
+        // --- Mouse movement detection ---
+        if ((Input.mousePosition - lastMousePos).sqrMagnitude > 1f)
+        {
+            lastInput = "mouse";
         }
 
-        lastSelected = currentSelected;
+        // --- Keyboard input detection ---
+        if (isKeyboardPressed)
+        {
+            lastInput = "mouse";
+        }
+
+        // --- Controller input detection ---
+        if (isControllerMoved && !isKeyboardPressed)
+        {
+            lastInput = "controller";
+        }
+
+        lastMousePos = Input.mousePosition;
+    }
+
+    bool IsKeyboardInput()
+    {
+        foreach (KeyCode key in System.Enum.GetValues(typeof(KeyCode)))
+        {
+            if (IsKeyboardKey(key) && Input.GetKey(key))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool IsKeyboardKey(KeyCode key)
+    {
+        // Filter out joystick buttons
+        return !key.ToString().StartsWith("Joystick") &&
+               key != KeyCode.None;
     }
 
 
+    // --- Controller input detection (axes/buttons, but ignores keyboard keys) ---
+    bool IsControllerInput()
+    {
+        return Mathf.Abs(Input.GetAxisRaw("Horizontal")) > 0.2f ||
+               Mathf.Abs(Input.GetAxisRaw("Vertical")) > 0.2f ||
+               Input.GetButtonDown("Submit") ||
+               Input.GetButtonDown("Cancel");
+    }
 
     private IEnumerator ScrollToView(RectTransform target)
     {

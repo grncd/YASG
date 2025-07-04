@@ -101,32 +101,35 @@ public class SelectorOutline : MonoBehaviour
                 }
             }
 
-            selectorOutline.SetActive(true);
-            RectTransform targetRect = selected.GetComponent<RectTransform>();
-
-            // Smooth position
-            Vector3 smoothedPos = EaseOutCubic(selectorRect.position, targetRect.position, positionSmoothTime);
-            selectorRect.position = smoothedPos;
-
-            // Smooth size
-            Vector2 smoothedSize = EaseOutCubic(selectorRect.sizeDelta, targetRect.sizeDelta, sizeSmoothTime);
-            selectorRect.sizeDelta = smoothedSize;
-
-            // Match shape (MPImage)
-            MPImage selectedImg = selected.GetComponent<MPImage>();
-            MPImage outlineImg = selectorRect.GetComponent<MPImage>();
-
-            if (selectedImg != null && outlineImg != null)
+            if(lastInput == "controller")
             {
-                if (selectedImg.DrawShape == DrawShape.Rectangle)
+                selectorOutline.SetActive(true);
+                RectTransform targetRect = selected.GetComponent<RectTransform>();
+
+                // Smooth position
+                Vector3 smoothedPos = EaseOutCubic(selectorRect.position, targetRect.position, positionSmoothTime);
+                selectorRect.position = smoothedPos;
+
+                // Smooth size
+                Vector2 smoothedSize = EaseOutCubic(selectorRect.sizeDelta, targetRect.sizeDelta, sizeSmoothTime);
+                selectorRect.sizeDelta = smoothedSize;
+
+                // Match shape (MPImage)
+                MPImage selectedImg = selected.GetComponent<MPImage>();
+                MPImage outlineImg = selectorRect.GetComponent<MPImage>();
+
+                if (selectedImg != null && outlineImg != null)
                 {
-                    outlineImg.DrawShape = DrawShape.Rectangle;
-                    outlineImg.Rectangle = selectedImg.Rectangle;
-                }
-                else
-                {
-                    outlineImg.DrawShape = DrawShape.Circle;
-                    outlineImg.Circle = selectedImg.Circle;
+                    if (selectedImg.DrawShape == DrawShape.Rectangle)
+                    {
+                        outlineImg.DrawShape = DrawShape.Rectangle;
+                        outlineImg.Rectangle = selectedImg.Rectangle;
+                    }
+                    else
+                    {
+                        outlineImg.DrawShape = DrawShape.Circle;
+                        outlineImg.Circle = selectedImg.Circle;
+                    }
                 }
             }
         }
@@ -138,30 +141,77 @@ public class SelectorOutline : MonoBehaviour
 
     void DetectInputDevice()
     {
-        // Detect mouse movement
+        bool isKeyboardPressed = IsKeyboardInput();
+        bool isControllerMoved = IsControllerInput();
+
+        // --- Mouse movement detection ---
         if ((Input.mousePosition - lastMousePos).sqrMagnitude > 1f)
         {
             if (lastInput != "mouse")
             {
-                SetButtonInteractivity(false); // disable buttons for mouse
-                eventSystem.SetSelectedGameObject(null); // unselect on mouse input
+                SetButtonInteractivity(false);
+                eventSystem.SetSelectedGameObject(null);
+                selectorOutline.SetActive(false);
             }
             lastInput = "mouse";
         }
 
-        // Detect keyboard/controller input
-        if (Input.GetAxis("Horizontal") != 0 || Input.GetAxis("Vertical") != 0 || Input.GetButtonDown("Submit"))
+        // --- Keyboard input detection ---
+        if (isKeyboardPressed)
+        {
+            if (lastInput != "mouse")
+            {
+                SetButtonInteractivity(false);
+                eventSystem.SetSelectedGameObject(null);
+                selectorOutline.SetActive(false);
+            }
+            lastInput = "mouse";
+        }
+
+        // --- Controller input detection ---
+        if (isControllerMoved && !isKeyboardPressed)
         {
             if (lastInput != "controller")
             {
-                SetButtonInteractivity(true); // enable buttons for controller
-                eventSystem.SetSelectedGameObject(defaultObject); // select default on controller input
+                SetButtonInteractivity(true);
+                eventSystem.SetSelectedGameObject(defaultObject);
+                selectorOutline.SetActive(true);
             }
             lastInput = "controller";
         }
 
         lastMousePos = Input.mousePosition;
     }
+
+    bool IsKeyboardInput()
+    {
+        foreach (KeyCode key in System.Enum.GetValues(typeof(KeyCode)))
+        {
+            if (IsKeyboardKey(key) && Input.GetKey(key))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool IsKeyboardKey(KeyCode key)
+    {
+        // Filter out joystick buttons
+        return !key.ToString().StartsWith("Joystick") &&
+               key != KeyCode.None;
+    }
+
+
+    // --- Controller input detection (axes/buttons, but ignores keyboard keys) ---
+    bool IsControllerInput()
+    {
+        return Mathf.Abs(Input.GetAxisRaw("Horizontal")) > 0.2f ||
+               Mathf.Abs(Input.GetAxisRaw("Vertical")) > 0.2f ||
+               Input.GetButtonDown("Submit") ||
+               Input.GetButtonDown("Cancel");
+    }
+
 
     void SetButtonInteractivity(bool state)
     {
