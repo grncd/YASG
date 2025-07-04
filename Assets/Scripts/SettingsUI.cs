@@ -41,6 +41,7 @@ public class SettingsUI : MonoBehaviour
                 canClick = false;
                 ProfileDisplay.Instance.hasSettingsBeenOpened = true;
                 onSettings = !onSettings;
+                SelectorOutline.Instance.defaultObject = settingsContainer.transform.GetChild(0).GetChild(0).gameObject;
                 settingsContainer.SetActive(true);
                 settingsContainer.GetComponent<Animator>().Play("FadeIn");
                 settingsButton.GetComponent<Animator>().Play("SettingsIn");
@@ -62,7 +63,7 @@ public class SettingsUI : MonoBehaviour
                         return;
                     }
                 }
-
+                SelectorOutline.Instance.defaultObject = settingsButton.gameObject;
                 canClick = false;
                 menuGO.SetActive(true);
                 onSettings = !onSettings;

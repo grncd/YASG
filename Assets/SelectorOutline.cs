@@ -24,10 +24,55 @@ public class SelectorOutline : MonoBehaviour
     private Vector3 lastMousePos;
     private string lastInput = "controller"; // "mouse" or "controller"
 
+    public static SelectorOutline Instance { get; private set; }
+
     void Start()
     {
+        Instance = this;
         selectorRect = selectorOutline.GetComponent<RectTransform>();
         lastMousePos = Input.mousePosition;
+    }
+
+    public GameObject allowedParentProfileAdd;
+    public GameObject allowedParentAlertBox;
+
+    private List<Button> cachedButtons = new List<Button>();
+    private List<Button> allowedButtons = new List<Button>();
+
+    public void RestrictButtonSelection(GameObject select)
+    {
+
+        // Get all buttons in the scene (active + inactive)
+        Button[] allButtons = GameObject.FindObjectsOfType<Button>();
+        cachedButtons.Clear();
+        allowedButtons.Clear();
+
+        // Get all buttons that are children of the allowed parent
+        allowedButtons.AddRange(select.GetComponentsInChildren<Button>());
+
+        foreach (Button btn in allButtons)
+        {
+            cachedButtons.Add(btn);
+            bool shouldEnable = allowedButtons.Contains(btn);
+            btn.interactable = shouldEnable;
+        }
+    }
+
+    public void UnrestrictAllButtons()
+    {
+        if (cachedButtons.Count == 0)
+        {
+            cachedButtons.AddRange(GameObject.FindObjectsOfType<Button>());
+        }
+
+        foreach (Button btn in cachedButtons)
+        {
+            if (btn != null)
+                btn.interactable = true;
+        }
+
+        cachedButtons.Clear();
+        allowedButtons.Clear();
     }
 
     public void SetDefault(GameObject set)
@@ -42,10 +87,18 @@ public class SelectorOutline : MonoBehaviour
         GameObject selected = eventSystem.currentSelectedGameObject;
         if (selected != null)
         {
-            if (!selected.activeInHierarchy || !selected.GetComponent<Button>().enabled)
+            if (!selected.activeInHierarchy)
             {
                 eventSystem.SetSelectedGameObject(defaultObject);
                 selected = eventSystem.currentSelectedGameObject;
+            }
+            if(selected.GetComponent<Button>() != null)
+            {
+                if (!selected.GetComponent<Button>().enabled)
+                {
+                    eventSystem.SetSelectedGameObject(defaultObject);
+                    selected = eventSystem.currentSelectedGameObject;
+                }
             }
 
             selectorOutline.SetActive(true);
@@ -89,7 +142,10 @@ public class SelectorOutline : MonoBehaviour
         if ((Input.mousePosition - lastMousePos).sqrMagnitude > 1f)
         {
             if (lastInput != "mouse")
+            {
                 SetButtonInteractivity(false); // disable buttons for mouse
+                eventSystem.SetSelectedGameObject(null); // unselect on mouse input
+            }
             lastInput = "mouse";
         }
 
@@ -97,7 +153,10 @@ public class SelectorOutline : MonoBehaviour
         if (Input.GetAxis("Horizontal") != 0 || Input.GetAxis("Vertical") != 0 || Input.GetButtonDown("Submit"))
         {
             if (lastInput != "controller")
+            {
                 SetButtonInteractivity(true); // enable buttons for controller
+                eventSystem.SetSelectedGameObject(defaultObject); // select default on controller input
+            }
             lastInput = "controller";
         }
 

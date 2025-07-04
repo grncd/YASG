@@ -100,6 +100,11 @@ public class OnScreenKeyboard : MonoBehaviour
             {
                 Dismiss();
             }
+
+            if (Input.GetKeyDown(KeyCode.JoystickButton3))
+            {
+                if (targetInputField != null) targetInputField.text += " ";
+            }
         }
     }
 
@@ -112,7 +117,7 @@ public class OnScreenKeyboard : MonoBehaviour
     {
         if (targetInputField == null) return;
 
-        if (key.name == "Space")
+        if (key.name == "Space (Y)")
         {
             targetInputField.text += " ";
         }
