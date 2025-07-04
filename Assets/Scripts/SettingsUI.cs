@@ -19,6 +19,7 @@ public class SettingsUI : MonoBehaviour
     public GameObject settingsButton;
     public AudioClip settingsIn;
     public AudioClip settingsOut;
+    public GameObject menuGO;
     private bool fromSettings = false;
     private void Start()
     {
@@ -37,6 +38,7 @@ public class SettingsUI : MonoBehaviour
         {
             if (!onSettings)
             {
+                canClick = false;
                 ProfileDisplay.Instance.hasSettingsBeenOpened = true;
                 onSettings = !onSettings;
                 settingsContainer.SetActive(true);
@@ -44,6 +46,9 @@ public class SettingsUI : MonoBehaviour
                 settingsButton.GetComponent<Animator>().Play("SettingsIn");
                 settingsButton.GetComponent<AudioSource>().clip = settingsIn;
                 settingsButton.GetComponent<AudioSource>().Play();
+                await Task.Delay(TimeSpan.FromSeconds(0.3f));
+                menuGO.SetActive(false);
+                canClick = true;
             }
             else
             {
@@ -59,12 +64,13 @@ public class SettingsUI : MonoBehaviour
                 }
 
                 canClick = false;
+                menuGO.SetActive(true);
                 onSettings = !onSettings;
                 settingsButton.GetComponent<AudioSource>().clip = settingsOut;
                 settingsButton.GetComponent<AudioSource>().Play();
                 settingsContainer.GetComponent<Animator>().Play("FadeOut");
                 settingsButton.GetComponent<Animator>().Play("SettingsOut");
-                await Task.Delay(TimeSpan.FromSeconds(0.5f));
+                await Task.Delay(TimeSpan.FromSeconds(0.3f));
                 settingsContainer.SetActive(false);
                 canClick = true;
             }

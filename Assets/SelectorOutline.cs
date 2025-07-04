@@ -53,15 +53,18 @@ public class SelectorOutline : MonoBehaviour
             Vector2 targetSize = targetRect.sizeDelta;
             Vector2 smoothedSize = EaseOutCubic(currentSize, targetSize, sizeSmoothTime);
             selectorRect.sizeDelta = smoothedSize;
-            if(selectorRect.GetComponent<MPImage>().DrawShape == DrawShape.Rectangle)
+            if(selected.GetComponent<MPImage>() != null) 
             {
-                selectorRect.GetComponent<MPImage>().DrawShape = DrawShape.Rectangle;
-                selectorRect.GetComponent<MPImage>().Rectangle = selected.GetComponent<MPImage>().Rectangle;
-            }
-            else
-            {
-                selectorRect.GetComponent<MPImage>().DrawShape = DrawShape.Circle;
-                selectorRect.GetComponent<MPImage>().Circle = selected.GetComponent<MPImage>().Circle;
+                if (selected.GetComponent<MPImage>().DrawShape == DrawShape.Rectangle)
+                {
+                    selectorRect.GetComponent<MPImage>().DrawShape = DrawShape.Rectangle;
+                    selectorRect.GetComponent<MPImage>().Rectangle = selected.GetComponent<MPImage>().Rectangle;
+                }
+                else
+                {
+                    selectorRect.GetComponent<MPImage>().DrawShape = DrawShape.Circle;
+                    selectorRect.GetComponent<MPImage>().Circle = selected.GetComponent<MPImage>().Circle;
+                }
             }
         }
         else
