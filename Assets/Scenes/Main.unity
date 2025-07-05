@@ -7469,7 +7469,7 @@ MonoBehaviour:
   maxOverallAverageRMSForFactorMapping: 0.1266
   minVolumeThresholdFactor: 0.743
   maxVolumeThresholdFactor: 0.948
-  dynamicVolumeThresholdDbBoost: 0
+  dynamicVolumeThresholdDbBoost: -5.12
   pitchOverTime: []
   AUDIO_TRIM_TIME: 0.2
   guideArrow: {fileID: 0}
@@ -8739,6 +8739,10 @@ PrefabInstance:
     - target: {fileID: 3750105376297575639, guid: d5cd1d0e61a189a4dbdf3c0b7a6e0fc1, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4428890703254789804, guid: d5cd1d0e61a189a4dbdf3c0b7a6e0fc1, type: 3}
+      propertyPath: bufferLengthSeconds
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5474653591904047516, guid: d5cd1d0e61a189a4dbdf3c0b7a6e0fc1, type: 3}
       propertyPath: m_AnchorMax.y

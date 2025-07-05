@@ -1146,15 +1146,16 @@ public struct PitchDetectionJob : IJob
         float detectedFundamental = (float)sampleRate / refinedLag;
 
         // --- 8. Temporal Smoothing (like original currentPitch2) ---
-        float pitchChangeThreshold = 10f; // Hz; adjust as needed
-        float outlierSmoothingFactor = 0.2f; // How much to lerp if change is large; adjust
+        float pitchChangeThreshold = 25f; // Hz; adjust as needed
+        float outlierSmoothingFactor = 0.75f; // How much to lerp if change is large; adjust
 
+        /*
         float previousPitch2 = currentPitch2InOut[0];
         if (previousPitch2 > 0f && Mathf.Abs(detectedFundamental - previousPitch2) > pitchChangeThreshold)
         {
             detectedFundamental = Mathf.Lerp(previousPitch2, detectedFundamental, outlierSmoothingFactor);
         }
-
+        */
         currentPitch2InOut[0] = detectedFundamental; // Update state for next job
         detectedPitchOutput[0] = detectedFundamental; // This is the pitch for this frame
     }

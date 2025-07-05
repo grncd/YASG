@@ -576,11 +576,11 @@ public class AudioClipPitchProcessor : MonoBehaviour
         {
             if(overallSongActivity < 16f)
             {
-                scoreIncrement = (1000000f / singingFrames) * 2.325f;
+                scoreIncrement = (1000000f / singingFrames) * 2.285f;
             }
             else
             {
-                scoreIncrement = (1000000f / singingFrames) * 2.325f * 1.35f;
+                scoreIncrement = (1000000f / singingFrames) * 2.285f * 1.075f;
             }
         }
         else scoreIncrement = 0f;
