@@ -791,11 +791,18 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             if (!string.IsNullOrEmpty(args.Data))
                 UnityEngine.Debug.Log("Output: " + args.Data);
+        };
 
-            if (args.Data.Contains("Traceback"))
+        process.ErrorDataReceived += (sender, args) =>
+        {
+            if (!string.IsNullOrEmpty(args.Data))
             {
-                fail = true;
-                process.Kill();
+                UnityEngine.Debug.LogError("Error: " + args.Data);
+                if (args.Data.Contains("Traceback"))
+                {
+                    fail = true;
+                    process.Kill();
+                }
             }
         };
 
