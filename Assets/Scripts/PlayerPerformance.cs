@@ -259,16 +259,14 @@ public class PlayerPerformance : MonoBehaviour
 
     public void Judge()
     {
-        judgmentGlow.GetComponent<Animator>().StopPlayback();
-        judgmentText.GetComponent<Animator>().StopPlayback();
         if (currentRatio < 0.425f)
         {
             Color temp = new Color(1f, 0.6941f, 0.2784f);
             judgmentGlow.color = temp;
             judgmentText.text = "Meh...";
             judgmentText.color = temp;
-            judgmentGlow.GetComponent<Animator>().Play("JudgmentGlow");
-            judgmentText.GetComponent<Animator>().Play("Judgment");
+            judgmentGlow.GetComponent<Animator>().Play("JudgmentGlow", -1, 0f);
+            judgmentText.GetComponent<Animator>().Play("Judgment", -1, 0f);
             mehParticles.Play();
             mehCount++;
         }
@@ -278,8 +276,8 @@ public class PlayerPerformance : MonoBehaviour
             judgmentGlow.color = temp;
             judgmentText.text = "Great!";
             judgmentText.color = temp;
-            judgmentGlow.GetComponent<Animator>().Play("JudgmentGlow");
-            judgmentText.GetComponent<Animator>().Play("Judgment");
+            judgmentGlow.GetComponent<Animator>().Play("JudgmentGlow", -1, 0f);
+            judgmentText.GetComponent<Animator>().Play("Judgment", -1, 0f);
             greatParticles.Play();
             greatCount++;
         }
@@ -289,8 +287,8 @@ public class PlayerPerformance : MonoBehaviour
             judgmentGlow.color = temp;
             judgmentText.text = "Perfect!";
             judgmentText.color = temp;
-            judgmentGlow.GetComponent<Animator>().Play("JudgmentGlow");
-            judgmentText.GetComponent<Animator>().Play("Judgment");
+            judgmentGlow.GetComponent<Animator>().Play("JudgmentGlow", -1, 0f);
+            judgmentText.GetComponent<Animator>().Play("Judgment", -1, 0f);
             perfectParticles.Play();
             perfectCount++;
         }
@@ -303,7 +301,7 @@ public class PlayerPerformance : MonoBehaviour
         float lineDuration = LyricsHandler.Instance.GetLineDuration(lineIndex);
         float lineEndTime = currentLineStartTime + lineDuration;
 
-        // Assume AudioClipPitchProcessor.Instance exposes the processed audio’s length (the one used to build pitchOverTime)
+        // Assume AudioClipPitchProcessor.Instance exposes the processed audioï¿½s length (the one used to build pitchOverTime)
         // For example, in AudioClipPitchProcessor you could add:
         // public float ProcessedAudioLength { get { return audioClip.length; } }
         float processedAudioLength = AudioClipPitchProcessor.Instance.ProcessedAudioLength;
