@@ -1,4 +1,3 @@
-// ConnectionUI.cs
 using FishNet.Managing;
 using FishNet.Connection;
 using TMPro;
@@ -32,10 +31,6 @@ public class ConnectionUI : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Called by the "Create Room" button's OnClick event.
-    /// This acts as the HOST.
-    /// </summary>
     public void CreateRoom(string ip)
     {
         if (string.IsNullOrWhiteSpace(roomNameInput.text))
@@ -57,20 +52,14 @@ public class ConnectionUI : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Called by the "Join Room" button's OnClick event.
-    /// This acts as a CLIENT.
-    /// </summary>
     public void JoinRoom()
     {
         Debug.Log("ConnectionUI: JoinRoom button clicked.");
 
         PingHost(PlayerPrefs.GetString("masterIp"));
 
-        // Start the client connection. The client does not start a server.
         _networkManager.ClientManager.StartConnection();
 
-        // Switch to the lobby panel to wait for the connection to complete.
         if (lobbyPanel != null)
         {
             lobbyPanel.SetActive(true);
@@ -78,9 +67,6 @@ public class ConnectionUI : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// This callback is only for the HOST, to set the initial room name.
-    /// </summary>
     private void OnClientLoadedStartScenes_TriggerNameSet(NetworkConnection conn, bool asServer)
     {
         _networkManager.SceneManager.OnClientLoadedStartScenes -= OnClientLoadedStartScenes_TriggerNameSet;

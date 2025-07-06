@@ -23,6 +23,7 @@ public class SettingsUI : MonoBehaviour
     public GameObject menuGO;
     public GameObject mainGO;
     public GameObject backButtonMenu;
+    public CanvasGroup mainMenuCanvas;
     private bool fromSettings = false;
     private void Start()
     {
@@ -88,6 +89,7 @@ public class SettingsUI : MonoBehaviour
             if (!onSettings)
             {
                 canClick = false;
+                mainMenuCanvas.alpha = 0f;
                 mainGO.SetActive(true);
                 settingsButton.SetActive(false);
                 backButtonMenu.SetActive(false);
@@ -116,6 +118,7 @@ public class SettingsUI : MonoBehaviour
                     }
                 }
                 SelectorOutline.Instance.defaultObject = settingsButton.gameObject;
+                mainMenuCanvas.alpha = 1f;
                 canClick = false;
                 mainGO.SetActive(false);
                 menuGO.SetActive(true);
