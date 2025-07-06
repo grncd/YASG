@@ -11,6 +11,7 @@ public class AddProfilesPopup : MonoBehaviour
     private Animator animator;
     public GameObject profilePrefab;
     public Transform prefabDestination;
+    public AudioSource clickFX;
     void Awake()
     {
         animator = GetComponent<Animator>();

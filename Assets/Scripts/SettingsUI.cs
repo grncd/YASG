@@ -17,9 +17,12 @@ public class SettingsUI : MonoBehaviour
     public Transform playerContainer;
     private bool canClick = true;
     public GameObject settingsButton;
+    public GameObject menuSettingsButton;
     public AudioClip settingsIn;
     public AudioClip settingsOut;
     public GameObject menuGO;
+    public GameObject mainGO;
+    public GameObject backButtonMenu;
     private bool fromSettings = false;
     private void Start()
     {
@@ -73,6 +76,58 @@ public class SettingsUI : MonoBehaviour
                 settingsButton.GetComponent<Animator>().Play("SettingsOut");
                 await Task.Delay(TimeSpan.FromSeconds(0.3f));
                 settingsContainer.SetActive(false);
+                canClick = true;
+            }
+        }
+    }
+
+    public async void ToggleSettingsMenu()
+    {
+        if (canClick)
+        {
+            if (!onSettings)
+            {
+                canClick = false;
+                mainGO.SetActive(true);
+                settingsButton.SetActive(false);
+                backButtonMenu.SetActive(false);
+                ProfileDisplay.Instance.hasSettingsBeenOpened = true;
+                onSettings = !onSettings;
+                SelectorOutline.Instance.defaultObject = settingsContainer.transform.GetChild(0).GetChild(0).gameObject;
+                settingsContainer.SetActive(true);
+                settingsContainer.GetComponent<Animator>().Play("FadeIn");
+                menuSettingsButton.GetComponent<Animator>().Play("SettingsIn");
+                menuSettingsButton.GetComponent<AudioSource>().clip = settingsIn;
+                menuSettingsButton.GetComponent<AudioSource>().Play();
+                await Task.Delay(TimeSpan.FromSeconds(0.3f));
+                menuGO.SetActive(false);
+                canClick = true;
+            }
+            else
+            {
+
+                List<Profile> profiles = ProfileManager.Instance.GetActiveProfiles();
+                foreach (Profile profile in profiles)
+                {
+                    if (profile.microphone == "Default")
+                    {
+                        AlertManager.Instance.ShowWarning("There are micless profiles.", "One of your profiles has no microphone selected. If you aren't going to use said profile, please disable it.", "Dismiss");
+                        return;
+                    }
+                }
+                SelectorOutline.Instance.defaultObject = settingsButton.gameObject;
+                canClick = false;
+                mainGO.SetActive(false);
+                menuGO.SetActive(true);
+                onSettings = !onSettings;
+                menuSettingsButton.GetComponent<AudioSource>().clip = settingsOut;
+                menuSettingsButton.GetComponent<AudioSource>().Play();
+                settingsContainer.GetComponent<Animator>().Play("FadeOut");
+                menuSettingsButton.GetComponent<Animator>().Play("SettingsOut");
+                await Task.Delay(TimeSpan.FromSeconds(0.3f));
+                settingsContainer.SetActive(false);
+                settingsButton.SetActive(true);
+                backButtonMenu.SetActive(true);
                 canClick = true;
             }
         }
