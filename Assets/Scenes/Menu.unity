@@ -1953,7 +1953,7 @@ MonoBehaviour:
   menuGO: {fileID: 1890006386}
   mainGO: {fileID: 1137172757}
   backButtonMenu: {fileID: 916896816}
-  mainMenuCanvas: {fileID: 0}
+  mainMenuParticles: {fileID: 1093214390}
 --- !u!1001 &129468199
 PrefabInstance:
   m_ObjectHideFlags: 0

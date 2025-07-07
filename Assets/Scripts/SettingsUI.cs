@@ -23,7 +23,7 @@ public class SettingsUI : MonoBehaviour
     public GameObject menuGO;
     public GameObject mainGO;
     public GameObject backButtonMenu;
-    public CanvasGroup mainMenuCanvas;
+    public ParticleSystem mainMenuParticles;
     private bool fromSettings = false;
     private void Start()
     {
@@ -89,7 +89,7 @@ public class SettingsUI : MonoBehaviour
             if (!onSettings)
             {
                 canClick = false;
-                StartCoroutine(FadeCanvasGroup(mainMenuCanvas, mainMenuCanvas.alpha, 0f, 0.5f));
+                StartCoroutine(FadeParticleSystem(mainMenuParticles, 1f, 0f, 0.2f));
                 mainGO.SetActive(true);
                 settingsButton.SetActive(false);
                 backButtonMenu.SetActive(false);
@@ -118,7 +118,7 @@ public class SettingsUI : MonoBehaviour
                     }
                 }
                 SelectorOutline.Instance.defaultObject = settingsButton.gameObject;
-                StartCoroutine(FadeCanvasGroup(mainMenuCanvas, mainMenuCanvas.alpha, 1f, 0.5f));
+                StartCoroutine(FadeParticleSystem(mainMenuParticles, 0f, 1f, 0.2f));
                 canClick = false;
                 mainGO.SetActive(false);
                 menuGO.SetActive(true);
@@ -136,8 +136,9 @@ public class SettingsUI : MonoBehaviour
         }
     }
 
-    private IEnumerator FadeCanvasGroup(CanvasGroup cg, float start, float end, float lerpTime = 1)
+    private IEnumerator FadeParticleSystem(ParticleSystem ps, float start, float end, float lerpTime = 1)
     {
+        var main = ps.main;
         float timeStartedLerping = Time.time;
         float timeSinceStarted = Time.time - timeStartedLerping;
         float percentageComplete = timeSinceStarted / lerpTime;
@@ -149,7 +150,7 @@ public class SettingsUI : MonoBehaviour
 
             float currentValue = Mathf.Lerp(start, end, percentageComplete);
 
-            cg.alpha = currentValue;
+            main.startColor = new Color(main.startColor.color.r, main.startColor.color.g, main.startColor.color.b, currentValue);
 
             if (percentageComplete >= 1) break;
 
