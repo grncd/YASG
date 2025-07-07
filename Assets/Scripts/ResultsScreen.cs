@@ -23,6 +23,7 @@ public class ResultsScreen : MonoBehaviour
         public TextMeshProUGUI mehsText;
         public MPImage progressBar;
         public TextMeshProUGUI levelText;
+        public ParticleSystem levelUpParticles;
     }
 
     [Header("UI Setup")]
@@ -196,51 +197,68 @@ public class ResultsScreen : MonoBehaviour
     // ==========================================================
     private IEnumerator AnimatePlayerXP(PlayerResultPanel panel, int finalLevel, float fromProgress, float toProgress, bool leveledUp)
     {
-        // Animate the progress bar and level text for a given panel.
-        // For simplicity, we can show the final level immediately.
-        panel.levelText.text = finalLevel.ToString();
+        float duration = 1.5f;
+        panel.levelText.text = leveledUp ? (finalLevel - 1).ToString() : finalLevel.ToString();
         panel.progressBar.fillAmount = fromProgress;
 
         yield return new WaitForSeconds(3.5f);
 
-        if (leveledUp) levelUpFX.Play();
-        else levelFX.Play();
-
-        float duration = 1.5f;
-        float elapsed = 0f;
-
         if (leveledUp)
         {
-            // Animate to 100%
-            float firstPhaseDuration = duration * (1f - fromProgress); // Duration based on how much is left
-            while (elapsed < firstPhaseDuration)
+            // --- Phase 1: Animate from current progress to 100% ---
+            float elapsed = 0f;
+            float firstPhaseDuration = duration * (1f - fromProgress);
+            if (firstPhaseDuration > 0)
             {
-                panel.progressBar.fillAmount = Mathf.Lerp(fromProgress, 1f, elapsed / firstPhaseDuration);
-                elapsed += Time.deltaTime;
-                yield return null;
+                levelFX.Play();
+                while (elapsed < firstPhaseDuration)
+                {
+                    float t = elapsed / firstPhaseDuration;
+                    panel.progressBar.fillAmount = Mathf.Lerp(fromProgress, 1f, EaseInOutSine(t));
+                    elapsed += Time.deltaTime;
+                    yield return null;
+                }
             }
-            panel.progressBar.fillAmount = 0f; // Reset for the new level
-            elapsed = 0f; // Reset timer for the next phase
 
-            // Animate from 0% to the new progress
+            // --- Level Up Moment ---
+            panel.progressBar.fillAmount = 0f; // Reset for the new level
+            panel.levelText.text = finalLevel.ToString();
+            if (panel.levelUpParticles != null) panel.levelUpParticles.Play();
+            if (levelUpFX != null) levelUpFX.Play();
+
+            yield return new WaitForSeconds(0.1f); // Small pause for effect
+
+            // --- Phase 2: Animate from 0% to the new progress ---
+            elapsed = 0f;
             float secondPhaseDuration = duration * toProgress;
-            while (elapsed < secondPhaseDuration)
+            if (secondPhaseDuration > 0)
             {
-                panel.progressBar.fillAmount = Mathf.Lerp(0f, toProgress, elapsed / secondPhaseDuration);
-                elapsed += Time.deltaTime;
-                yield return null;
+                if (!levelFX.isPlaying) levelFX.Play();
+                while (elapsed < secondPhaseDuration)
+                {
+                    float t = elapsed / secondPhaseDuration;
+                    panel.progressBar.fillAmount = Mathf.Lerp(0f, toProgress, EaseInOutSine(t));
+                    elapsed += Time.deltaTime;
+                    yield return null;
+                }
             }
         }
         else
         {
+            // --- Standard Animation: fromProgress to toProgress ---
+            float elapsed = 0f;
+            if (!levelFX.isPlaying) levelFX.Play();
             while (elapsed < duration)
             {
-                panel.progressBar.fillAmount = Mathf.Lerp(fromProgress, toProgress, elapsed / duration);
+                float t = elapsed / duration;
+                panel.progressBar.fillAmount = Mathf.Lerp(fromProgress, toProgress, EaseInOutSine(t));
                 elapsed += Time.deltaTime;
                 yield return null;
             }
         }
-        panel.progressBar.fillAmount = toProgress;
+
+        panel.progressBar.fillAmount = toProgress; // Ensure it ends exactly at the target
+        if (levelFX.isPlaying) levelFX.Stop();
     }
 
     private IEnumerator AnimateStars(Transform starParent, int starCount)
@@ -298,6 +316,11 @@ public class ResultsScreen : MonoBehaviour
             totalXp += GetRequiredXPForLevel(i);
         }
         return totalXp;
+    }
+
+    private float EaseInOutSine(float t)
+    {
+        return -(Mathf.Cos(Mathf.PI * t) - 1) / 2;
     }
 
     public void BackToMenu()

@@ -82,7 +82,7 @@ MonoBehaviour:
   _teleportThreshold: 1
   <PrefabId>k__BackingField: 36
   <SpawnableCollectionId>k__BackingField: 0
-  <AssetPathHash>k__BackingField: 15845183709739124870
+  <AssetPathHash>k__BackingField: 1135307130674619079
   <SceneId>k__BackingField: 0
   SerializedTransformProperties:
     Position: {x: 0, y: 0, z: 0}
@@ -110,6 +110,8 @@ MonoBehaviour:
   _axes: 3
   _chancePerAxes: 0.8
   _rotationChance: 0.33
+  _delayBetweenMovements: 1.5
+  _yOffsetPerInstance: 0
   _randomMovement: 1
   _goalDatas: []
   _moveInUpdate: 0
