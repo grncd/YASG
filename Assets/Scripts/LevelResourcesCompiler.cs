@@ -387,8 +387,15 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             status.text = "Already downloaded. Loading main scene...";
             PlayerPrefs.SetInt("saved",1);
+            if (!File.Exists(filePath))
+            {
+                UnityEngine.Debug.LogWarning("corr.json not found. Creating a new one.");
+                var newData = new CorrespondenceData2();
+                string newJsonContent = JsonUtility.ToJson(newData, true);
+                File.WriteAllText(filePath, newJsonContent);
+            }
             string jsonContent = File.ReadAllText(filePath);
-            CorrespondenceData data = JsonUtility.FromJson<CorrespondenceData>(jsonContent);
+            CorrespondenceData2 data = JsonUtility.FromJson<CorrespondenceData2>(jsonContent);
 
             if (data != null && data.correspondences != null)
             {
