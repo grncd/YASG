@@ -89,7 +89,7 @@ public class SettingsUI : MonoBehaviour
             if (!onSettings)
             {
                 canClick = false;
-                mainMenuCanvas.alpha = 0f;
+                StartCoroutine(FadeCanvasGroup(mainMenuCanvas, mainMenuCanvas.alpha, 0f, 0.5f));
                 mainGO.SetActive(true);
                 settingsButton.SetActive(false);
                 backButtonMenu.SetActive(false);
@@ -118,7 +118,7 @@ public class SettingsUI : MonoBehaviour
                     }
                 }
                 SelectorOutline.Instance.defaultObject = settingsButton.gameObject;
-                mainMenuCanvas.alpha = 1f;
+                StartCoroutine(FadeCanvasGroup(mainMenuCanvas, mainMenuCanvas.alpha, 1f, 0.5f));
                 canClick = false;
                 mainGO.SetActive(false);
                 menuGO.SetActive(true);
@@ -133,6 +133,27 @@ public class SettingsUI : MonoBehaviour
                 backButtonMenu.SetActive(true);
                 canClick = true;
             }
+        }
+    }
+
+    private IEnumerator FadeCanvasGroup(CanvasGroup cg, float start, float end, float lerpTime = 1)
+    {
+        float timeStartedLerping = Time.time;
+        float timeSinceStarted = Time.time - timeStartedLerping;
+        float percentageComplete = timeSinceStarted / lerpTime;
+
+        while (true)
+        {
+            timeSinceStarted = Time.time - timeStartedLerping;
+            percentageComplete = timeSinceStarted / lerpTime;
+
+            float currentValue = Mathf.Lerp(start, end, percentageComplete);
+
+            cg.alpha = currentValue;
+
+            if (percentageComplete >= 1) break;
+
+            yield return new WaitForEndOfFrame();
         }
     }
 

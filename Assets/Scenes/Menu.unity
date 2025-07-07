@@ -1953,6 +1953,7 @@ MonoBehaviour:
   menuGO: {fileID: 1890006386}
   mainGO: {fileID: 1137172757}
   backButtonMenu: {fileID: 916896816}
+  mainMenuCanvas: {fileID: 0}
 --- !u!1001 &129468199
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -21434,6 +21435,7 @@ GameObject:
   - component: {fileID: 1030584431}
   - component: {fileID: 1030584433}
   - component: {fileID: 1030584432}
+  - component: {fileID: 1030584434}
   m_Layer: 6
   m_Name: BG
   m_TagString: Untagged
@@ -21496,6 +21498,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1030584430}
   m_CullTransparentMesh: 1
+--- !u!114 &1030584434
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1030584430}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 15bfca0cfe4ea18428fcfe05ebb80f87, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1041571486
 GameObject:
   m_ObjectHideFlags: 0
@@ -36589,6 +36603,7 @@ GameObject:
   - component: {fileID: 1667790198}
   - component: {fileID: 1667790197}
   - component: {fileID: 1667790199}
+  - component: {fileID: 1667790200}
   m_Layer: 6
   m_Name: BGDarken
   m_TagString: Untagged
@@ -36675,6 +36690,18 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &1667790200
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1667790195}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 15bfca0cfe4ea18428fcfe05ebb80f87, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1673499837
 GameObject:
   m_ObjectHideFlags: 0
