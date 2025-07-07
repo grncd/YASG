@@ -54,6 +54,8 @@ public class LevelResourcesCompiler : MonoBehaviour
     private float elapsedFakeLoading = 0f;
     public GameObject starHSPrefab;
 
+    private int _originalVSyncCount;
+
     public static LevelResourcesCompiler Instance { get; private set; }
 
     private void Awake()
@@ -496,9 +498,17 @@ public class LevelResourcesCompiler : MonoBehaviour
         bgDarken.Play("Darken");
         await Task.Delay(TimeSpan.FromMilliseconds(1010));
         bgGM.SetActive(false);
+
+        // Store original VSync setting and disable it, then set target FPS
+        _originalVSyncCount = QualitySettings.vSyncCount;
+        QualitySettings.vSyncCount = 0;
         Application.targetFrameRate = 30;
 
         await RunPythonDirectly();
+
+        // Restore original settings
+        Application.targetFrameRate = -1;
+        QualitySettings.vSyncCount = _originalVSyncCount;
 
         currentPercentage = 0f;
 
@@ -543,12 +553,10 @@ public class LevelResourcesCompiler : MonoBehaviour
             // 4. Run python inference
             File.Delete(Path.ChangeExtension(mp3Path,".wav")); // saves storage
             splittingVocals = true;
-            Application.targetFrameRate = 5;
             while (splittingVocals)
             {
                 await Task.Delay(1000);
             }
-            Application.targetFrameRate = -1;
         }
         else
         {
