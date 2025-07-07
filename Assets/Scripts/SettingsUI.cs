@@ -89,7 +89,7 @@ public class SettingsUI : MonoBehaviour
             if (!onSettings)
             {
                 canClick = false;
-                StartCoroutine(FadeParticleSystem(mainMenuParticles, 1f, 0f, 0.2f));
+                StartCoroutine(FadeParticleSystem(mainMenuParticles, 0.06666667f, 0f, 0.2f));
                 mainGO.SetActive(true);
                 settingsButton.SetActive(false);
                 backButtonMenu.SetActive(false);
@@ -118,7 +118,7 @@ public class SettingsUI : MonoBehaviour
                     }
                 }
                 SelectorOutline.Instance.defaultObject = settingsButton.gameObject;
-                StartCoroutine(FadeParticleSystem(mainMenuParticles, 0f, 1f, 0.2f));
+                StartCoroutine(FadeParticleSystem(mainMenuParticles, 0f, 0.06666667f, 0.2f));
                 canClick = false;
                 mainGO.SetActive(false);
                 menuGO.SetActive(true);
@@ -136,26 +136,45 @@ public class SettingsUI : MonoBehaviour
         }
     }
 
-    private IEnumerator FadeParticleSystem(ParticleSystem ps, float start, float end, float lerpTime = 1)
+    private IEnumerator FadeParticleSystem(ParticleSystem ps, float startAlpha, float endAlpha, float duration)
     {
         var main = ps.main;
+        ParticleSystem.Particle[] particles = new ParticleSystem.Particle[main.maxParticles];
+
+        Color originalColor = main.startColor.color;
+
         float timeStartedLerping = Time.time;
-        float timeSinceStarted = Time.time - timeStartedLerping;
-        float percentageComplete = timeSinceStarted / lerpTime;
 
-        while (true)
+        while (Time.time < timeStartedLerping + duration)
         {
-            timeSinceStarted = Time.time - timeStartedLerping;
-            percentageComplete = timeSinceStarted / lerpTime;
+            float timeSinceStarted = Time.time - timeStartedLerping;
+            float percentageComplete = timeSinceStarted / duration;
+            float currentAlpha = Mathf.Lerp(startAlpha, endAlpha, percentageComplete);
 
-            float currentValue = Mathf.Lerp(start, end, percentageComplete);
+            main.startColor = new Color(originalColor.r, originalColor.g, originalColor.b, currentAlpha);
 
-            main.startColor = new Color(main.startColor.color.r, main.startColor.color.g, main.startColor.color.b, currentValue);
-
-            if (percentageComplete >= 1) break;
+            int particleCount = ps.GetParticles(particles);
+            for (int i = 0; i < particleCount; i++)
+            {
+                Color32 particleColor = particles[i].startColor;
+                particleColor.a = (byte)(currentAlpha * 255);
+                particles[i].startColor = particleColor;
+            }
+            ps.SetParticles(particles, particleCount);
 
             yield return new WaitForEndOfFrame();
         }
+
+        main.startColor = new Color(originalColor.r, originalColor.g, originalColor.b, endAlpha);
+
+        int finalParticleCount = ps.GetParticles(particles);
+        for (int i = 0; i < finalParticleCount; i++)
+        {
+            Color32 particleColor = particles[i].startColor;
+            particleColor.a = (byte)(endAlpha * 255);
+            particles[i].startColor = particleColor;
+        }
+        ps.SetParticles(particles, finalParticleCount);
     }
 
     private void Update()
