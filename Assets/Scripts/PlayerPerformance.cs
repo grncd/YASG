@@ -226,12 +226,13 @@ public class PlayerPerformance : MonoBehaviour
         {
             perfect = true;
             transform.GetChild(4).GetComponent<Animator>().Play("1milli");
-            transform.GetChild(4).GetComponent<TextMeshProUGUI>().color = new Color(1f, 0.7100834f, 0f);
-            transform.GetChild(4).GetChild(0).GetComponent<MPImage>().color = new Color(1f, 0.7100834f, 0f);
+            transform.GetChild(4).GetComponent<TextMeshProUGUI>().color = new Color(1f, 0.7905534f, 0f);
+            transform.GetChild(4).GetChild(0).GetComponent<MPImage>().color = new Color(1f, 0.7905534f, 0f);
+            transform.GetChild(4).GetChild(1).gameObject.SetActive(true);
             foreach (Transform child in transform.GetChild(5))
             {
-                child.GetComponent<MPImage>().color = new Color(1f, 0.7100834f, 0f);
-                child.GetChild(0).GetComponent<MPImage>().color = new Color(1f, 0.7100834f, 0f);
+                child.GetComponent<MPImage>().color = new Color(1f, 0.7905534f, 0f);
+                child.GetChild(0).GetComponent<MPImage>().color = new Color(1f, 0.7905534f, 0f);
             }
 
             fxControl.clip = perfectFX;
