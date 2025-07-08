@@ -22,6 +22,7 @@ public class Timeout : MonoBehaviour
 
     public void CallTimeout(float seconds)
     {
+        progressImg.fillAmount = 0f;
         targetTime = seconds;
         elapsedTime = 0f;
         waiting = true;
