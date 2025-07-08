@@ -998,7 +998,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
             {
                 if (slider.gameObject.name == "MainPitch")
                 {
-                    pitchSlider.value = minFrequency;
+                    slider.value = minFrequency;
                 }
             }
 

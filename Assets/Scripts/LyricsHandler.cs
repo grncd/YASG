@@ -24,7 +24,6 @@ public class LyricsHandler : MonoBehaviour
     public List<(float time, string line)> parsedLyrics = new List<(float, string)>();
     private List<float> lineDurations = new List<float>();
     public AudioClipPitchProcessor APP;
-    public PlayerPerformance PP;
     private float processedAudioLength;
     public Slider progressTime;
     private string songName;
@@ -109,7 +108,11 @@ public class LyricsHandler : MonoBehaviour
         if (canPause && PlayerPrefs.GetInt("multiplayer") == 0)
         {
             paused = !paused;
-            PP.Pause();
+            PlayerPerformance[] allPlayers = FindObjectsOfType<PlayerPerformance>();
+            foreach (PlayerPerformance player in allPlayers)
+            {
+                player.Pause();
+            }
             APP.Pause();
             if (paused)
             {
@@ -156,8 +159,6 @@ public class LyricsHandler : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Escape) && canPause && PlayerPrefs.GetInt("multiplayer") == 0)
         {
             Pause();
-            PP.Pause();
-            APP.Pause();
         }
         float elapsedTime = Time.time - startTime;
         
