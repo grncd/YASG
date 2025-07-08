@@ -53,6 +53,10 @@ public class LevelResourcesCompiler : MonoBehaviour
     private bool fakeLoading = false;
     private float elapsedFakeLoading = 0f;
     public GameObject starHSPrefab;
+    public AudioClip stage1FX;
+    public AudioClip stage2FX;
+    public AudioClip stage3FX;
+    public GameObject loadingFX;
 
     private int _originalVSyncCount;
 
@@ -113,6 +117,8 @@ public class LevelResourcesCompiler : MonoBehaviour
             progressBar.gameObject.SetActive(true);
             elapsedFakeLoading += Time.deltaTime;
             progressBar.value = elapsedFakeLoading / 25f;
+            GameObject progress2 = loadingSecond.transform.GetChild(4).GetChild(1).gameObject;
+            progress2.GetComponent<Slider>().value = elapsedFakeLoading / 25f;
         }
         else if (!fakeLoading && elapsedFakeLoading != 0f)
         {
@@ -127,7 +133,8 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
         if (splittingVocals)
         {
-            System.Threading.Thread.Sleep(400);
+            GameObject progress3 = loadingSecond.transform.GetChild(4).GetChild(2).gameObject;
+            progress3.GetComponent<Slider>().value = progressBar.value;
         }
         if (!string.IsNullOrEmpty(extractedFileName))
         {
@@ -147,7 +154,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             progressBar.gameObject.SetActive(true);
             progressBar.value = currentPercentage;
         }
-        //UnityEngine.Debug.Log(currentPercentage);
+        
     }
 
     public bool CheckFile(string name)
@@ -441,7 +448,19 @@ public class LevelResourcesCompiler : MonoBehaviour
         loadingSecond.SetActive(true);
         loadingFirst.SetActive(false);
         BeginLoading();
+        loadingFX.SetActive(true);
         status.text = "Fetching lyrics...";
+
+        GameObject stage1 = loadingSecond.transform.GetChild(4).GetChild(3).GetChild(0).gameObject;
+        GameObject stage2 = loadingSecond.transform.GetChild(4).GetChild(3).GetChild(1).gameObject;
+        GameObject stage3 = loadingSecond.transform.GetChild(4).GetChild(3).GetChild(2).gameObject;
+        GameObject stage4 = loadingSecond.transform.GetChild(4).GetChild(3).GetChild(3).gameObject;
+        GameObject progress1 = loadingSecond.transform.GetChild(4).GetChild(0).gameObject;
+        GameObject progress2 = loadingSecond.transform.GetChild(4).GetChild(1).gameObject;
+        GameObject progress3 = loadingSecond.transform.GetChild(4).GetChild(2).gameObject;
+
+        stage1.transform.GetChild(1).gameObject.SetActive(true);
+
         ProcessStartInfo psi = new ProcessStartInfo
         {
             FileName = dataPath+"\\getlyrics.bat",
@@ -461,6 +480,7 @@ public class LevelResourcesCompiler : MonoBehaviour
                 UnityEngine.Debug.Log("Output: " + args.Data);
             if (args.Data.Contains("some tracks"))
             {
+                loadingFX.SetActive(false);
                 lyricsError = true;
                 lyricsError2 = true;
                 return;
@@ -477,10 +497,24 @@ public class LevelResourcesCompiler : MonoBehaviour
         UnityEngine.Debug.Log("DONE");
         if (lyricsError2)
         {
+            loadingFX.SetActive(false);
             lyricsError2 = false;
             return;
         }
+
+        stage1.transform.GetChild(1).gameObject.SetActive(false);
+        stage1.transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.3443396f, 1f, 0.3759922f);
+        stage1.transform.GetChild(2).GetComponent<TextMeshProUGUI>().color = new Color(0.3443396f, 1f, 0.3759922f);
+        stage1.GetComponent<MPImage>().color = new Color(0.1116768f, 0.333f, 0.1218292f);
+        stage1.GetComponent<MPImage>().OutlineColor = new Color(0.313548f, 0.901f, 0.3404953f);
+        stage1.GetComponent<Animator>().Play("Done");
+        progress1.GetComponent<Slider>().value = 1f;
+        progress1.transform.GetChild(1).GetChild(0).GetComponent<MPImage>().color = new Color(0.313548f, 0.901f, 0.3404953f);
+        GetComponent<AudioSource>().clip = stage1FX;
+        GetComponent<AudioSource>().Play();
+
         status.text = "Downloading song...";
+        stage2.transform.GetChild(1).gameObject.SetActive(true);
 
         fakeLoading = true;
         bool success = await AttemptDownload(url);
@@ -489,11 +523,25 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             alertManager.ShowError("An error occured downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
             LoadingDone();
+            loadingFX.SetActive(false);
             mainPanel.SetActive(true);
             return;
         }
 
+        stage2.transform.GetChild(1).gameObject.SetActive(false);
+        stage2.transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.3443396f, 1f, 0.3759922f);
+        stage2.transform.GetChild(2).GetComponent<TextMeshProUGUI>().color = new Color(0.3443396f, 1f, 0.3759922f);
+        stage2.GetComponent<MPImage>().color = new Color(0.1116768f, 0.333f, 0.1218292f);
+        stage2.GetComponent<MPImage>().OutlineColor = new Color(0.313548f, 0.901f, 0.3404953f);
+        stage2.GetComponent<Animator>().Play("Done");
+        progress2.GetComponent<Slider>().value = 1f;
+        progress2.transform.GetChild(1).GetChild(0).GetComponent<MPImage>().color = new Color(0.313548f, 0.901f, 0.3404953f);
+        GetComponent<AudioSource>().clip = stage2FX;
+        GetComponent<AudioSource>().Play();
+
         status.text = "Splitting vocals...";
+        splittingVocals = true;
+        stage3.transform.GetChild(1).gameObject.SetActive(true);
 
         bgDarken.Play("Darken");
         await Task.Delay(TimeSpan.FromMilliseconds(1010));
@@ -510,15 +558,30 @@ public class LevelResourcesCompiler : MonoBehaviour
         Application.targetFrameRate = -1;
         QualitySettings.vSyncCount = _originalVSyncCount;
 
+        splittingVocals = false;
         currentPercentage = 0f;
 
         FavoritesManager.AddDownload(name, artist, length, cover, url);
         //if(PlayerPrefs.GetInt("multiplayer") == 1)
         //{
-            //status.text = "Sending files to players...";
-            //await Task.Delay(TimeSpan.FromMilliseconds(2500));
+        //status.text = "Sending files to players...";
+        //await Task.Delay(TimeSpan.FromMilliseconds(2500));
         //}
+
+        stage3.transform.GetChild(1).gameObject.SetActive(false);
+        stage3.transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.3443396f, 1f, 0.3759922f);
+        stage3.transform.GetChild(2).GetComponent<TextMeshProUGUI>().color = new Color(0.3443396f, 1f, 0.3759922f);
+        stage3.GetComponent<MPImage>().color = new Color(0.1116768f, 0.333f, 0.1218292f);
+        stage3.GetComponent<MPImage>().OutlineColor = new Color(0.313548f, 0.901f, 0.3404953f);
+        stage3.GetComponent<Animator>().Play("Done");
+        progress3.GetComponent<Slider>().value = 1f;
+        progress3.transform.GetChild(1).GetChild(0).GetComponent<MPImage>().color = new Color(0.313548f, 0.901f, 0.3404953f);
+        GetComponent<AudioSource>().clip = stage3FX;
+        GetComponent<AudioSource>().Play();
+
         status.text = "Loading Main Scene...";
+        stage4.transform.GetChild(1).gameObject.SetActive(true);
+        await Task.Delay(TimeSpan.FromMilliseconds(1010));
         if (PlayerPrefs.GetInt("multiplayer") == 0)
         {
             LoadMain();

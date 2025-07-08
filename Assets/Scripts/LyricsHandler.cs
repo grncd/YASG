@@ -41,6 +41,7 @@ public class LyricsHandler : MonoBehaviour
     private bool canPause = false;
     public AudioSource pauseFX;
     public AudioSource unpauseFX;
+    public GameObject stagesGO;
 
     private int currentLineIndex = 0;
 
@@ -98,6 +99,10 @@ public class LyricsHandler : MonoBehaviour
         if (!File.Exists($"{PlayerPrefs.GetString("dataPath")}\\downloads\\" + currentSong + ".txt"))
         {
             System.IO.File.Move($"{PlayerPrefs.GetString("dataPath")}\\downloads\\" + currentSong + ".lrc", $"{PlayerPrefs.GetString("dataPath")}\\downloads\\" + currentSong + ".txt");
+        }
+        if(PlayerPrefs.GetInt("saved") == 1)
+        {
+            stagesGO.SetActive(false);
         }
         LoadTextFile($"{PlayerPrefs.GetString("dataPath")}\\downloads\\" + currentSong + ".txt");
         ParseLyrics();

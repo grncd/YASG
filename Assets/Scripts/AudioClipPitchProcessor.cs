@@ -18,6 +18,8 @@ using Unity.Mathematics; // For math functions (Burst-compatible)
 using Unity.Burst;       // For [BurstCompile]
 using Unity.Jobs;        // For IJobParallelFor, JobHandle
 using Unity.VisualScripting;
+using MPUIKIT;
+using UnityEditor;
 // --- JOB SYSTEM & BURST ADDITIONS END ---
 
 public class AudioClipPitchProcessor : MonoBehaviour
@@ -30,7 +32,9 @@ public class AudioClipPitchProcessor : MonoBehaviour
     public Slider pitchSlider3;
     public Slider pitchSlider4;
     public Slider pitchSliderDBG;
-    public Slider progressBar; // <<< ADDED: Assign your progress bar Slider here
+    public Slider progressBar;
+    public GameObject loadingFX;
+    public AudioSource stage4FX;
 
     [Header("Audio Clip Settings")]
     public AudioClip audioClip; // Vocal track for analysis
@@ -300,7 +304,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
             UnityEngine.Debug.LogError("Vocal file path is empty! Cannot proceed.");
             processingProgress = 1f; // <<< MODIFIED: Indicate completion (failure)
             if (progressBar != null) progressBar.value = processingProgress;
-            loadingScreen.SetActive(false);
+            StartCoroutine(FadeOutLoadingScreen());
             yield break;
         }
 
@@ -320,7 +324,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
             {
                 UnityEngine.Debug.LogError($"Failed to load vocal audio: {wwwVocal.error} from path: {urlVocal}");
                 processingProgress = 1f; // <<< MODIFIED: Indicate completion (failure)
-                loadingScreen.SetActive(false);
+                StartCoroutine(FadeOutLoadingScreen());
                 yield break;
             }
             audioClip = DownloadHandlerAudioClip.GetContent(wwwVocal);
@@ -328,7 +332,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
             {
                 UnityEngine.Debug.LogError($"Vocal AudioClip is null after download from: {urlVocal}. Cannot proceed.");
                 processingProgress = 1f; // <<< MODIFIED: Indicate completion (failure)
-                loadingScreen.SetActive(false);
+                StartCoroutine(FadeOutLoadingScreen());
                 yield break;
             }
             UnityEngine.Debug.Log($"Vocal audio loaded successfully: {audioClip.name}, Length: {audioClip.length}s");
@@ -394,7 +398,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
         {
             UnityEngine.Debug.LogError("[AudioClipPitchProcessor] No AudioClip (vocals) assigned for analysis! Aborting.");
             SetPhaseProgress(1f);
-            loadingScreen.SetActive(false);
+            StartCoroutine(FadeOutLoadingScreen());
             return;
         }
         SetPhaseProgress(0.02f);
@@ -417,7 +421,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
         {
             UnityEngine.Debug.LogError("[AudioClipPitchProcessor] audioSamples are null or empty after ExtractAudioData. Aborting processing.");
             SetPhaseProgress(1f);
-            loadingScreen.SetActive(false);
+            StartCoroutine(FadeOutLoadingScreen());
             return;
         }
 
@@ -458,7 +462,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
             {
                 UnityEngine.Debug.LogError("[AudioClipPitchProcessor] audioSamples are null or empty after ExtractAudioData. Aborting processing.");
                 SetPhaseProgress(1f);
-                loadingScreen.SetActive(false);
+                StartCoroutine(FadeOutLoadingScreen());
                 return;
             }
 
@@ -549,7 +553,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
         {
             UnityEngine.Debug.LogError("[AudioClipPitchProcessor] pitchOverTime is null or empty after processing/loading. Cannot calculate score or play.");
             SetPhaseProgress(1f);
-            loadingScreen.SetActive(false);
+            StartCoroutine(FadeOutLoadingScreen());
             return;
         }
 
@@ -589,7 +593,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
         {
             UnityEngine.Debug.LogError("[AudioClipPitchProcessor] audioClipFull is null before trimming. Playback will fail.");
             SetPhaseProgress(1f);
-            loadingScreen.SetActive(false);
+            StartCoroutine(FadeOutLoadingScreen());
             return;
         }
 
@@ -597,8 +601,28 @@ public class AudioClipPitchProcessor : MonoBehaviour
         if (trimmedClip == null) trimmedClip = audioClipFull;
         audioSource.clip = trimmedClip;;
 
+        loadingFX.SetActive(false);
+        progressBar.value = 1f;
+        GameObject stage4 = loadingScreen.transform.GetChild(0).GetChild(4).GetChild(3).GetChild(3).gameObject;
+        GameObject progress3 = loadingScreen.transform.GetChild(0).GetChild(4).GetChild(2).gameObject;
+        stage4.transform.GetChild(1).gameObject.SetActive(false);
+        stage4.transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.3443396f, 1f, 0.3759922f);
+        stage4.transform.GetChild(2).GetComponent<TextMeshProUGUI>().color = new Color(0.3443396f, 1f, 0.3759922f);
+        stage4.GetComponent<MPImage>().color = new Color(0.1116768f, 0.333f, 0.1218292f);
+        stage4.GetComponent<MPImage>().OutlineColor = new Color(0.313548f, 0.901f, 0.3404953f);
+        stage4.GetComponent<Animator>().Play("Done");
+        progress3.GetComponent<Slider>().value = 1f;
+        progress3.transform.GetChild(1).GetChild(0).GetComponent<MPImage>().color = new Color(0.313548f, 0.901f, 0.3404953f);
+        stage4FX.Play();
+        progressBar.value = 1f;
+        await Task.Delay(TimeSpan.FromSeconds(0.1f));
+        progressBar.value = 1f;
+        await Task.Delay(TimeSpan.FromSeconds(0.1f));
+        progressBar.value = 1f;
+        await Task.Delay(TimeSpan.FromSeconds(0.8f));
+
         StartCoroutine(FadeOutAndStop(musicSource, 2f));
-        loadingScreen.SetActive(false);
+        StartCoroutine(FadeOutLoadingScreen());
 
         await Task.Delay(TimeSpan.FromSeconds(1.2f));
         if(PlayerPrefs.GetInt("multiplayer") == 1)
@@ -745,6 +769,28 @@ public class AudioClipPitchProcessor : MonoBehaviour
         }
         sourceToFade.Stop();
         sourceToFade.volume = startVolume;
+    }
+
+    private IEnumerator FadeOutLoadingScreen()
+    {
+        CanvasGroup canvasGroup = loadingScreen.GetComponent<CanvasGroup>();
+        if (canvasGroup == null)
+        {
+            canvasGroup = loadingScreen.AddComponent<CanvasGroup>();
+        }
+
+        float duration = 1f;
+        float currentTime = 0f;
+        float startAlpha = canvasGroup.alpha;
+
+        while (currentTime < duration)
+        {
+            currentTime += Time.deltaTime;
+            canvasGroup.alpha = Mathf.Lerp(startAlpha, 0, currentTime / duration);
+            yield return null;
+        }
+        canvasGroup.alpha = 0;
+        loadingScreen.SetActive(false);
     }
 
     private void PrecomputeValues()
