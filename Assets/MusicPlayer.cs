@@ -1,104 +1,75 @@
 using UnityEngine;
-using UnityEngine.UI;     // Required for the Slider
-using UnityEngine.EventSystems; // Required for event handling
-using System;             // Required for TimeSpan
+using UnityEngine.UI;
+using UnityEngine.EventSystems;
+using System;
 using TMPro;
 
-/// <summary>
-/// A music player that controls an AudioSource on the same GameObject.
-/// Provides functionality for play, pause, seeking, time display, and a UI slider for playback control.
-/// </summary>
 [RequireComponent(typeof(AudioSource))]
 public class MusicPlayer : MonoBehaviour
 {
     // --- Public Fields ---
-
     [Header("Audio Clip")]
-    [Tooltip("The initial audio clip to be played. Can be set here or with SetClip().")]
     public AudioClip initialClip;
 
     [Header("UI Elements")]
-    [Tooltip("The UI Slider that will represent and control the song's playback progress.")]
     public Slider playbackSlider;
+    public TextMeshProUGUI timeDisplay;
 
     [Header("Time Display (Read-Only)")]
-    [Tooltip("The current playback time, formatted as M:SS.ms.")]
     public string currentTimeFormatted;
-
-    [Tooltip("The total duration of the audio clip, formatted as M:SS.ms.")]
     public string totalTimeFormatted;
-    public TextMeshProUGUI timeDisplay;
 
     // --- Private Fields ---
     private AudioSource audioSource;
-    private const float seekTimeAmount = 10f; // Seconds to jump forward or back
-
-    // This flag prevents the Update loop from fighting with the user's scrubbing input.
+    private const float seekTimeAmount = 10f;
     private bool isScrubbing = false;
+    private bool wasPlayingBeforeScrub;
 
     // --- Unity Methods ---
-
     void Awake()
     {
         audioSource = GetComponent<AudioSource>();
         audioSource.playOnAwake = false;
-
-        if (initialClip != null)
-        {
-            SetClip(initialClip);
-        }
+        if (initialClip != null) SetClip(initialClip);
     }
 
     void Update()
     {
         if (audioSource.clip == null)
         {
-            // If no clip, display zeroed time and reset slider
             currentTimeFormatted = "0:00.00";
             totalTimeFormatted = "0:00.00";
+            if (timeDisplay != null) timeDisplay.text = "0:00.00 / 0:00.00";
             if (playbackSlider != null) playbackSlider.value = 0;
             return;
         }
 
-        // Update the public time strings every frame
         currentTimeFormatted = FormatTime(audioSource.time);
         totalTimeFormatted = FormatTime(audioSource.clip.length);
-        timeDisplay.text = $"{currentTimeFormatted} / {totalTimeFormatted}";
+        if (timeDisplay != null) timeDisplay.text = $"{currentTimeFormatted} / {totalTimeFormatted}";
 
-        // If a slider is assigned and the user isn't currently dragging it, update its value
-        if (playbackSlider != null && !isScrubbing)
+        if (playbackSlider != null && !isScrubbing && audioSource.clip.length > 0)
         {
-            // Slider value is a normalized value (0 to 1)
             playbackSlider.value = audioSource.time / audioSource.clip.length;
         }
     }
 
     // --- Public Control Functions ---
-
     public void SetClip(AudioClip clip)
     {
-        if (clip == null)
-        {
-            Debug.LogError("Cannot set a null audio clip.");
-            return;
-        }
-
+        if (clip == null) { Debug.LogError("Cannot set a null audio clip."); return; }
         audioSource.Stop();
         audioSource.clip = clip;
         totalTimeFormatted = FormatTime(audioSource.clip.length);
-
-        // Reset slider for the new clip
-        if (playbackSlider != null)
-        {
-            playbackSlider.value = 0;
-        }
-
+        audioSource.time = 0f;
+        if (playbackSlider != null) playbackSlider.value = 0;
         Debug.Log($"Clip '{clip.name}' loaded. Duration: {totalTimeFormatted}");
     }
 
     public void PlayMusic()
     {
         if (audioSource.clip == null) return;
+        if (Mathf.Approximately(audioSource.time, audioSource.clip.length)) audioSource.time = 0f;
         if (!audioSource.isPlaying) audioSource.Play();
     }
 
@@ -110,57 +81,66 @@ public class MusicPlayer : MonoBehaviour
     public void SeekForward()
     {
         if (audioSource.clip == null) return;
-        audioSource.time += seekTimeAmount;
+        audioSource.time = Mathf.Min(audioSource.clip.length, audioSource.time + seekTimeAmount);
     }
 
     public void SeekBackward()
     {
         if (audioSource.clip == null) return;
-        audioSource.time -= seekTimeAmount;
+        audioSource.time = Mathf.Max(0f, audioSource.time - seekTimeAmount);
     }
 
     // --- Slider/Scrubbing Control Functions ---
 
     /// <summary>
-    /// This function should be called when the user begins to drag the slider.
-    /// It sets a flag to prevent the Update loop from interfering.
+    /// Called by the PointerDown event. Initializes the entire scrubbing process.
     /// </summary>
-    public void OnBeginScrub()
+    public void OnPointerDownOnSlider()
     {
         isScrubbing = true;
+        wasPlayingBeforeScrub = audioSource.isPlaying;
+        if (wasPlayingBeforeScrub)
+        {
+            audioSource.Pause();
+        }
+        // Immediately update the time to the clicked position
+        OnScrub();
     }
 
     /// <summary>
-    /// This function should be called by the Slider's OnValueChanged event.
-    /// It updates the audio source's time to match the slider's new value.
+    /// Called by the Slider's OnValueChanged event while dragging.
     /// </summary>
     public void OnScrub()
     {
-        if (isScrubbing && audioSource.clip != null)
+        if (isScrubbing && audioSource.clip != null && audioSource.clip.length > 0)
         {
-            // We multiply the slider's normalized value (0-1) by the clip's total length
-            // to get the correct time in seconds to seek to.
             audioSource.time = playbackSlider.value * audioSource.clip.length;
         }
     }
 
     /// <summary>
-    /// This function should be called when the user releases the slider.
-    /// It unsets the flag, allowing the Update loop to resume control of the slider's position.
+    /// Called by the PointerUp event. Finalizes the scrubbing process.
     /// </summary>
     public void OnEndScrub()
     {
+        // Check if we were actually scrubbing, to avoid issues.
+        if (!isScrubbing) return;
+
         isScrubbing = false;
+        if (wasPlayingBeforeScrub)
+        {
+            if (audioSource.clip != null && !Mathf.Approximately(audioSource.time, audioSource.clip.length))
+            {
+                audioSource.Play();
+            }
+        }
     }
 
     // --- Helper Functions ---
-
     private string FormatTime(float timeInSeconds)
     {
         TimeSpan timeSpan = TimeSpan.FromSeconds(timeInSeconds);
         return string.Format("{0}:{1:D2}.{2:D2}",
-            timeSpan.Minutes,
-            timeSpan.Seconds,
-            timeSpan.Milliseconds / 10);
+            timeSpan.Minutes, timeSpan.Seconds, timeSpan.Milliseconds / 10);
     }
 }

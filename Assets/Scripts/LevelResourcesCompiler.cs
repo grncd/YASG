@@ -361,7 +361,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         songInfo.SetActive(false);
     }
 
-    public async Task DownloadSong(string url)
+    public async Task DownloadSong(string url, string name)
     {
         loadingCanvas.SetActive(true);
         loadingSecond.SetActive(true);
@@ -373,6 +373,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         fakeLoading = true;
         bool success = await AttemptDownload(url);
         fakeLoading = false;
+
         if (!success)
         {
             alertManager.ShowError("An error occured downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
@@ -381,6 +382,17 @@ public class LevelResourcesCompiler : MonoBehaviour
             mainPanel.SetActive(true);
             return;
         }
+
+        var dataPath = PlayerPrefs.GetString("dataPath");
+        var mp3Path = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
+        UnityEngine.Debug.Log(mp3Path);
+        if (mp3Path == null)
+        {
+            UnityEngine.Debug.LogError("No MP3 found!");
+            return;
+        }
+        AppendToJson(Path.Combine(dataPath, "corr.json"), name, Path.GetFileName(Path.ChangeExtension(mp3Path, ".mp3")));
+
         LoadingDone();
         loadingFX.SetActive(false);
     }
