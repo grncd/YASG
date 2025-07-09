@@ -128,11 +128,22 @@ public class SearchHandler : MonoBehaviour
 
                 if (PlayerPrefs.GetInt("multiplayer") == 0)
                 {
-                    button.onClick.AddListener(delegate {
-                        // Use currentFavSong.length for the formatted duration string,
-                        // and currentAdaptedTrack for the full (adapted) Track object.
-                        LRC.PreCompile(currentFavSong.url, currentFavSong.name, currentFavSong.artist, currentFavSong.length, currentAdaptedTrack);
-                    });
+                    if (PlayerPrefs.GetInt("editing") == 0)
+                    {
+                        button.onClick.AddListener(delegate {
+                            // Use currentFavSong.length for the formatted duration string,
+                            // and currentAdaptedTrack for the full (adapted) Track object.
+                            LRC.PreCompile(currentFavSong.url, currentFavSong.name, currentFavSong.artist, currentFavSong.length, currentAdaptedTrack);
+                        });
+                    }
+                    else
+                    {
+                        button.onClick.AddListener(delegate {
+                            // LRC.PreCompile will receive the original source URL (e.g., Spotify URL)
+                            // for the 'urlToPlay' parameter.
+                            EditorManager.Instance.StartEditing(currentFavSong.name, currentFavSong.artist, currentAdaptedTrack.album.name, currentAdaptedTrack.duration_ms, currentFavSong.url);
+                        });
+                    }
                 }
                 else
                 {
@@ -233,11 +244,22 @@ public class SearchHandler : MonoBehaviour
 
                 if(PlayerPrefs.GetInt("multiplayer") == 0)
                 {
-                    button.onClick.AddListener(delegate {
-                        // LRC.PreCompile will receive the original source URL (e.g., Spotify URL)
-                        // for the 'urlToPlay' parameter.
-                        LRC.PreCompile(currentSong.url, currentSong.name, currentSong.artist, currentSong.length, currentAdaptedTrack);
-                    });
+                    if(PlayerPrefs.GetInt("editing") == 0)
+                    {
+                        button.onClick.AddListener(delegate {
+                            // LRC.PreCompile will receive the original source URL (e.g., Spotify URL)
+                            // for the 'urlToPlay' parameter.
+                            LRC.PreCompile(currentSong.url, currentSong.name, currentSong.artist, currentSong.length, currentAdaptedTrack);
+                        });
+                    }
+                    else
+                    {
+                        button.onClick.AddListener(delegate {
+                            // LRC.PreCompile will receive the original source URL (e.g., Spotify URL)
+                            // for the 'urlToPlay' parameter.
+                            EditorManager.Instance.StartEditing(currentSong.name, currentSong.artist, currentAdaptedTrack.album.name, currentAdaptedTrack.duration_ms, currentSong.url);
+                        });
+                    }
                 }
                 else
                 {
@@ -368,9 +390,18 @@ public class SearchHandler : MonoBehaviour
                         GameObject temp = Instantiate(trackGUI, trackParent);
                         if (PlayerPrefs.GetInt("multiplayer") == 0)
                         {
-                            temp.GetComponent<UnityEngine.UI.Button>().onClick.AddListener(delegate {
-                                LRC.PreCompile(track.external_urls.spotify, track.name, track.artists[0].name, ConvertDuration(track.duration_ms), track);
-                            });
+                            if (PlayerPrefs.GetInt("editing") == 0)
+                            {
+                                temp.GetComponent<UnityEngine.UI.Button>().onClick.AddListener(delegate {
+                                    LRC.PreCompile(track.external_urls.spotify, track.name, track.artists[0].name, ConvertDuration(track.duration_ms), track);
+                                });
+                            }
+                            else
+                            {
+                                temp.GetComponent<UnityEngine.UI.Button>().onClick.AddListener(delegate {
+                                    EditorManager.Instance.StartEditing(track.name, track.artists[0].name, track.album.name, track.duration_ms, track.external_urls.spotify);
+                                });
+                            }
                         }
                         else
                         {

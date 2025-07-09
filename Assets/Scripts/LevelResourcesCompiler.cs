@@ -17,6 +17,7 @@ using UnityEngine.Audio;
 using MPUIKIT;
 using static SearchHandler;
 using UnityEngine.Networking;
+using System.Text.RegularExpressions;
 
 public class LevelResourcesCompiler : MonoBehaviour
 {
@@ -245,7 +246,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         if(ProfileManager.Instance.GetActiveProfiles().Count == 0)
         {
-            alertManager.ShowError("You don't have any active profiles!", "Please go to the Settings (cogwheel on the bottom left) and either create a new profile or activate an existing one.", "Dismiss");
+            alertManager.ShowError("You don't have any active profiles!", "Please go to the Settings (cogwheel on the bottom right) and either create a new profile or activate an existing one.", "Dismiss");
             return;
         }
         List<Profile> profiles = ProfileManager.Instance.GetActiveProfiles();
@@ -359,6 +360,31 @@ public class LevelResourcesCompiler : MonoBehaviour
         await Task.Delay(TimeSpan.FromMilliseconds(200));
         songInfo.SetActive(false);
     }
+
+    public async Task DownloadSong(string url)
+    {
+        loadingCanvas.SetActive(true);
+        loadingSecond.SetActive(true);
+        loadingSecond.transform.GetChild(4).gameObject.SetActive(false);
+        loadingFirst.SetActive(false);
+        BeginLoading();
+        loadingFX.SetActive(true);
+        status.text = "Downloading song for playback...";
+        fakeLoading = true;
+        bool success = await AttemptDownload(url);
+        fakeLoading = false;
+        if (!success)
+        {
+            alertManager.ShowError("An error occured downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
+            LoadingDone();
+            loadingFX.SetActive(false);
+            mainPanel.SetActive(true);
+            return;
+        }
+        LoadingDone();
+        loadingFX.SetActive(false);
+    }
+
     public async Task StartCompile(string url,string name,string artist,string length,string cover)
     {
         if (Application.isEditor)
@@ -391,6 +417,8 @@ public class LevelResourcesCompiler : MonoBehaviour
             await Task.Delay(TimeSpan.FromMilliseconds(1450));
         }
         PlayerPrefs.SetString("currentSong", name);
+        string charactersToRemovePattern = @"[/\\:*?""<>|]";
+        name = Regex.Replace(name, charactersToRemovePattern, string.Empty);
         UnityEngine.Debug.Log(CheckFile(name+".txt"));
         if (CheckFile(name + ".txt")) // Checking if this process has already been done for the song
         {
@@ -446,6 +474,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         PlayerPrefs.SetInt("saved", 0);
         loadingCanvas.SetActive(true);
         loadingSecond.SetActive(true);
+        loadingSecond.transform.GetChild(4).gameObject.SetActive(true);
         loadingFirst.SetActive(false);
         BeginLoading();
         loadingFX.SetActive(true);
