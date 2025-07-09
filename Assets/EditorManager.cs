@@ -58,29 +58,31 @@ public class EditorManager : MonoBehaviour
         selectorGO.transform.GetChild(0).gameObject.SetActive(false);
         selectorGO.transform.GetChild(1).gameObject.SetActive(true);
         selectorGO.transform.GetChild(1).GetChild(2).gameObject.SetActive(false);
-        lyricsScroller.CenterOnLyric(2);
+        lyricsScroller.CenterOnLyric(3);
         PlayerPrefs.SetInt("editing", 1);
+    }
+
+    public void Next()
+    {
+        if (currentLyric != lyricsScroller.transform.GetChild(0).GetChild(0).childCount - 4)
+        {
+            currentLyric++;
+            lyricsScroller.CenterOnLyric(currentLyric);
+        }
+    }
+
+    public void Previous()
+    {
+        if (currentLyric != 1)
+        {
+            currentLyric--;
+            lyricsScroller.CenterOnLyric(currentLyric);
+        }
     }
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.DownArrow))
-        {
-            if (currentLyric != lyricsScroller.transform.GetChild(0).GetChild(0).childCount - 4)
-            {
-                currentLyric++;
-                lyricsScroller.CenterOnLyric(currentLyric);
-            }
-        }
 
-        if (Input.GetKeyDown(KeyCode.UpArrow))
-        {
-            if (currentLyric != 1)
-            {
-                currentLyric--;
-                lyricsScroller.CenterOnLyric(currentLyric);
-            }
-        }
     }
 
     public void ToggleSyncTab()
