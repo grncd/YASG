@@ -4,113 +4,195 @@ using System;
 using System.Text;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
-using System.Diagnostics;
-using Debug = UnityEngine.Debug; // Explicitly use Unity's Debug
+using System.IO;
+using Unity.Jobs;
+using Unity.Collections;
+using Debug = UnityEngine.Debug;
 
 /// <summary>
 /// A component to publish lyrics to lrclib.net, including solving the required proof-of-work challenge.
+/// This version is optimized for simplicity and performance by using the Unity Job System without progress reporting.
 /// </summary>
 public class LrcLibPublisherWithChallenge : MonoBehaviour
 {
-    // === DATA STRUCTURES FOR JSON PARSING ===
+    // === PRIVATE JOB-RELATED STATE ===
+    private bool isSolving = false;
+    private JobHandle challengeJobHandle;
+    private LyricsData lyricsToPublish;
+    private string currentChallengePrefix;
 
-    [Serializable]
-    private class ChallengeResponse
-    {
-        public string prefix;
-        public string target;
-    }
+    // Native Collections used by the job. Must be managed and disposed.
+    private NativeArray<long> resultNonce;
+    private NativeArray<byte> jobPrefixBytes;
+    private NativeArray<byte> jobTargetBytes;
 
-    [Serializable]
-    private class LyricsData
+    // === DATA STRUCTURES ===
+    [Serializable] private class ChallengeResponse { public string prefix; public string target; }
+    [Serializable] private class LyricsData { public string trackName; public string artistName; public string albumName; public float duration; public string plainLyrics; public string syncedLyrics; }
+
+    // === JOB DEFINITION ===
+    // This job is designed to be lean. It takes inputs, finds a nonce, and sets the result.
+    private struct SolveChallengeJob : IJob
     {
-        public string trackName;
-        public string artistName;
-        public string albumName;
-        public float duration;
-        public string plainLyrics;
-        public string syncedLyrics;
+        [ReadOnly] public NativeArray<byte> PrefixBytes;
+        [ReadOnly] public NativeArray<byte> TargetBytes;
+        public NativeArray<long> ResultNonce;
+
+        public void Execute()
+        {
+            ResultNonce[0] = -1; // Default to a failure state
+            using (var sha256 = SHA256.Create())
+            {
+                string prefix = Encoding.UTF8.GetString(PrefixBytes.ToArray());
+                for (long nonce = 0; nonce < long.MaxValue; ++nonce)
+                {
+                    string input = prefix + nonce;
+                    byte[] inputBytes = Encoding.UTF8.GetBytes(input);
+                    byte[] hashBytes = sha256.ComputeHash(inputBytes);
+
+                    if (VerifyNonce(hashBytes, TargetBytes))
+                    {
+                        ResultNonce[0] = nonce; // Success!
+                        break; // Exit the loop immediately
+                    }
+                }
+            }
+        }
+
+        private bool VerifyNonce(byte[] hash, NativeArray<byte> target)
+        {
+            for (int i = 0; i < hash.Length; i++)
+            {
+                if (hash[i] > target[i]) return false;
+                if (hash[i] < target[i]) return true;
+            }
+            return true;
+        }
     }
 
     // === PUBLIC ORCHESTRATION METHOD ===
-
-    /// <summary>
-    /// The main entry point. Fetches a challenge, solves it, and then publishes the lyrics.
-    /// This method is async so it can await the background task without blocking the main thread.
-    /// </summary>
-    public async void PublishWithChallenge(
-        string trackName, string artistName, string albumName, float duration,
-        string plainLyrics, string syncedLyrics)
+    public async void PublishWithChallenge(string trackName, string artistName, string albumName, float duration)
     {
-        Debug.Log("Starting lyrics publication process...");
+        if (isSolving)
+        {
+            Debug.LogWarning("Already solving a challenge. Please wait.");
+            return;
+        }
 
-        // --- Step 1: Request the challenge from the server ---
-        ChallengeResponse challenge = null;
+        Debug.Log("Starting lyrics publication process...");
+        LevelResourcesCompiler.Instance.ChallengeBegin();
+
+        // Load Lyrics
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        string workingLyricsPath = Path.Combine(dataPath, "workingLyrics");
+        string plainLyricsPath = Path.Combine(workingLyricsPath, $"{trackName}_plain.txt");
+        string syncedLyricsPath = Path.Combine(workingLyricsPath, $"{trackName}_synced.txt");
+
+        if (!File.Exists(plainLyricsPath) || !File.Exists(syncedLyricsPath))
+        {
+            Debug.LogError("Lyric files not found!");
+            return;
+        }
+
+        lyricsToPublish = new LyricsData { trackName = trackName, artistName = artistName, albumName = albumName, duration = duration, plainLyrics = File.ReadAllText(plainLyricsPath), syncedLyrics = File.ReadAllText(syncedLyricsPath) };
+
+        // Step 1: Get Challenge
+        ChallengeResponse challenge = await GetChallengeAsync();
+        if (challenge == null)
+        {
+            Debug.LogError("Failed to get a valid challenge from the server.");
+            return;
+        }
+
+        // Step 2: Schedule Job
+        Debug.Log("Solving challenge with Unity Job System... The game will not freeze.");
+        isSolving = true;
+        currentChallengePrefix = challenge.prefix;
+
+        resultNonce = new NativeArray<long>(1, Allocator.Persistent);
+        jobPrefixBytes = new NativeArray<byte>(Encoding.UTF8.GetBytes(challenge.prefix), Allocator.Persistent);
+        jobTargetBytes = new NativeArray<byte>(HexStringToByteArray(challenge.target), Allocator.Persistent);
+
+        var job = new SolveChallengeJob
+        {
+            PrefixBytes = jobPrefixBytes,
+            TargetBytes = jobTargetBytes,
+            ResultNonce = resultNonce,
+        };
+
+        challengeJobHandle = job.Schedule();
+    }
+
+    // === UNITY LIFECYCLE METHODS ===
+    private void Update()
+    {
+        if (!isSolving) return;
+
+        // Simply check if the job is done.
+        if (challengeJobHandle.IsCompleted)
+        {
+            // The job is done, so we can safely complete it and get the results.
+            challengeJobHandle.Complete();
+            long solvedNonce = resultNonce[0];
+
+            // Clean up all NativeArrays to prevent memory leaks
+            resultNonce.Dispose();
+            jobPrefixBytes.Dispose();
+            jobTargetBytes.Dispose();
+
+            isSolving = false; // Mark as no longer solving
+
+            if (solvedNonce >= 0)
+            {
+                Debug.Log($"Challenge solved. Nonce: {solvedNonce}");
+                // Step 3: Publish the lyrics using the solved token
+                StartCoroutine(PublishLyrics(lyricsToPublish, currentChallengePrefix, solvedNonce));
+            }
+            else
+            {
+                Debug.LogError("Challenge solving failed. Could not find a valid nonce.");
+                // You might want an alert for this failure case as well
+                AlertManager.Instance.ShowError("Challenge Failed.", "Could not solve the proof-of-work challenge.", "Dismiss");
+            }
+        }
+    }
+
+    private void OnDestroy()
+    {
+        // This is a critical cleanup step to prevent memory leaks if the object is destroyed mid-job.
+        if (isSolving)
+        {
+            challengeJobHandle.Complete();
+            resultNonce.Dispose();
+            jobPrefixBytes.Dispose();
+            jobTargetBytes.Dispose();
+            Debug.LogWarning("LrcLibPublisher destroyed while solving. Job was cancelled and memory was cleaned up.");
+        }
+    }
+
+    // === PRIVATE HELPER METHODS ===
+    private async Task<ChallengeResponse> GetChallengeAsync()
+    {
         using (var request = UnityWebRequest.Post("https://lrclib.net/api/request-challenge", ""))
         {
             request.SetRequestHeader("User-Agent", "YASG-Challenge-Solver");
             var asyncOp = request.SendWebRequest();
-
-            // Await the web request completion on the main thread
-            while (!asyncOp.isDone)
-            {
-                await Task.Yield(); // Yield control back, allows the game to continue running
-            }
-
+            while (!asyncOp.isDone) await Task.Yield();
             if (request.result != UnityWebRequest.Result.Success)
             {
                 Debug.LogError($"Failed to get challenge: {request.error}");
-                return;
+                return null;
             }
-
-            challenge = JsonUtility.FromJson<ChallengeResponse>(request.downloadHandler.text);
-            Debug.Log($"Challenge received. Prefix: {challenge.prefix}, Target: {challenge.target}");
+            Debug.Log($"Challenge received. Payload: {request.downloadHandler.text}");
+            return JsonUtility.FromJson<ChallengeResponse>(request.downloadHandler.text);
         }
-
-        if (challenge == null || string.IsNullOrEmpty(challenge.prefix))
-        {
-            Debug.LogError("Challenge response was invalid.");
-            return;
-        }
-
-        // --- Step 2: Solve the challenge on a background thread to avoid freezing ---
-        Debug.Log("Solving challenge... This may take a moment and use significant CPU.");
-        var stopwatch = Stopwatch.StartNew();
-
-        // Task.Run offloads the CPU-intensive work to a thread pool thread.
-        string solvedNonce = await Task.Run(() => SolveChallengeCPU(challenge.prefix, challenge.target));
-
-        stopwatch.Stop();
-        Debug.Log($"Challenge solved in {stopwatch.ElapsedMilliseconds} ms. Nonce: {solvedNonce}");
-
-        // --- Step 3: Publish the lyrics using the solved nonce as the token ---
-        // We are back on the main thread here, so we can start a Coroutine.
-        StartCoroutine(PublishLyrics(
-            trackName, artistName, albumName, duration,
-            plainLyrics, syncedLyrics, solvedNonce
-        ));
     }
 
-
-    // === PRIVATE HELPER METHODS ===
-
-    /// <summary>
-    /// Coroutine to send the final POST request with the lyrics data and the solved token.
-    /// </summary>
-    private System.Collections.IEnumerator PublishLyrics(
-        string trackName, string artistName, string albumName, float duration,
-        string plainLyrics, string syncedLyrics, string publishToken)
+    private System.Collections.IEnumerator PublishLyrics(LyricsData lyricsPayload, string prefix, long solvedNonce)
     {
-        string url = $"https://lrclib.net/api/publish?X-Publish-Token={publishToken}";
-        var lyricsPayload = new LyricsData
-        {
-            trackName = trackName,
-            artistName = artistName,
-            albumName = albumName,
-            duration = duration,
-            plainLyrics = plainLyrics,
-            syncedLyrics = syncedLyrics
-        };
+        string publishToken = $"{prefix}:{solvedNonce}";
+        Debug.Log($"Using publish token: {publishToken}");
+        string url = "https://lrclib.net/api/publish";
         string jsonPayload = JsonUtility.ToJson(lyricsPayload);
 
         using (var request = new UnityWebRequest(url, "POST"))
@@ -120,64 +202,24 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
             request.SetRequestHeader("User-Agent", "YASG");
+            request.SetRequestHeader("X-Publish-Token", publishToken);
 
             yield return request.SendWebRequest();
+            LevelResourcesCompiler.Instance.ChallengeEnd();
 
             if (request.result != UnityWebRequest.Result.Success)
             {
-                Debug.LogError($"Error publishing lyrics: {request.error}");
-                Debug.LogError($"Server Response: {request.downloadHandler.text}");
+                AlertManager.Instance.ShowError("Error publishing lyrics.", request.downloadHandler.text, "Dismiss");
+                Debug.LogError($"Error publishing lyrics: {request.error}\nServer Response: {request.downloadHandler.text}");
             }
             else
             {
-                Debug.Log("Lyrics published successfully!");
-                Debug.Log($"Server Response: {request.downloadHandler.text}");
+                AlertManager.Instance.ShowSuccess("Your lyrics have been sent!", "By contributing lyrics, you don't just help YASG, but also every other project that uses LRCLib. Thank you so much!\n(You and all YASG players are now able to play this song.)", "Dismiss");
+                Debug.Log($"Lyrics published successfully!\nServer Response: {request.downloadHandler.text}");
             }
         }
     }
 
-    /// <summary>
-    /// The CPU-intensive challenge solver.
-    /// MUST be run on a background thread.
-    /// </summary>
-    private static string SolveChallengeCPU(string prefix, string targetHex)
-    {
-        byte[] targetBytes = HexStringToByteArray(targetHex);
-        using (var sha256 = SHA256.Create())
-        {
-            for (long nonce = 0; nonce < long.MaxValue; ++nonce)
-            {
-                string input = prefix + nonce;
-                byte[] inputBytes = Encoding.UTF8.GetBytes(input);
-                byte[] hashBytes = sha256.ComputeHash(inputBytes);
-
-                if (VerifyNonce(hashBytes, targetBytes))
-                {
-                    return nonce.ToString();
-                }
-            }
-        }
-        // Should realistically never be reached unless the challenge is impossible
-        throw new Exception("Could not solve the challenge within reasonable limits.");
-    }
-
-    /// <summary>
-    /// Verifies if the hash is "less than or equal to" the target.
-    /// </summary>
-    private static bool VerifyNonce(byte[] hash, byte[] target)
-    {
-        // Assumes hash and target are the same length (32 bytes for SHA256)
-        for (int i = 0; i < hash.Length; i++)
-        {
-            if (hash[i] > target[i]) return false; // If any byte is greater, it fails
-            if (hash[i] < target[i]) return true;  // If a byte is smaller, it's a valid solution
-        }
-        return true; // If all bytes are equal, it's also a valid solution
-    }
-
-    /// <summary>
-    /// Converts a hexadecimal string to a byte array.
-    /// </summary>
     private static byte[] HexStringToByteArray(string hex)
     {
         int numberChars = hex.Length;
@@ -188,27 +230,4 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
         }
         return bytes;
     }
-
-
-    // === INSPECTOR TEST REGION ===
-    #region Example Usage
-    [Header("Test Data (for Inspector)")]
-    [SerializeField] private string _testTrackName = "The Best Song";
-    [SerializeField] private string _testArtistName = "The Best Artist";
-    [SerializeField] private string _testAlbumName = "The Best Album";
-    [SerializeField] private float _testDuration = 245.5f;
-    [TextArea(3, 8)]
-    [SerializeField] private string _testPlainLyrics = "This is line one\nThis is line two";
-    [TextArea(3, 8)]
-    [SerializeField] private string _testSyncedLyrics = "[00:10.50]This is line one\n[00:15.75]This is line two";
-
-    [ContextMenu("Publish Lyrics (with Challenge)")]
-    private void TestPublishFromInspector()
-    {
-        PublishWithChallenge(
-            _testTrackName, _testArtistName, _testAlbumName, _testDuration,
-            _testPlainLyrics, _testSyncedLyrics
-        );
-    }
-    #endregion
 }

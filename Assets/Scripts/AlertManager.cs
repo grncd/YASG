@@ -33,6 +33,20 @@ public class AlertManager : MonoBehaviour
         }
     }
 
+    public void ShowSuccess(string title, string info, string button)
+    {
+        SelectorOutline.Instance.defaultObject = this.transform.GetChild(3).GetChild(5).gameObject;
+        SelectorOutline.Instance.RestrictButtonSelection(gameObject);
+        this.transform.GetChild(3).GetChild(3).GetComponent<TextMeshProUGUI>().text = title;
+        this.transform.GetChild(3).GetChild(4).GetComponent<TextMeshProUGUI>().text = info;
+        this.transform.GetChild(3).GetChild(5).GetChild(0).GetComponent<TextMeshProUGUI>().text = button;
+
+        this.transform.GetChild(3).gameObject.SetActive(true);
+        this.transform.GetChild(3).GetComponent<AudioSource>().Play();
+
+        this.GetComponent<Animator>().Play("ShowSuccess");
+    }
+
     public void ShowInfo(string title, string info, string button)
     {
         SelectorOutline.Instance.defaultObject = this.transform.GetChild(2).GetChild(5).gameObject;

@@ -9,13 +9,12 @@ public class LyricSyncItem : MonoBehaviour
     public TextMeshProUGUI lyricText;
     public TextMeshProUGUI timestampText;
     public Button deleteButton;
-    public Image backgroundImage; // Add this reference for highlighting
+    public Image backgroundImage; // This remains but is not used for highlighting
 
     // --- Private State ---
     private int myIndex;
     private EditorManager editorManager;
     private float timestamp = -1f;
-
     private bool isInteractive = true;
 
     /// <summary>
@@ -28,24 +27,21 @@ public class LyricSyncItem : MonoBehaviour
         editorManager = manager;
         isInteractive = interactive;
 
-        // Find the background image if not assigned
         if (backgroundImage == null) backgroundImage = GetComponent<Image>();
 
-        // Add a listener to the delete button programmatically
         deleteButton.onClick.AddListener(OnDeleteClicked);
 
         // Set initial state
         ClearTimestamp();
+        SetHighlight(false); // Set to default non-highlighted state
 
-        // If not interactive, hide the UI elements
         if (!isInteractive)
         {
             lyricText.text = "";
             timestampText.text = "";
             timestampText.transform.parent.gameObject.SetActive(false);
             deleteButton.gameObject.SetActive(false);
-            // Make the background fully transparent but still take up space
-            if (backgroundImage != null) 
+            if (backgroundImage != null)
             {
                 var color = backgroundImage.color;
                 color.a = 0;
@@ -60,7 +56,9 @@ public class LyricSyncItem : MonoBehaviour
     public void SetTimestamp(float time)
     {
         timestamp = time;
-        timestampText.text = MusicPlayer.Instance.FormatTime(timestamp); // Using the static function from MusicPlayer
+        // Format to [mm:ss.xx] to match LRC standard
+        TimeSpan timeSpan = TimeSpan.FromSeconds(time);
+        timestampText.text = string.Format("{0:00}:{1:00}.{2:00}", timeSpan.Minutes, timeSpan.Seconds, timeSpan.Milliseconds / 10);
     }
 
     /// <summary>
@@ -69,25 +67,34 @@ public class LyricSyncItem : MonoBehaviour
     public void ClearTimestamp()
     {
         timestamp = -1f;
-        timestampText.text = "0:00.00";
+        timestampText.text = "--:--.--"; // A clearer default
     }
 
-    /// <summary>
-    /// Highlights this item to show it's the next one to be synced.
-    /// </summary>
-    public void SetAsCurrent()
-    {
-        if (!isInteractive) return;
-        GetComponent<TextMeshProUGUI>().color = new Color(1f, 1f, 1f, 1f); // Highlight color
-    }
+    // --- LOGIC CHANGE HERE ---
+    // The two methods below have been replaced by the single SetHighlight method.
+    // public void SetAsCurrent() { ... }
+    // public void ClearAsCurrent() { ... }
 
     /// <summary>
-    /// Resets the highlight.
+    /// Sets the visual highlight state of this item's text, preserving the original behavior.
     /// </summary>
-    public void ClearAsCurrent()
+    /// <param name="isHighlighted">True for full alpha, false for half alpha.</param>
+    public void SetHighlight(bool isHighlighted)
     {
-        if (!isInteractive) return;
-        GetComponent<TextMeshProUGUI>().color = new Color(1f, 1f, 1f, 0.5f); // Highlight color
+        if (!isInteractive || lyricText == null) return;
+
+        // This logic directly replicates the behavior of the old SetAsCurrent and ClearAsCurrent methods
+        // by targeting the lyricText's color property.
+        if (isHighlighted)
+        {
+            // Replicates SetAsCurrent()
+            lyricText.color = new Color(1f, 1f, 1f, 1f);
+        }
+        else
+        {
+            // Replicates ClearAsCurrent()
+            lyricText.color = new Color(1f, 1f, 1f, 0.5f);
+        }
     }
 
     /// <summary>
@@ -105,5 +112,4 @@ public class LyricSyncItem : MonoBehaviour
             editorManager.ClearTimestampFor(myIndex);
         }
     }
-
 }

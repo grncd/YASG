@@ -362,6 +362,23 @@ public class LevelResourcesCompiler : MonoBehaviour
         songInfo.SetActive(false);
     }
 
+    public void ChallengeBegin()
+    {
+        loadingCanvas.SetActive(true);
+        loadingSecond.SetActive(true);
+        loadingSecond.transform.GetChild(4).gameObject.SetActive(false);
+        loadingFirst.SetActive(false);
+        BeginLoading();
+        loadingFX.SetActive(true);
+        status.text = "Solving API Challenge... (will take around 1min)";
+    }
+
+    public void ChallengeEnd()
+    {
+        LoadingDone();
+        loadingFX.SetActive(false);
+    }
+
     public async Task DownloadSong(string url, string name)
     {
         loadingCanvas.SetActive(true);
