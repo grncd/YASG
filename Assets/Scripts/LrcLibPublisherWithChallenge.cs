@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
 using System.IO;
+using System.Linq;
 using Unity.Jobs;
 using Unity.Collections;
 using Debug = UnityEngine.Debug;
@@ -71,7 +72,7 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
     }
 
     // === PUBLIC ORCHESTRATION METHOD ===
-    public async void PublishWithChallenge(string trackName, string artistName, string albumName, float duration)
+    public async void PublishWithChallenge(string trackName, string artistName, string albumName, float duration, string trackUrl)
     {
         if (isSolving)
         {
@@ -85,8 +86,9 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
         // Load Lyrics
         string dataPath = PlayerPrefs.GetString("dataPath");
         string workingLyricsPath = Path.Combine(dataPath, "workingLyrics");
-        string plainLyricsPath = Path.Combine(workingLyricsPath, $"{trackName}_plain.txt");
-        string syncedLyricsPath = Path.Combine(workingLyricsPath, $"{trackName}_synced.txt");
+        string trackId = trackUrl.Split('/').Last();
+        string plainLyricsPath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_plain.txt");
+        string syncedLyricsPath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_synced.txt");
 
         if (!File.Exists(plainLyricsPath) || !File.Exists(syncedLyricsPath))
         {
@@ -94,7 +96,20 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
             return;
         }
 
-        lyricsToPublish = new LyricsData { trackName = trackName, artistName = artistName, albumName = albumName, duration = duration, plainLyrics = File.ReadAllText(plainLyricsPath), syncedLyrics = File.ReadAllText(syncedLyricsPath) };
+        string[] plainLines = File.ReadAllLines(plainLyricsPath);
+        string plainLyrics = string.Join("\n", plainLines.Skip(3));
+
+        string[] syncedLines = File.ReadAllLines(syncedLyricsPath);
+        for (int i = 0; i < syncedLines.Length; i++)
+        {
+            if (syncedLines[i].Contains("]"))
+            {
+                syncedLines[i] = syncedLines[i].Replace("]", "] ");
+            }
+        }
+        string formattedSyncedLyrics = string.Join("\n", syncedLines);
+
+        lyricsToPublish = new LyricsData { trackName = trackName, artistName = artistName, albumName = albumName, duration = duration, plainLyrics = plainLyrics, syncedLyrics = formattedSyncedLyrics };
 
         // Step 1: Get Challenge
         ChallengeResponse challenge = await GetChallengeAsync();

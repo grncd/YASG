@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine.Networking;
 using System;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 // (Helper classes remain the same)
@@ -24,6 +25,8 @@ public class EditorManager : MonoBehaviour
     public GameObject lyricItemPrefab;
     public Transform lyricsContentPanel;
     public TMP_InputField plainLyricsInputField;
+    public GameObject loadPrompt;
+    public TextMeshProUGUI songNameText;
 
     // --- EXISTING FIELDS ---
     public GameObject selectorGO;
@@ -32,6 +35,7 @@ public class EditorManager : MonoBehaviour
     private string artistName;
     private string albumName;
     private float duration;
+    private string trackUrl;
     public TextMeshProUGUI songInfo;
     public LyricsScroller lyricsScroller;
     private GameObject tabs;
@@ -46,6 +50,7 @@ public class EditorManager : MonoBehaviour
     private MPImage understoodFill;
     private float elapsedTime = 0f;
     private float targetTime = 22f;
+    private float saveTimer = 0f;
 
     // --- (Unchanged Setup/Teardown Methods) ---
     #region Unchanged Setup/Teardown Methods
@@ -54,10 +59,29 @@ public class EditorManager : MonoBehaviour
         Instance = this;
         player = GetComponent<MusicPlayer>();
         tabs = transform.GetChild(0).GetChild(1).gameObject;
+
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        if (string.IsNullOrEmpty(dataPath)) { return; }
+        string workingLyricsPath = Path.Combine(dataPath, "workingLyrics");
+        if (Directory.Exists(workingLyricsPath) && Directory.GetFiles(workingLyricsPath).Length > 0)
+        {
+            loadPrompt.SetActive(true);
+            string[] files = Directory.GetFiles(workingLyricsPath);
+            string fileName = Path.GetFileNameWithoutExtension(files[0]);
+            string[] parts = fileName.Split('_');
+            songNameText.text = parts[1];
+        }
     }
 
     private void Update()
     {
+        saveTimer += Time.deltaTime;
+        if (saveTimer >= 10f)
+        {
+            LocalSaveLyrics();
+            saveTimer = 0f;
+        }
+
         if (transform.GetChild(2).gameObject.activeInHierarchy)
         {
             if(PlayerPrefs.GetInt("lyricsDisclaimer") == 0)
@@ -160,6 +184,29 @@ public class EditorManager : MonoBehaviour
         tabs.transform.parent.GetChild(2).gameObject.SetActive(false);
         tabs.transform.parent.GetChild(3).gameObject.SetActive(true);
         PopulateSyncList();
+
+        int lastSyncedIndex = -1;
+        for (int i = timestamps.Count - 1; i >= 0; i--)
+        {
+            if (timestamps[i] >= 0)
+            {
+                lastSyncedIndex = i;
+                break;
+            }
+        }
+
+        if (lastSyncedIndex != -1)
+        {
+            currentSyncIndex = lastSyncedIndex;
+            UpdateAllHighlights();
+            StartCoroutine(DelayedScroll(currentSyncIndex));
+        }
+        else
+        {
+            currentSyncIndex = 0;
+            UpdateAllHighlights();
+            StartCoroutine(DelayedScroll(currentSyncIndex));
+        }
     }
     public void ToggleLyricTab()
     {
@@ -280,6 +327,144 @@ public class EditorManager : MonoBehaviour
         }
     }
 
+    public async void ContinueEditing()
+    {
+        loadPrompt.SetActive(false);
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        if (string.IsNullOrEmpty(dataPath)) { Debug.LogError("dataPath is not set in PlayerPrefs!"); return; }
+
+        string workingLyricsPath = Path.Combine(dataPath, "workingLyrics");
+        string[] files = Directory.GetFiles(workingLyricsPath, "*_plain.txt");
+        if (files.Length == 0) { Debug.LogError("No plain lyrics file found in workingLyrics."); return; }
+
+        string plainLyricsFilePath = files[0];
+        string fileName = Path.GetFileNameWithoutExtension(plainLyricsFilePath);
+        string[] parts = fileName.Split('_');
+        string trackId = parts[0];
+        trackName = parts[1];
+        trackUrl = $"https://open.spotify.com/track/{trackId}";
+
+        // Load metadata and plain lyrics from the file
+        string[] plainLines = File.ReadAllLines(plainLyricsFilePath);
+        artistName = plainLines[0];
+        albumName = plainLines[1];
+        duration = float.Parse(plainLines[2], System.Globalization.CultureInfo.InvariantCulture);
+        plainLyricsInputField.text = string.Join("\n", plainLines.Skip(3));
+
+        // --- SETUP EDITOR STATE ---
+        selectorGO.SetActive(false);
+        transform.GetChild(1).GetComponent<CanvasGroup>().alpha = 0f;
+        transform.GetChild(0).GetComponent<CanvasGroup>().blocksRaycasts = true;
+        transform.GetChild(0).GetComponent<CanvasGroup>().alpha = 1f;
+        transform.GetChild(0).GetComponent<CanvasGroup>().blocksRaycasts = true;
+        songInfo.text = $"{artistName} - {trackName}";
+
+        // --- LOAD AUDIO ---
+        await LevelResourcesCompiler.Instance.DownloadSong(trackUrl, trackName);
+        await LoadAndSetAudioClip(trackName);
+
+        // --- LOAD SYNCED LYRICS AND POPULATE UI ---
+        string syncedLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_synced.txt");
+        if (File.Exists(syncedLyricsFilePath))
+        {
+            string[] syncedLines = File.ReadAllLines(syncedLyricsFilePath);
+
+            // Clear UI and data lists
+            foreach (Transform child in lyricsContentPanel)
+            {
+                if (child.name != "TopCenteringSpacer" && child.name != "BottomCenteringSpacer")
+                    Destroy(child.gameObject);
+            }
+            activeLyricItems.Clear();
+            timestamps.Clear();
+
+            // Add dummy "..." item
+            GameObject dummyGO = Instantiate(lyricItemPrefab, lyricsContentPanel);
+            dummyGO.GetComponent<LyricSyncItem>().Setup("...", 0, this);
+            dummyGO.GetComponent<LyricSyncItem>().SetDeleteButtonInteractable(false);
+            activeLyricItems.Add(dummyGO.GetComponent<LyricSyncItem>());
+            timestamps.Add(-1f);
+
+            // Repopulate from loaded data
+            string[] currentPlainLines = plainLyricsInputField.text.Split('\n');
+            for (int i = 0; i < currentPlainLines.Length; i++)
+            {
+                GameObject newItemGO = Instantiate(lyricItemPrefab, lyricsContentPanel);
+                LyricSyncItem itemScript = newItemGO.GetComponent<LyricSyncItem>();
+                itemScript.Setup(currentPlainLines[i], i + 1, this);
+
+                float restoredTimestamp = -1f;
+                if (i < syncedLines.Length && !string.IsNullOrEmpty(syncedLines[i]))
+                {
+                    try
+                    {
+                        string[] lineParts = syncedLines[i].Split(new[] { ']' }, 2);
+                        string timestampStr = lineParts[0].TrimStart('[');
+                        TimeSpan timeSpan = TimeSpan.ParseExact(timestampStr, "m\\:ss\\.ff", System.Globalization.CultureInfo.InvariantCulture);
+                        restoredTimestamp = (float)timeSpan.TotalSeconds;
+                        itemScript.SetTimestamp(restoredTimestamp);
+                    }
+                    catch (Exception) { /* Ignore malformed lines */ }
+                }
+                
+                activeLyricItems.Add(itemScript);
+                timestamps.Add(restoredTimestamp);
+
+                if (lyricsContentPanel.Find("BottomCenteringSpacer"))
+                    newItemGO.transform.SetSiblingIndex(lyricsContentPanel.Find("BottomCenteringSpacer").GetSiblingIndex());
+            }
+
+            currentSyncIndex = 0;
+            UpdateAllHighlights();
+            StartCoroutine(DelayedScroll(currentSyncIndex));
+        }
+    }
+
+    public void DiscardEditing()
+    {
+        loadPrompt.SetActive(false);
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        string workingLyricsPath = Path.Combine(dataPath, "workingLyrics");
+        Directory.Delete(workingLyricsPath, true);
+    }
+
+    public void LocalSaveLyrics()
+    {
+        if(transform.GetChild(0).GetComponent<CanvasGroup>().alpha == 1f)
+        {
+            string dataPath = PlayerPrefs.GetString("dataPath");
+            if (string.IsNullOrEmpty(dataPath)) { Debug.LogError("dataPath is not set in PlayerPrefs!"); return; }
+
+            string workingLyricsPath = Path.Combine(dataPath, "workingLyrics");
+            Directory.CreateDirectory(workingLyricsPath);
+
+            string trackId = trackUrl.Split('/').Last();
+            string plainLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_plain.txt");
+            string header = $"{artistName}\n{albumName}\n{duration}\n";
+            string currentPlainLyrics = header + plainLyricsInputField.text;
+            File.WriteAllText(plainLyricsFilePath, currentPlainLyrics);
+
+            System.Text.StringBuilder lrcBuilder = new System.Text.StringBuilder();
+            for (int i = 1; i < activeLyricItems.Count; i++)
+            {
+                float time = timestamps[i];
+                if (time >= 0)
+                {
+                    TimeSpan timeSpan = TimeSpan.FromSeconds(time);
+                    string timestampStr = string.Format("{0}:{1:00}.{2:00}", timeSpan.Minutes, timeSpan.Seconds, timeSpan.Milliseconds / 10);
+
+                    lrcBuilder.AppendLine($"[{timestampStr}]{activeLyricItems[i].lyricText.text}");
+                }
+            }
+            string finalSyncedLyrics = lrcBuilder.ToString();
+
+            string syncedLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_synced.txt");
+            File.WriteAllText(syncedLyricsFilePath, finalSyncedLyrics);
+
+            Debug.Log($"Lyrics saved to {workingLyricsPath}");
+        }
+    }
+
     public void SaveLyrics()
     {
         string dataPath = PlayerPrefs.GetString("dataPath");
@@ -288,8 +473,10 @@ public class EditorManager : MonoBehaviour
         string workingLyricsPath = Path.Combine(dataPath, "workingLyrics");
         Directory.CreateDirectory(workingLyricsPath);
 
-        string plainLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackName}_plain.txt");
-        string currentPlainLyrics = plainLyricsInputField.text;
+        string trackId = trackUrl.Split('/').Last();
+        string plainLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_plain.txt");
+        string header = $"{artistName}\n{albumName}\n{duration}\n";
+        string currentPlainLyrics = header + plainLyricsInputField.text;
         File.WriteAllText(plainLyricsFilePath, currentPlainLyrics);
 
         System.Text.StringBuilder lrcBuilder = new System.Text.StringBuilder();
@@ -301,21 +488,19 @@ public class EditorManager : MonoBehaviour
                 TimeSpan timeSpan = TimeSpan.FromSeconds(time);
                 string timestampStr = string.Format("{0}:{1:00}.{2:00}", timeSpan.Minutes, timeSpan.Seconds, timeSpan.Milliseconds / 10);
 
-                // --- CHANGED HERE ---
-                // The text is appended directly. If it's an empty string, it results in `[m:ss.xx]`
                 lrcBuilder.AppendLine($"[{timestampStr}]{activeLyricItems[i].lyricText.text}");
             }
         }
         string finalSyncedLyrics = lrcBuilder.ToString();
 
-        string syncedLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackName}_synced.txt");
+        string syncedLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_synced.txt");
         File.WriteAllText(syncedLyricsFilePath, finalSyncedLyrics);
 
         Debug.Log($"Lyrics saved to {workingLyricsPath}");
 
         if (publisher != null)
         {
-            publisher.PublishWithChallenge(trackName, artistName, albumName, duration);
+            publisher.PublishWithChallenge(trackName, artistName, albumName, duration, trackUrl);
         }
         else
         {
@@ -336,6 +521,7 @@ public class EditorManager : MonoBehaviour
         artistName = artist;
         albumName = album;
         duration = dt / 1000f;
+        trackUrl = url;
         songInfo.text = $"{artist} - {track}";
         await LevelResourcesCompiler.Instance.DownloadSong(url, track);
         await LoadAndSetAudioClip(trackName);
@@ -379,6 +565,11 @@ public class EditorManager : MonoBehaviour
         }
         catch (System.Exception ex) { Debug.LogError($"An error occurred while loading the audio clip: {ex.Message}"); }
     }
+    public void ReloadScene()
+    {
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+
     public void ClearTimestampFor(int index)
     {
         if (index <= 0 || index >= timestamps.Count) return;
