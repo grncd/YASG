@@ -201,7 +201,7 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
             request.uploadHandler = new UploadHandlerRaw(bodyRaw);
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
-            request.SetRequestHeader("User-Agent", "YASG");
+            request.SetRequestHeader("User-Agent", "YASG (in-game lyric editor for my WIP karaoke game. will put link here when released!)");
             request.SetRequestHeader("X-Publish-Token", publishToken);
 
             yield return request.SendWebRequest();

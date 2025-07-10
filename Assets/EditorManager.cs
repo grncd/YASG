@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine.Networking;
 using System;
+using UnityEngine.UI;
 
 // (Helper classes remain the same)
 [System.Serializable]
@@ -42,6 +43,9 @@ public class EditorManager : MonoBehaviour
     private List<LyricSyncItem> activeLyricItems = new List<LyricSyncItem>();
     private List<float> timestamps = new List<float>();
     private int currentSyncIndex = 0;
+    private MPImage understoodFill;
+    private float elapsedTime = 0f;
+    private float targetTime = 22f;
 
     // --- (Unchanged Setup/Teardown Methods) ---
     #region Unchanged Setup/Teardown Methods
@@ -51,8 +55,40 @@ public class EditorManager : MonoBehaviour
         player = GetComponent<MusicPlayer>();
         tabs = transform.GetChild(0).GetChild(1).gameObject;
     }
+
+    private void Update()
+    {
+        if (transform.GetChild(2).gameObject.activeInHierarchy)
+        {
+            if(PlayerPrefs.GetInt("lyricsDisclaimer") == 0)
+            {
+                elapsedTime += Time.deltaTime;
+                understoodFill.fillAmount = elapsedTime / targetTime;
+                if(elapsedTime / targetTime > 1f)
+                {
+                    PlayerPrefs.SetInt("lyricsDisclaimer", 1);
+                    understoodFill.transform.parent.GetComponent<Button>().interactable = true;
+                }
+                else
+                {
+                    understoodFill.transform.parent.GetComponent<Button>().interactable = false;
+                }
+            }
+            else
+            {
+                understoodFill.transform.parent.GetComponent<Button>().interactable = true;
+                understoodFill.fillAmount = 1f;
+            }
+        }
+        
+    }
     void OnEnable()
     {
+        if(PlayerPrefs.GetInt("lyricsDisclaimer") == 0)
+        {
+            understoodFill = transform.GetChild(2).GetChild(4).GetChild(0).GetComponent<MPImage>();
+            transform.GetChild(2).gameObject.SetActive(true);
+        }
         selectorGO.SetActive(true);
         StartCoroutine(FadeOutAndStop(BGmusic, 2.0f));
         transform.GetChild(1).GetComponent<CanvasGroup>().alpha = 1f;
