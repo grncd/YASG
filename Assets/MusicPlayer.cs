@@ -24,10 +24,12 @@ public class MusicPlayer : MonoBehaviour
     private const float seekTimeAmount = 10f;
     private bool isScrubbing = false;
     private bool wasPlayingBeforeScrub;
+    public static MusicPlayer Instance { get; private set; }
 
     // --- Unity Methods ---
     void Awake()
     {
+        Instance = this;
         audioSource = GetComponent<AudioSource>();
         audioSource.playOnAwake = false;
         if (initialClip != null) SetClip(initialClip);
@@ -137,7 +139,7 @@ public class MusicPlayer : MonoBehaviour
     }
 
     // --- Helper Functions ---
-    private string FormatTime(float timeInSeconds)
+    public string FormatTime(float timeInSeconds)
     {
         TimeSpan timeSpan = TimeSpan.FromSeconds(timeInSeconds);
         return string.Format("{0}:{1:D2}.{2:D2}",

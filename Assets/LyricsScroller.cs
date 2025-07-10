@@ -126,20 +126,4 @@ public class LyricsScroller : MonoBehaviour
         activeScrollCoroutine = null;
     }
 
-    #region Inspector Test
-    [Header("Inspector Test")]
-    [Tooltip("The 0-based index of the lyric to center on.")]
-    [SerializeField] private int testLyricIndex = 1;
-
-    [ContextMenu("Test Center on Lyric")]
-    private void TestCentering()
-    {
-        if (!Application.isPlaying)
-        {
-            Debug.LogWarning("Context menu tests must be run in Play Mode.");
-            return;
-        }
-        CenterOnLyric(testLyricIndex);
-    }
-    #endregion
 }
