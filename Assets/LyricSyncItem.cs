@@ -58,7 +58,7 @@ public class LyricSyncItem : MonoBehaviour
         timestamp = time;
         // Format to [mm:ss.xx] to match LRC standard
         TimeSpan timeSpan = TimeSpan.FromSeconds(time);
-        timestampText.text = string.Format("{0:00}:{1:00}.{2:00}", timeSpan.Minutes, timeSpan.Seconds, timeSpan.Milliseconds / 10);
+        timestampText.text = string.Format("{0}:{1:00}.{2:00}", timeSpan.Minutes, timeSpan.Seconds, timeSpan.Milliseconds / 10);
     }
 
     /// <summary>
@@ -67,7 +67,7 @@ public class LyricSyncItem : MonoBehaviour
     public void ClearTimestamp()
     {
         timestamp = -1f;
-        timestampText.text = "--:--.--"; // A clearer default
+        timestampText.text = "-:--.--"; // A clearer default
     }
 
     // --- LOGIC CHANGE HERE ---

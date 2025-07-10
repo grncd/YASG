@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using UnityEngine.Networking;
 using System;
 
-// Helper classes remain the same
+// (Helper classes remain the same)
 [System.Serializable]
 public class CorrespondenceEntry { public string key; public string value; }
 [System.Serializable]
@@ -24,6 +24,7 @@ public class EditorManager : MonoBehaviour
     public Transform lyricsContentPanel;
     public TMP_InputField plainLyricsInputField;
 
+    // --- EXISTING FIELDS ---
     public GameObject selectorGO;
     public static EditorManager Instance { get; private set; }
     private string trackName;
@@ -37,11 +38,12 @@ public class EditorManager : MonoBehaviour
     public AudioSource BGmusic;
     public LrcLibPublisherWithChallenge publisher;
 
+    // --- SYNCING STATE FIELDS ---
     private List<LyricSyncItem> activeLyricItems = new List<LyricSyncItem>();
     private List<float> timestamps = new List<float>();
     private int currentSyncIndex = 0;
 
-    // --- (Start, OnEnable, OnDisable, etc. are unchanged) ---
+    // --- (Unchanged Setup/Teardown Methods) ---
     #region Unchanged Setup/Teardown Methods
     private void Start()
     {
@@ -49,7 +51,6 @@ public class EditorManager : MonoBehaviour
         player = GetComponent<MusicPlayer>();
         tabs = transform.GetChild(0).GetChild(1).gameObject;
     }
-
     void OnEnable()
     {
         selectorGO.SetActive(true);
@@ -63,6 +64,25 @@ public class EditorManager : MonoBehaviour
         selectorGO.transform.GetChild(1).GetChild(2).gameObject.SetActive(false);
         PlayerPrefs.SetInt("editing", 1);
     }
+    private IEnumerator FadeOutAndStop(AudioSource audioSource, float duration)
+    {
+        float startVolume = audioSource.volume;
+        while (audioSource.volume > 0)
+        {
+            audioSource.volume -= startVolume * Time.deltaTime / duration;
+            yield return null;
+        }
+        audioSource.Stop();
+        audioSource.volume = startVolume;
+    }
+    void OnDisable()
+    {
+        BGmusic.Play();
+        selectorGO.transform.GetChild(0).gameObject.SetActive(true);
+        selectorGO.transform.GetChild(1).gameObject.SetActive(false);
+        selectorGO.transform.GetChild(1).GetChild(2).gameObject.SetActive(true);
+        PlayerPrefs.SetInt("editing", 0);
+    }
     #endregion
 
     public void SyncNextLyric()
@@ -72,16 +92,12 @@ public class EditorManager : MonoBehaviour
         {
             return;
         }
-
         float time = player.GetComponent<AudioSource>().time;
         timestamps[targetIndex] = time;
         activeLyricItems[targetIndex].SetTimestamp(time);
-
         currentSyncIndex = targetIndex;
-
         UpdateAllHighlights();
-        // CHANGED: Removed the +1 offset
-        lyricsScroller.CenterOnLyric(currentSyncIndex);
+        lyricsScroller.CenterOnLyric(currentSyncIndex + 1);
     }
 
     public void UndoLastSync()
@@ -90,19 +106,15 @@ public class EditorManager : MonoBehaviour
         {
             return;
         }
-
         timestamps[currentSyncIndex] = -1f;
         activeLyricItems[currentSyncIndex].ClearTimestamp();
-
         currentSyncIndex--;
-
         UpdateAllHighlights();
-        // CHANGED: Removed the +1 offset
-        lyricsScroller.CenterOnLyric(currentSyncIndex);
+        lyricsScroller.CenterOnLyric(currentSyncIndex + 1);
     }
 
-    // --- (Tab toggling methods are unchanged) ---
-    #region Unchanged Tab and List Population Methods
+    // --- (Unchanged Tab Toggling) ---
+    #region Unchanged Tab Toggling
     public void ToggleSyncTab()
     {
         tabs.transform.GetChild(0).GetComponent<MPImage>().color = new Color(0.2169811f, 0.2169811f, 0.2169811f);
@@ -113,7 +125,6 @@ public class EditorManager : MonoBehaviour
         tabs.transform.parent.GetChild(3).gameObject.SetActive(true);
         PopulateSyncList();
     }
-
     public void ToggleLyricTab()
     {
         tabs.transform.GetChild(1).GetComponent<MPImage>().color = new Color(0.2169811f, 0.2169811f, 0.2169811f);
@@ -123,6 +134,7 @@ public class EditorManager : MonoBehaviour
         tabs.transform.parent.GetChild(3).gameObject.SetActive(false);
         tabs.transform.parent.GetChild(2).gameObject.SetActive(true);
     }
+    #endregion
 
     private void PopulateSyncList()
     {
@@ -133,11 +145,7 @@ public class EditorManager : MonoBehaviour
             {
                 if (activeLyricItems[i] != null)
                 {
-                    previousSyncData.Add(new LyricSyncState
-                    {
-                        text = activeLyricItems[i].lyricText.text,
-                        timestamp = timestamps[i]
-                    });
+                    previousSyncData.Add(new LyricSyncState { text = activeLyricItems[i].lyricText.text, timestamp = timestamps[i] });
                 }
             }
         }
@@ -152,19 +160,28 @@ public class EditorManager : MonoBehaviour
         activeLyricItems.Clear();
         timestamps.Clear();
 
-        GameObject dummyGO = Instantiate(lyricItemPrefab, lyricsContentPanel);
-        LyricSyncItem dummyScript = dummyGO.GetComponent<LyricSyncItem>();
-        dummyScript.Setup("...", 0, this);
-        dummyScript.SetDeleteButtonInteractable(false);
-        activeLyricItems.Add(dummyScript);
-        timestamps.Add(-1f);
-        dummyGO.transform.SetAsLastSibling();
+        GameObject startPaddingGO = Instantiate(lyricItemPrefab, lyricsContentPanel);
+        startPaddingGO.GetComponent<LyricSyncItem>().Setup("", -1, this, false);
+        if (lyricsContentPanel.Find("TopCenteringSpacer"))
+            startPaddingGO.transform.SetSiblingIndex(lyricsContentPanel.Find("TopCenteringSpacer").GetSiblingIndex() + 1);
 
-        string[] lines = plainLyricsInputField.text.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        GameObject dummyGO = Instantiate(lyricItemPrefab, lyricsContentPanel);
+        dummyGO.GetComponent<LyricSyncItem>().Setup("...", 0, this);
+        dummyGO.GetComponent<LyricSyncItem>().SetDeleteButtonInteractable(false);
+        activeLyricItems.Add(dummyGO.GetComponent<LyricSyncItem>());
+        timestamps.Add(-1f);
+        dummyGO.transform.SetSiblingIndex(startPaddingGO.transform.GetSiblingIndex() + 1);
+
+        // --- CHANGED HERE ---
+        // Removed 'StringSplitOptions.RemoveEmptyEntries' to allow for blank lines.
+        string[] lines = plainLyricsInputField.text.Split(new[] { '\n' });
+
         for (int i = 0; i < lines.Length; i++)
         {
+            // We still trim to handle potential whitespace, but an empty line is now valid.
             string currentLine = lines[i].Trim();
-            if (string.IsNullOrEmpty(currentLine)) continue;
+
+            // NOTE: The original check 'if (string.IsNullOrEmpty(currentLine)) continue;' is removed.
 
             float restoredTimestamp = -1f;
             int matchIndex = previousSyncData.FindIndex(s => s.text == currentLine);
@@ -186,11 +203,19 @@ public class EditorManager : MonoBehaviour
 
             activeLyricItems.Add(itemScript);
             timestamps.Add(restoredTimestamp);
-            newItemGO.transform.SetAsLastSibling();
+
+            if (lyricsContentPanel.Find("BottomCenteringSpacer"))
+            {
+                newItemGO.transform.SetSiblingIndex(lyricsContentPanel.Find("BottomCenteringSpacer").GetSiblingIndex());
+            }
         }
 
-        Transform bottomSpacer = lyricsContentPanel.Find("BottomCenteringSpacer");
-        if (bottomSpacer != null) bottomSpacer.SetAsLastSibling();
+        GameObject endPaddingGO = Instantiate(lyricItemPrefab, lyricsContentPanel);
+        endPaddingGO.GetComponent<LyricSyncItem>().Setup("", -1, this, false);
+        if (lyricsContentPanel.Find("BottomCenteringSpacer"))
+        {
+            endPaddingGO.transform.SetSiblingIndex(lyricsContentPanel.Find("BottomCenteringSpacer").GetSiblingIndex());
+        }
 
         if (currentSyncIndex >= activeLyricItems.Count)
         {
@@ -200,7 +225,6 @@ public class EditorManager : MonoBehaviour
         if (activeLyricItems.Count > 0)
         {
             UpdateAllHighlights();
-            // CHANGED: Removed the +1 offset
             StartCoroutine(DelayedScroll(currentSyncIndex));
         }
     }
@@ -208,8 +232,8 @@ public class EditorManager : MonoBehaviour
     private IEnumerator DelayedScroll(int targetItemIndex)
     {
         yield return new WaitForEndOfFrame();
-        // The parameter passed here is now the correct index
-        lyricsScroller.CenterOnLyric(targetItemIndex);
+        yield return new WaitForEndOfFrame();
+        lyricsScroller.CenterOnLyric(targetItemIndex + 1);
     }
 
     private void UpdateAllHighlights()
@@ -219,16 +243,11 @@ public class EditorManager : MonoBehaviour
             activeLyricItems[i].SetHighlight(i == currentSyncIndex);
         }
     }
-    #endregion
 
     public void SaveLyrics()
     {
         string dataPath = PlayerPrefs.GetString("dataPath");
-        if (string.IsNullOrEmpty(dataPath))
-        {
-            Debug.LogError("dataPath is not set in PlayerPrefs!");
-            return;
-        }
+        if (string.IsNullOrEmpty(dataPath)) { Debug.LogError("dataPath is not set in PlayerPrefs!"); return; }
 
         string workingLyricsPath = Path.Combine(dataPath, "workingLyrics");
         Directory.CreateDirectory(workingLyricsPath);
@@ -244,8 +263,10 @@ public class EditorManager : MonoBehaviour
             if (time >= 0)
             {
                 TimeSpan timeSpan = TimeSpan.FromSeconds(time);
-                // CHANGED: Format string updated to m:ss.xx
                 string timestampStr = string.Format("{0}:{1:00}.{2:00}", timeSpan.Minutes, timeSpan.Seconds, timeSpan.Milliseconds / 10);
+
+                // --- CHANGED HERE ---
+                // The text is appended directly. If it's an empty string, it results in `[m:ss.xx]`
                 lrcBuilder.AppendLine($"[{timestampStr}]{activeLyricItems[i].lyricText.text}");
             }
         }
@@ -266,7 +287,7 @@ public class EditorManager : MonoBehaviour
         }
     }
 
-    // --- (File loading methods are unchanged) ---
+    // --- (Unchanged File Loading & Other Helpers) ---
     #region Unchanged File Loading & Other Helpers
     public async void StartEditing(string track, string artist, string album, int dt, string url)
     {
@@ -278,10 +299,9 @@ public class EditorManager : MonoBehaviour
         trackName = track;
         artistName = artist;
         albumName = album;
-        duration = dt / 1000f; // Use float for duration
+        duration = dt / 1000f;
         songInfo.text = $"{artist} - {track}";
         await LevelResourcesCompiler.Instance.DownloadSong(url, track);
-
         await LoadAndSetAudioClip(trackName);
     }
     private async Task LoadAndSetAudioClip(string trackKey)
@@ -322,25 +342,6 @@ public class EditorManager : MonoBehaviour
             }
         }
         catch (System.Exception ex) { Debug.LogError($"An error occurred while loading the audio clip: {ex.Message}"); }
-    }
-    private IEnumerator FadeOutAndStop(AudioSource audioSource, float duration)
-    {
-        float startVolume = audioSource.volume;
-        while (audioSource.volume > 0)
-        {
-            audioSource.volume -= startVolume * Time.deltaTime / duration;
-            yield return null;
-        }
-        audioSource.Stop();
-        audioSource.volume = startVolume;
-    }
-    void OnDisable()
-    {
-        BGmusic.Play();
-        selectorGO.transform.GetChild(0).gameObject.SetActive(true);
-        selectorGO.transform.GetChild(1).gameObject.SetActive(false);
-        selectorGO.transform.GetChild(1).GetChild(2).gameObject.SetActive(true);
-        PlayerPrefs.SetInt("editing", 0);
     }
     public void ClearTimestampFor(int index)
     {

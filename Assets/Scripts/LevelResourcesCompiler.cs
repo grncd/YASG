@@ -370,7 +370,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         loadingFirst.SetActive(false);
         BeginLoading();
         loadingFX.SetActive(true);
-        status.text = "Solving API Challenge... (will take around 1min)";
+        status.text = "Solving API Challenge... (can take a while)";
     }
 
     public void ChallengeEnd()
