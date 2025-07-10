@@ -79,6 +79,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             PlayerPrefs.SetString("dataPath", "C:\\YASGdataTesting");
         }
+        dataPath = PlayerPrefs.GetString("dataPath");
         Application.targetFrameRate = -1;
         filePath = Path.Combine(dataPath, "corr.json");
         progressBar.gameObject.SetActive(false);
@@ -399,14 +400,6 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     public async Task StartCompile(string url,string name,string artist,string length,string cover)
     {
-        if (Application.isEditor)
-        {
-            PlayerPrefs.SetString("dataPath", "C:\\YASGdata");
-        }
-        else
-        {
-            PlayerPrefs.SetString("dataPath", "C:\\YASGdataTesting");
-        }
         dataPath = PlayerPrefs.GetString("dataPath");
         UnityEngine.Debug.Log($"CALLED: {url}, {name}, {artist}, {length}, {cover}");
         PlayerPrefs.SetString("currentSongURL", url);
