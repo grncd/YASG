@@ -9,6 +9,7 @@ using Unity.Burst;
 using Unity.Collections;
 using MyAudioProcessing;
 using System.Collections.Generic;
+using MPUIKIT;
 
 public class RealTimePitchDetector : MonoBehaviour
 {
@@ -86,6 +87,7 @@ public class RealTimePitchDetector : MonoBehaviour
     public float minFrequency = 80f;
     public float maxFrequency = 1000f;
     public float _localScore = 0f;
+    public MPImage micGlowImage;
 
     private AudioClip micClip;
     private float[] audioBuffer;
@@ -484,6 +486,23 @@ public class RealTimePitchDetector : MonoBehaviour
         micClip.GetData(audioBuffer, startPos);
         nativeAudioBuffer.CopyFrom(audioBuffer);
 
+        // Calculate RMS for volume and update micGlowImage alpha
+        float rmsSum = 0f;
+        for (int i = 0; i < audioBuffer.Length; i++)
+        {
+            rmsSum += audioBuffer[i] * audioBuffer[i];
+        }
+        float rms = Mathf.Sqrt(rmsSum / audioBuffer.Length);
+
+        if (micGlowImage != null)
+        {
+            // Normalize RMS to a 0-1 range for alpha. Adjust the multiplier as needed.
+            // A simple linear mapping, you might want a more complex curve for better visual feedback.
+            float alpha = Mathf.Clamp01(rms * 10f); // Multiplier 10f is an example, adjust based on mic sensitivity and desired glow intensity
+            Color currentColor = micGlowImage.color;
+            micGlowImage.color = new Color(currentColor.r, currentColor.g, currentColor.b, alpha);
+        }
+
         float oldGainForThisFrameCheck = lowShelfGainDB;
         if (AudioClipPitchProcessor.Instance != null)
         {
@@ -807,11 +826,25 @@ public class RealTimePitchDetector : MonoBehaviour
                     string scoreText;
                     if (PlayerPrefs.GetInt("multiplayer") == 0)
                     {
-                        scoreText = Mathf.RoundToInt(score).ToString("#,#");
+                        if(score != 0)
+                        {
+                            scoreText = Mathf.RoundToInt(score).ToString("#,#");
+                        }
+                        else
+                        {
+                            scoreText = "0";
+                        }
                     }
                     else
                     {
-                        scoreText = Mathf.RoundToInt(_localScore).ToString("#,#");
+                        if (_localScore != 0)
+                        {
+                            scoreText = Mathf.RoundToInt(_localScore).ToString("#,#");
+                        }
+                        else
+                        {
+                            scoreText = "0";
+                        }
                         if (PlayerData.LocalPlayerInstance != null)
                         {
                             PlayerData.LocalPlayerInstance.RequestUpdateCurrentScore_ServerRpc(Mathf.RoundToInt(_localScore));
