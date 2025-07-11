@@ -108,6 +108,14 @@ public class LyricsHandler : MonoBehaviour
         ParseLyrics();
     }
 
+    private void OnApplicationFocus(bool focus)
+    {
+        if (!focus)
+        {
+            Pause();
+        }
+    }
+
     public void Pause()
     {
         if (canPause && PlayerPrefs.GetInt("multiplayer") == 0)

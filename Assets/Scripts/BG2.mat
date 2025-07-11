@@ -66,10 +66,10 @@ Material:
     - _Glossiness: 0.5
     - _GlossyReflections: 1
     - _GlowRadius: 1
-    - _HighIntensity: 1.1373543
-    - _LowIntensity: 0.38063696
+    - _HighIntensity: 0.18000007
+    - _LowIntensity: 0.18001415
     - _Metallic: 0
-    - _MidIntensity: 0.47796115
+    - _MidIntensity: 0.18000007
     - _Mode: 0
     - _OcclusionStrength: 1
     - _Parallax: 0.02
