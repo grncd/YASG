@@ -620,6 +620,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         using (UnityWebRequest request = UnityWebRequest.Get(url))
         {
+            request.SetRequestHeader("User-Agent", "YASG");
             await request.SendWebRequest();
 
             if (request.result != UnityWebRequest.Result.Success)

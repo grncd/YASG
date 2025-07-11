@@ -20,6 +20,7 @@ using Unity.Jobs;        // For IJobParallelFor, JobHandle
 using Unity.VisualScripting;
 using MPUIKIT;
 using UnityEditor;
+using System.Linq;
 // --- JOB SYSTEM & BURST ADDITIONS END ---
 
 public class AudioClipPitchProcessor : MonoBehaviour
@@ -93,10 +94,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
     public Animator countdown;
     public TextMeshProUGUI countdownText;
     public AudioSource countdownFX;
-    private ParticleSystem guideArrowP;
-    private ParticleSystem guideArrowP2;
-    private ParticleSystem guideArrowP3;
-    private ParticleSystem guideArrowP4;
+    public ParticleSystem[] guideArrows;
     AudioSource musicSource;
     private Coroutine transitionCoroutine;
     public AudioMixerGroup musicControl;
@@ -667,6 +665,17 @@ public class AudioClipPitchProcessor : MonoBehaviour
         countdownText.text = "0";
         if (lyricsHandler != null) lyricsHandler.StartLyrics();
         audioSource.Play();
+        // Find all "Player" children under the "Players" GameObject
+        Transform playersRoot = transform.Find("Canvas/Players");
+
+        if (playersRoot != null)
+        {
+            // Collect all ParticleSystems named exactly "Particle System"
+            guideArrows = playersRoot
+                .GetComponentsInChildren<ParticleSystem>(true)
+                .Where(ps => ps.gameObject.name == "Particle System")
+                .ToArray();
+        }
     }
 
 
@@ -1005,18 +1014,15 @@ public class AudioClipPitchProcessor : MonoBehaviour
                 bool isSinging = pitch >= 32f;
                 currentPitch = isSinging ? pitch : 0f;
 
-                if (guideArrowP != null)
+                foreach (ParticleSystem ps in FindObjectsOfType<ParticleSystem>())
                 {
-                    Action<ParticleSystem, bool> setParticleState = (ps, play) => {
-                        if (ps == null) return;
-                        if (play && !ps.isPlaying) ps.Play();
-                        else if (!play && ps.isPlaying) ps.Stop();
-                    };
-                    setParticleState(guideArrowP, isSinging);
-                    setParticleState(guideArrowP2, isSinging);
-                    setParticleState(guideArrowP3, isSinging);
-                    setParticleState(guideArrowP4, isSinging);
+                    if (ps.gameObject.name == "Particle System")
+                    {
+                        if (isSinging && !ps.isPlaying) ps.Play();
+                        else if (!isSinging && ps.isPlaying) ps.Stop();
+                    }
                 }
+
 
                 foreach (Slider slider in FindObjectsOfType<Slider>())
                 {
@@ -1037,8 +1043,14 @@ public class AudioClipPitchProcessor : MonoBehaviour
         {
             currentPitch = 0f;
             Action<ParticleSystem> stopParticle = ps => { if (ps != null && ps.isPlaying) ps.Stop(); };
-            stopParticle(guideArrowP); stopParticle(guideArrowP2);
-            stopParticle(guideArrowP3); stopParticle(guideArrowP4);
+
+            foreach (ParticleSystem ps in FindObjectsOfType<ParticleSystem>())
+            {
+                if (ps.gameObject.name == "Particle System")
+                {
+                    ps.Stop();
+                }
+            }
 
             foreach (Slider slider in FindObjectsOfType<Slider>())
             {

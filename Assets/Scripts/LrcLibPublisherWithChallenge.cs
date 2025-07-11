@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using Unity.Jobs;
 using Unity.Collections;
+using System.Collections.Generic; // Added for List support
 using Debug = UnityEngine.Debug;
 
 /// <summary>
@@ -30,6 +31,13 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
     // === DATA STRUCTURES ===
     [Serializable] private class ChallengeResponse { public string prefix; public string target; }
     [Serializable] private class LyricsData { public string trackName; public string artistName; public string albumName; public float duration; public string plainLyrics; public string syncedLyrics; }
+
+    // --- NEW: Helper classes for parsing corr.json ---
+    [Serializable]
+    private class CorrespondenceEntry { public string key; public string value; }
+
+    [Serializable]
+    private class CorrespondenceList { public List<CorrespondenceEntry> correspondences; }
 
     // === JOB DEFINITION ===
     // This job is designed to be lean. It takes inputs, finds a nonce, and sets the result.
@@ -80,7 +88,7 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
             return;
         }
 
-        
+
 
         // Load Lyrics
         string dataPath = PlayerPrefs.GetString("dataPath");
@@ -143,6 +151,7 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
         if (challenge == null)
         {
             Debug.LogError("Failed to get a valid challenge from the server.");
+            LevelResourcesCompiler.Instance.ChallengeEnd(); // End loading on failure
             return;
         }
 
@@ -193,8 +202,8 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
             }
             else
             {
+                LevelResourcesCompiler.Instance.ChallengeEnd(); // End loading on failure
                 Debug.LogError("Challenge solving failed. Could not find a valid nonce.");
-                // You might want an alert for this failure case as well
                 AlertManager.Instance.ShowError("Challenge Failed.", "Could not solve the proof-of-work challenge.", "Dismiss");
             }
         }
@@ -259,9 +268,68 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
             {
                 AlertManager.Instance.ShowSuccess("Your lyrics have been sent!", "By contributing lyrics, you don't just help YASG, but also every other project that uses LRCLib. Thank you so much!\n(You and all YASG players are now able to play this song.)", "Dismiss");
                 Debug.Log($"Lyrics published successfully!\nServer Response: {request.downloadHandler.text}");
+
+                // --- NEW ---: Delete the associated song file after successful publication.
+                DeleteAssociatedSongFile(lyricsPayload.trackName);
             }
         }
     }
+
+    /// <summary>
+    /// Deletes the MP3 file associated with a given track name after lyrics have been successfully published.
+    /// It looks up the filename in corr.json and removes the file from the dataPath.
+    /// </summary>
+    /// <param name="trackKey">The name of the track (e.g., "Bohemian Rhapsody") used as a key in corr.json.</param>
+    private void DeleteAssociatedSongFile(string trackKey)
+    {
+        Debug.Log($"Attempting to delete song file for published track: {trackKey}");
+        try
+        {
+            string dataPath = PlayerPrefs.GetString("dataPath");
+            if (string.IsNullOrEmpty(dataPath))
+            {
+                Debug.LogError("Cannot delete song file: dataPath is not set in PlayerPrefs!");
+                return;
+            }
+
+            string jsonPath = Path.Combine(dataPath, "corr.json");
+            if (!File.Exists(jsonPath))
+            {
+                Debug.LogError($"Cannot delete song file: corr.json not found at path: {jsonPath}");
+                return;
+            }
+
+            string jsonContent = File.ReadAllText(jsonPath);
+            CorrespondenceList correspondenceList = JsonUtility.FromJson<CorrespondenceList>(jsonContent);
+
+            // Find the entry for the track
+            CorrespondenceEntry entry = correspondenceList.correspondences.FirstOrDefault(c => c.key == trackKey);
+
+            if (entry == null)
+            {
+                Debug.LogWarning($"Track key '{trackKey}' not found in corr.json. Cannot delete file.");
+                return;
+            }
+
+            string audioFileName = entry.value;
+            string audioFilePath = Path.Combine(dataPath, audioFileName);
+
+            if (File.Exists(audioFilePath))
+            {
+                File.Delete(audioFilePath);
+                Debug.Log($"Successfully deleted song file: {audioFilePath}");
+            }
+            else
+            {
+                Debug.LogWarning($"Song file not found at path, could not delete: {audioFilePath}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"An error occurred while trying to delete the song file: {ex.Message}");
+        }
+    }
+
 
     private static byte[] HexStringToByteArray(string hex)
     {

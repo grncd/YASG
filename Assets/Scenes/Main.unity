@@ -10031,6 +10031,7 @@ MonoBehaviour:
   countdown: {fileID: 873706657}
   countdownText: {fileID: 566248796}
   countdownFX: {fileID: 873706658}
+  guideArrows: []
   musicControl: {fileID: 24300002, guid: 59bbcc131587b4449b6891e7ec84af71, type: 2}
   overallSongActivity: 0
   paused: 0
@@ -11850,6 +11851,10 @@ PrefabInstance:
     - target: {fileID: 3750105376297575639, guid: d5cd1d0e61a189a4dbdf3c0b7a6e0fc1, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4151381580958616489, guid: d5cd1d0e61a189a4dbdf3c0b7a6e0fc1, type: 3}
+      propertyPath: m_Name
+      value: PlayerParticle
       objectReference: {fileID: 0}
     - target: {fileID: 4428890703254789804, guid: d5cd1d0e61a189a4dbdf3c0b7a6e0fc1, type: 3}
       propertyPath: bufferLengthSeconds

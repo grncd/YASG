@@ -10,6 +10,7 @@ public class Timeout : MonoBehaviour
     private bool waiting = false;
     private float targetTime = 0f;
     private MPImage progressImg;
+    private bool hasStartedFade = false;
     void Start()
     {
         if (LyricsHandler.Instance != null)
@@ -22,7 +23,7 @@ public class Timeout : MonoBehaviour
 
     public void CallTimeout(float seconds)
     {
-        progressImg.fillAmount = 0f;
+        //progressImg.fillAmount = 0f;
         targetTime = seconds;
         elapsedTime = 0f;
         waiting = true;
@@ -36,14 +37,16 @@ public class Timeout : MonoBehaviour
             elapsedTime += Time.deltaTime;
             progressImg.fillAmount = elapsedTime / targetTime;
 
-            if(elapsedTime > targetTime - 0.5f)
+            if (elapsedTime > targetTime - 0.5f && !hasStartedFade)
             {
-                StartCoroutine(FadeCanvasGroup(GetComponent<CanvasGroup>(),1f,0f,0.7f));
+                hasStartedFade = true;
+                StartCoroutine(FadeCanvasGroup(GetComponent<CanvasGroup>(), 1f, 0f, 0.7f));
             }
 
-            if(elapsedTime / targetTime > 1f)
+            if (elapsedTime / targetTime > 1f)
             {
                 waiting = false;
+                hasStartedFade = false;
                 GetComponent<CanvasGroup>().alpha = 0f;
             }
         }

@@ -230,11 +230,14 @@ public class RealTimePitchDetector : MonoBehaviour
 
         Debug.Log("[RealTimePitchDetector] Activation signal received. Starting microphone and scoring setup...");
 
-        vocalArrowSDBG = GameObject.Find("DebugPanel").transform.GetChild(0).GetChild(0).GetComponent<Slider>();
-        vocalArrowS2DBG = GameObject.Find("DebugPanel").transform.GetChild(0).GetChild(1).GetComponent<Slider>();
-        vocalArrowS3DBG = GameObject.Find("DebugPanel").transform.GetChild(0).GetChild(2).GetComponent<Slider>();
-        vocalArrowS4DBG = GameObject.Find("DebugPanel").transform.GetChild(0).GetChild(3).GetComponent<Slider>();
-        songDebugLeniency = GameObject.Find("DebugPanel").transform.GetChild(0).GetChild(4).GetChild(0).GetChild(0).GetComponent<RectTransform>();
+        if (debugMode)
+        {
+            vocalArrowSDBG = GameObject.Find("DebugPanel").transform.GetChild(0).GetChild(0).GetComponent<Slider>();
+            vocalArrowS2DBG = GameObject.Find("DebugPanel").transform.GetChild(0).GetChild(1).GetComponent<Slider>();
+            vocalArrowS3DBG = GameObject.Find("DebugPanel").transform.GetChild(0).GetChild(2).GetComponent<Slider>();
+            vocalArrowS4DBG = GameObject.Find("DebugPanel").transform.GetChild(0).GetChild(3).GetComponent<Slider>();
+            songDebugLeniency = GameObject.Find("DebugPanel").transform.GetChild(0).GetChild(4).GetChild(0).GetChild(0).GetComponent<RectTransform>();
+        }
 
         // Now that we are activated, we can start waiting for the score value and start the mic.
         StartCoroutine(WaitForScoreIncrement());
@@ -572,7 +575,7 @@ public class RealTimePitchDetector : MonoBehaviour
 
         if (diffIndex == 0) // easy
         {
-            currentLeniencyCoefficient *= 1.67f;
+            currentLeniencyCoefficient *= 1.2f;
         }
         else if (diffIndex == 2)
         {

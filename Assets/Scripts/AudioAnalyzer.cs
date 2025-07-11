@@ -19,7 +19,7 @@ public class AudioAnalyzer : MonoBehaviour
     [SerializeField] private int midFrequencyThreshold = 4000;
 
     [Header("Intensity Multipliers")]
-    [SerializeField] private float lowMultiplier = 0.9f;
+    [SerializeField] private float lowMultiplier = 0.8f;
     [SerializeField] private float midMultiplier = 0.25f;
     [SerializeField] private float highMultiplier = 0.1f;
 

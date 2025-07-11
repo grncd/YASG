@@ -8,6 +8,8 @@ public class TimeoutPlayer : MonoBehaviour
     private float elapsedTime = 0f;
     private bool waiting = false;
     private float targetTime = 0f;
+    private bool hasStartedFade = false;
+
     void Start()
     {
         if (LyricsHandler.Instance != null)
@@ -22,7 +24,17 @@ public class TimeoutPlayer : MonoBehaviour
         targetTime = seconds;
         elapsedTime = 0f;
         waiting = true;
-        StartCoroutine(FadeCanvasGroup(GetComponent<CanvasGroup>(), 0f, 1f, 0.25f));
+        hasStartedFade = false;
+
+        CanvasGroup cg = GetComponent<CanvasGroup>();
+        StartCoroutine(FadeCanvasGroup(cg, 0f, 1f, 0.25f));
+
+        // If timeout is too short to trigger fade-out later, start it now
+        if (targetTime <= 0.5f)
+        {
+            hasStartedFade = true;
+            StartCoroutine(FadeCanvasGroup(cg, 1f, 0f, 0.25f));
+        }
     }
 
     private void Update()
@@ -31,14 +43,16 @@ public class TimeoutPlayer : MonoBehaviour
         {
             elapsedTime += Time.deltaTime;
 
-            if (elapsedTime > targetTime - 0.5f)
+            if (elapsedTime >= targetTime - 0.5f && !hasStartedFade)
             {
+                hasStartedFade = true;
                 StartCoroutine(FadeCanvasGroup(GetComponent<CanvasGroup>(), 1f, 0f, 0.25f));
             }
 
-            if (elapsedTime / targetTime > 1f)
+            if (elapsedTime >= targetTime)
             {
                 waiting = false;
+                hasStartedFade = false;
                 GetComponent<CanvasGroup>().alpha = 0f;
             }
         }
@@ -59,7 +73,7 @@ public class TimeoutPlayer : MonoBehaviour
         }
     }
 
-    private System.Collections.IEnumerator FadeCanvasGroup(CanvasGroup canvasGroup, float startAlpha, float endAlpha, float duration)
+    private IEnumerator FadeCanvasGroup(CanvasGroup canvasGroup, float startAlpha, float endAlpha, float duration)
     {
         float time = 0f;
         canvasGroup.alpha = startAlpha;
