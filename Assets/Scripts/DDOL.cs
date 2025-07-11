@@ -4,9 +4,15 @@ using UnityEngine;
 
 public class DDOL : MonoBehaviour
 {
-    // Start is called before the first frame update
-    void Start()
+    void Awake()
     {
-        DontDestroyOnLoad(this);
+        GameObject[] objs = GameObject.FindGameObjectsWithTag("DDOL");
+
+        if (objs.Length > 1)
+        {
+            Destroy(this.gameObject);
+        }
+
+        DontDestroyOnLoad(this.gameObject);
     }
 }

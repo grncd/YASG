@@ -11,11 +11,7 @@ using System;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-// (Helper classes remain the same)
-[System.Serializable]
-public class CorrespondenceEntry { public string key; public string value; }
-[System.Serializable]
-public class CorrespondenceList { public List<CorrespondenceEntry> correspondences; }
+
 
 public class EditorManager : MonoBehaviour
 {
@@ -40,7 +36,7 @@ public class EditorManager : MonoBehaviour
     public LyricsScroller lyricsScroller;
     private GameObject tabs;
     private MusicPlayer player;
-    public AudioSource BGmusic;
+    
     public LrcLibPublisherWithChallenge publisher;
 
     // --- SYNCING STATE FIELDS ---
@@ -114,7 +110,7 @@ public class EditorManager : MonoBehaviour
             transform.GetChild(2).gameObject.SetActive(true);
         }
         selectorGO.SetActive(true);
-        StartCoroutine(FadeOutAndStop(BGmusic, 2.0f));
+        StartCoroutine(FadeOutAndStop(GameObject.Find("Music").GetComponent<AudioSource>(), 2.0f));
         transform.GetChild(1).GetComponent<CanvasGroup>().alpha = 1f;
         transform.GetChild(1).GetComponent<CanvasGroup>().blocksRaycasts = false;
         transform.GetChild(0).GetComponent<CanvasGroup>().alpha = 0f;
@@ -137,7 +133,7 @@ public class EditorManager : MonoBehaviour
     }
     void OnDisable()
     {
-        BGmusic.Play();
+        GameObject.Find("Music").GetComponent<AudioSource>().Play();
         selectorGO.transform.GetChild(0).gameObject.SetActive(true);
         selectorGO.transform.GetChild(1).gameObject.SetActive(false);
         selectorGO.transform.GetChild(1).GetChild(2).gameObject.SetActive(true);
@@ -359,8 +355,11 @@ public class EditorManager : MonoBehaviour
         transform.GetChild(0).GetComponent<CanvasGroup>().blocksRaycasts = true;
         songInfo.text = $"{artistName} - {trackName}";
 
+        PlayerPrefs.SetString("currentSong", trackName);
+        PlayerPrefs.SetString("currentArtist", artistName);
+
         // --- LOAD AUDIO ---
-        await LevelResourcesCompiler.Instance.DownloadSong(trackUrl, trackName);
+        await LevelResourcesCompiler.Instance.DownloadSong(trackUrl, trackName, artistName);
         await LoadAndSetAudioClip(trackName);
 
         // --- LOAD SYNCED LYRICS AND POPULATE UI ---
@@ -448,12 +447,15 @@ public class EditorManager : MonoBehaviour
             for (int i = 1; i < activeLyricItems.Count; i++)
             {
                 float time = timestamps[i];
-                if (time >= 0)
+                string lyricText = activeLyricItems[i].lyricText.text.Trim();
+
+                // Only add lines that have a timestamp and are not blank
+                if (time >= 0 && !string.IsNullOrEmpty(lyricText))
                 {
                     TimeSpan timeSpan = TimeSpan.FromSeconds(time);
                     string timestampStr = string.Format("{0}:{1:00}.{2:00}", timeSpan.Minutes, timeSpan.Seconds, timeSpan.Milliseconds / 10);
 
-                    lrcBuilder.AppendLine($"[{timestampStr}]{activeLyricItems[i].lyricText.text}");
+                    lrcBuilder.AppendLine($"[{timestampStr}]{lyricText}");
                 }
             }
             string finalSyncedLyrics = lrcBuilder.ToString();
@@ -483,12 +485,15 @@ public class EditorManager : MonoBehaviour
         for (int i = 1; i < activeLyricItems.Count; i++)
         {
             float time = timestamps[i];
+            string lyricText = activeLyricItems[i].lyricText.text.Trim();
+
+            // Only add lines that have a timestamp and are not blank
             if (time >= 0)
             {
                 TimeSpan timeSpan = TimeSpan.FromSeconds(time);
                 string timestampStr = string.Format("{0}:{1:00}.{2:00}", timeSpan.Minutes, timeSpan.Seconds, timeSpan.Milliseconds / 10);
 
-                lrcBuilder.AppendLine($"[{timestampStr}]{activeLyricItems[i].lyricText.text}");
+                lrcBuilder.AppendLine($"[{timestampStr}]{lyricText}");
             }
         }
         string finalSyncedLyrics = lrcBuilder.ToString();
@@ -523,24 +528,31 @@ public class EditorManager : MonoBehaviour
         duration = dt / 1000f;
         trackUrl = url;
         songInfo.text = $"{artist} - {track}";
-        await LevelResourcesCompiler.Instance.DownloadSong(url, track);
+
+        PlayerPrefs.SetString("currentSong", track);
+        PlayerPrefs.SetString("currentArtist", artist);
+
+        await LevelResourcesCompiler.Instance.DownloadSong(url, track, artist);
         await LoadAndSetAudioClip(trackName);
     }
     private async Task LoadAndSetAudioClip(string trackKey)
     {
         string dataPath = PlayerPrefs.GetString("dataPath");
         if (string.IsNullOrEmpty(dataPath)) { Debug.LogError("dataPath is not set in PlayerPrefs!"); return; }
-        string jsonPath = Path.Combine(dataPath, "corr.json");
-        if (!File.Exists(jsonPath)) { Debug.LogError($"corr.json not found at path: {jsonPath}"); return; }
+
+        string sanitizedTrackName = SanitizeFileName(trackName);
+        string sanitizedArtistName = SanitizeFileName(artistName);
+        string expectedFileName = $"{sanitizedArtistName} - {sanitizedTrackName}.mp3";
+        string audioFilePath = Path.Combine(dataPath, "downloads", expectedFileName);
+
+        if (!File.Exists(audioFilePath))
+        {
+            Debug.LogError($"Audio file not found at path: {audioFilePath}");
+            return;
+        }
+
         try
         {
-            string jsonContent = await File.ReadAllTextAsync(jsonPath);
-            CorrespondenceList correspondenceList = JsonUtility.FromJson<CorrespondenceList>(jsonContent);
-            CorrespondenceEntry entry = correspondenceList.correspondences.FirstOrDefault(c => c.key == trackKey);
-            if (entry == null) { Debug.LogError($"Track key '{trackKey}' not found in corr.json."); return; }
-            string audioFileName = entry.value;
-            string audioFilePath = Path.Combine(dataPath, audioFileName);
-            if (!File.Exists(audioFilePath)) { Debug.LogError($"Audio file not found at path: {audioFilePath}"); return; }
             string uri = "file://" + audioFilePath;
             AudioType audioType = AudioType.MPEG;
             using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip(uri, audioType))
@@ -556,9 +568,9 @@ public class EditorManager : MonoBehaviour
                     AudioClip loadedClip = DownloadHandlerAudioClip.GetContent(www);
                     if (loadedClip != null)
                     {
-                        loadedClip.name = audioFileName;
+                        loadedClip.name = expectedFileName;
                         player.SetClip(loadedClip);
-                        Debug.Log($"Successfully loaded and set clip: {audioFileName}");
+                        Debug.Log($"Successfully loaded and set clip: {expectedFileName}");
                     }
                 }
             }
@@ -576,6 +588,12 @@ public class EditorManager : MonoBehaviour
         timestamps[index] = -1f;
         activeLyricItems[index].ClearTimestamp();
         Debug.Log($"Cleared timestamp for lyric at index {index}");
+    }
+
+    private string SanitizeFileName(string name)
+    {
+        string charactersToRemovePattern = @"[/\\:*?""<>|]";
+        return System.Text.RegularExpressions.Regex.Replace(name, charactersToRemovePattern, string.Empty);
     }
     #endregion
 }

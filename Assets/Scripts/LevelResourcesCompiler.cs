@@ -345,8 +345,15 @@ public class LevelResourcesCompiler : MonoBehaviour
         loadingFX.SetActive(false);
     }
 
-    public async Task DownloadSong(string url, string name)
+    public async Task DownloadSong(string url, string name, string artist)
     {
+        string expectedAudioPath = GetExpectedAudioFilePath(artist, name);
+        if (File.Exists(expectedAudioPath))
+        {
+            UnityEngine.Debug.Log("Audio file already exists. Skipping download.");
+            return;
+        }
+
         loadingCanvas.SetActive(true);
         loadingSecond.SetActive(true);
         loadingSecond.transform.GetChild(4).gameObject.SetActive(false);
@@ -369,7 +376,27 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         var dataPath = PlayerPrefs.GetString("dataPath");
         var mp3Path = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
-        if (mp3Path == null)
+
+        if (mp3Path != null && PlayerPrefs.GetInt("editing") == 1)
+        {
+            string songName = PlayerPrefs.GetString("currentSong");
+            string artistName = PlayerPrefs.GetString("currentArtist");
+
+            string sanitizedSongName = SanitizeFileName(songName);
+            string sanitizedArtistName = SanitizeFileName(artistName);
+
+            string newFileName = $"{sanitizedArtistName} - {sanitizedSongName}.mp3";
+            string newFilePath = Path.Combine(dataPath, "downloads", newFileName);
+
+            if (File.Exists(newFilePath))
+            {
+                File.Delete(newFilePath);
+            }
+
+            File.Move(mp3Path, newFilePath);
+            UnityEngine.Debug.Log($"Renamed and moved downloaded file to: {newFilePath}");
+        }
+        else if (mp3Path == null)
         {
             UnityEngine.Debug.LogError("No MP3 found!");
             return;
@@ -384,6 +411,14 @@ public class LevelResourcesCompiler : MonoBehaviour
     {
         string charactersToRemovePattern = @"[/\\:*?""<>|]";
         return Regex.Replace(name, charactersToRemovePattern, string.Empty);
+    }
+
+    private string GetExpectedAudioFilePath(string artist, string songName)
+    {
+        string sanitizedSongName = SanitizeFileName(songName);
+        string sanitizedArtistName = SanitizeFileName(artist);
+        string fileName = $"{sanitizedArtistName} - {sanitizedSongName}.mp3";
+        return Path.Combine(dataPath, "downloads", fileName);
     }
 
     public async Task StartCompile(string url, string name, string artist, string length, string cover)
@@ -523,16 +558,35 @@ public class LevelResourcesCompiler : MonoBehaviour
         status.text = "Downloading song...";
         stage2.transform.GetChild(1).gameObject.SetActive(true);
 
-        fakeLoading = true;
-        bool success = await AttemptDownload(url);
-        fakeLoading = false;
-        if (!success)
+        string expectedAudioPath = GetExpectedAudioFilePath(artist, name);
+
+        if (File.Exists(expectedAudioPath))
         {
-            alertManager.ShowError("An error occured downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
-            LoadingDone();
-            loadingFX.SetActive(false);
-            mainPanel.SetActive(true);
-            return;
+            UnityEngine.Debug.Log("Audio file already exists. Skipping download.");
+            PlayerPrefs.SetString("fullLocation", expectedAudioPath);
+            PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedAudioPath) + " [vocals].mp3"));
+        }
+        else
+        {
+            fakeLoading = true;
+            bool success = await AttemptDownload(url);
+            fakeLoading = false;
+            if (!success)
+            {
+                alertManager.ShowError("An error occured downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
+                LoadingDone();
+                loadingFX.SetActive(false);
+                mainPanel.SetActive(true);
+                return;
+            }
+
+            var downloadedMp3 = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
+            if (downloadedMp3 != null)
+            {
+                if (File.Exists(expectedAudioPath)) File.Delete(expectedAudioPath);
+                File.Move(downloadedMp3, expectedAudioPath);
+                UnityEngine.Debug.Log($"Moved downloaded file to: {expectedAudioPath}");
+            }
         }
 
         stage2.transform.GetChild(1).gameObject.SetActive(false);
@@ -558,7 +612,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         QualitySettings.vSyncCount = 0;
         Application.targetFrameRate = 30;
 
-        await RunPythonDirectly();
+        await RunPythonDirectly(expectedAudioPath);
 
         Application.targetFrameRate = -1;
         QualitySettings.vSyncCount = _originalVSyncCount;
@@ -648,57 +702,39 @@ public class LevelResourcesCompiler : MonoBehaviour
     }
 
 
-    private async Task RunPythonDirectly()
+    private async Task RunPythonDirectly(string audioFilePath)
     {
         dataPath = PlayerPrefs.GetString("dataPath");
-        var mp3Path = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
 
-        string songName = PlayerPrefs.GetString("currentSong");
-        string artistName = PlayerPrefs.GetString("currentArtist");
-
-        string sanitizedSongName = SanitizeFileName(songName);
-        string sanitizedArtistName = SanitizeFileName(artistName);
-
-        string newFileName = $"{sanitizedArtistName} - {sanitizedSongName}.mp3";
-        string newFilePath = Path.Combine(dataPath, "downloads", newFileName);
-
-        if (mp3Path == null)
+        if (string.IsNullOrEmpty(audioFilePath) || !File.Exists(audioFilePath))
         {
-            UnityEngine.Debug.LogError("No MP3 found to process!");
+            UnityEngine.Debug.LogError("Audio file not found or path is invalid!");
             return;
         }
-
-        if (File.Exists(newFilePath))
-        {
-            File.Delete(newFilePath);
-        }
-
-        File.Move(mp3Path, newFilePath);
-        UnityEngine.Debug.Log($"Renamed downloaded file to: {newFilePath}");
 
         if (processLocally)
         {
             var inputFolder = Path.Combine(dataPath, "Mel-Band-Roformer-Vocal-Model-main", "input");
-            var targetPath = Path.Combine(inputFolder, Path.GetFileName(newFilePath));
-            File.Copy(newFilePath, targetPath, true);
-            await RunProcessAsync("ffmpeg", $"-i \"{newFilePath}\" \"{Path.ChangeExtension(newFilePath, ".wav")}\"", dataPath);
+            var targetPath = Path.Combine(inputFolder, Path.GetFileName(audioFilePath));
+            File.Copy(audioFilePath, targetPath, true);
+            await RunProcessAsync("ffmpeg", $"-i \"{audioFilePath}\" \"{Path.ChangeExtension(audioFilePath, ".wav")}\"", dataPath);
 
-            PlayerPrefs.SetString("fullLocation", Path.ChangeExtension(newFilePath, ".mp3"));
-            PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "Mel-Band-Roformer-Vocal-Model-main", "output", Path.GetFileNameWithoutExtension(newFilePath) + "_vocals.wav"));
+            PlayerPrefs.SetString("fullLocation", Path.ChangeExtension(audioFilePath, ".mp3"));
+            PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "Mel-Band-Roformer-Vocal-Model-main", "output", Path.GetFileNameWithoutExtension(audioFilePath) + "_vocals.wav"));
 
             await RunProcessAsync("ffmpeg", $"-i \"{targetPath}\" \"{Path.ChangeExtension(targetPath, ".wav")}\"", dataPath);
-            File.Delete(Path.ChangeExtension(newFilePath, ".wav")); // saves storage
+            File.Delete(Path.ChangeExtension(audioFilePath, ".wav")); // saves storage
             splittingVocals = true;
             while (splittingVocals) await Task.Delay(1000);
         }
         else
         {
             var inputFolder = Path.Combine(dataPath, "vocalremover", "input");
-            var targetPath = Path.Combine(inputFolder, Path.GetFileName(newFilePath));
-            File.Copy(newFilePath, targetPath, true);
+            var targetPath = Path.Combine(inputFolder, Path.GetFileName(audioFilePath));
+            File.Copy(audioFilePath, targetPath, true);
 
-            PlayerPrefs.SetString("fullLocation", newFilePath);
-            PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(newFilePath) + " [vocals].mp3"));
+            PlayerPrefs.SetString("fullLocation", audioFilePath);
+            PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(audioFilePath) + " [vocals].mp3"));
 
             string pythonArgs = $"-u \"main.py\" " + Path.Combine(dataPath, "output");
             string pythonExe = "python";

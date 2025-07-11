@@ -293,7 +293,7 @@ public class LyricsHandler : MonoBehaviour
     {
         for (int i = parsedLyrics.Count - 1; i >= 0; i--)
         {
-            if (elapsedTime+1.2f >= parsedLyrics[i].time)
+            if (elapsedTime+1f >= parsedLyrics[i].time)
             {
                 if (prevIndex != i)
                 {

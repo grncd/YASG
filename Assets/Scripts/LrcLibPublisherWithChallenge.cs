@@ -130,7 +130,7 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
         }
         string formattedSyncedLyrics = string.Join("\n", syncedLines);
 
-        if (plainLines.Length - 3 != syncedLines.Length)
+        if (!(syncedLines.Length >= plainLines.Length - 3))
         {
             AlertManager.Instance.ShowWarning("Not all lyrics are synced!", "Please make sure to sync all the lyrics before publishing.", "Dismiss");
             return;
@@ -268,67 +268,11 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
             {
                 AlertManager.Instance.ShowSuccess("Your lyrics have been sent!", "By contributing lyrics, you don't just help YASG, but also every other project that uses LRCLib. Thank you so much!\n(You and all YASG players are now able to play this song.)", "Dismiss");
                 Debug.Log($"Lyrics published successfully!\nServer Response: {request.downloadHandler.text}");
-
-                // --- NEW ---: Delete the associated song file after successful publication.
-                DeleteAssociatedSongFile(lyricsPayload.trackName);
             }
         }
     }
 
-    /// <summary>
-    /// Deletes the MP3 file associated with a given track name after lyrics have been successfully published.
-    /// It looks up the filename in corr.json and removes the file from the dataPath.
-    /// </summary>
-    /// <param name="trackKey">The name of the track (e.g., "Bohemian Rhapsody") used as a key in corr.json.</param>
-    private void DeleteAssociatedSongFile(string trackKey)
-    {
-        Debug.Log($"Attempting to delete song file for published track: {trackKey}");
-        try
-        {
-            string dataPath = PlayerPrefs.GetString("dataPath");
-            if (string.IsNullOrEmpty(dataPath))
-            {
-                Debug.LogError("Cannot delete song file: dataPath is not set in PlayerPrefs!");
-                return;
-            }
-
-            string jsonPath = Path.Combine(dataPath, "corr.json");
-            if (!File.Exists(jsonPath))
-            {
-                Debug.LogError($"Cannot delete song file: corr.json not found at path: {jsonPath}");
-                return;
-            }
-
-            string jsonContent = File.ReadAllText(jsonPath);
-            CorrespondenceList correspondenceList = JsonUtility.FromJson<CorrespondenceList>(jsonContent);
-
-            // Find the entry for the track
-            CorrespondenceEntry entry = correspondenceList.correspondences.FirstOrDefault(c => c.key == trackKey);
-
-            if (entry == null)
-            {
-                Debug.LogWarning($"Track key '{trackKey}' not found in corr.json. Cannot delete file.");
-                return;
-            }
-
-            string audioFileName = entry.value;
-            string audioFilePath = Path.Combine(dataPath, audioFileName);
-
-            if (File.Exists(audioFilePath))
-            {
-                File.Delete(audioFilePath);
-                Debug.Log($"Successfully deleted song file: {audioFilePath}");
-            }
-            else
-            {
-                Debug.LogWarning($"Song file not found at path, could not delete: {audioFilePath}");
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"An error occurred while trying to delete the song file: {ex.Message}");
-        }
-    }
+    
 
 
     private static byte[] HexStringToByteArray(string hex)
