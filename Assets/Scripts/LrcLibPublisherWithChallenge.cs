@@ -99,6 +99,16 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
         string[] plainLines = File.ReadAllLines(plainLyricsPath);
         string plainLyrics = string.Join("\n", plainLines.Skip(3));
 
+        // Validate plain lyrics format
+        foreach (string line in plainLyrics.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (!string.IsNullOrEmpty(line) && !(char.IsUpper(line[0]) || char.IsDigit(line[0])))
+            {
+                AlertManager.Instance.ShowWarning("Invalid lyric format.", "Each lyric line must start with a capitalized letter or a number.", "Dismiss");
+                return;
+            }
+        }
+
         string[] syncedLines = File.ReadAllLines(syncedLyricsPath);
         for (int i = 0; i < syncedLines.Length; i++)
         {
@@ -108,6 +118,17 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
             }
         }
         string formattedSyncedLyrics = string.Join("\n", syncedLines);
+
+        if (plainLines.Length - 3 != syncedLines.Length)
+        {
+            AlertManager.Instance.ShowWarning("Not all lyrics are synced!", "Please make sure to sync all the lyrics before publishing.", "Dismiss");
+            return;
+        }
+        if (plainLines.Length <= 4)
+        {
+            AlertManager.Instance.ShowError("The lyrics are too short.", "You need to have at least 4 verses (4 lines) to be able to submit.", "Dismiss");
+            return;
+        }
 
         lyricsToPublish = new LyricsData { trackName = trackName, artistName = artistName, albumName = albumName, duration = duration, plainLyrics = plainLyrics, syncedLyrics = formattedSyncedLyrics };
 

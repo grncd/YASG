@@ -58,6 +58,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     public AudioClip stage2FX;
     public AudioClip stage3FX;
     public GameObject loadingFX;
+    private bool dontSave = false;
 
     private int _originalVSyncCount;
 
@@ -403,14 +404,18 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         var dataPath = PlayerPrefs.GetString("dataPath");
         var mp3Path = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
+        if (!dontSave)
+        {
+            AppendToJson(Path.Combine(dataPath, "corr.json"), name, Path.GetFileName(Path.ChangeExtension(mp3Path, ".mp3")));
+        }
         UnityEngine.Debug.Log(mp3Path);
         if (mp3Path == null)
         {
             UnityEngine.Debug.LogError("No MP3 found!");
             return;
         }
-        AppendToJson(Path.Combine(dataPath, "corr.json"), name, Path.GetFileName(Path.ChangeExtension(mp3Path, ".mp3")));
-
+        
+        dontSave = false;
         LoadingDone();
         loadingFX.SetActive(false);
     }
@@ -919,7 +924,13 @@ public class LevelResourcesCompiler : MonoBehaviour
         process.OutputDataReceived += (sender, args) =>
         {
             if (!string.IsNullOrEmpty(args.Data))
+            {
                 UnityEngine.Debug.Log("Output: " + args.Data);
+                if (args.Data.Contains("duplicate"))
+                {
+                    dontSave = true;
+                }
+            }
         };
 
         process.ErrorDataReceived += (sender, args) =>
