@@ -110,7 +110,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     {
         if (lyricsError)
         {
-            alertManager.ShowError("This song does not have lyrics.", "The song you've selected either has no lyrics or we couldn't find any synced lyrics for it. Please choose another song.", "Dismiss");
+            alertManager.ShowError("This song does not have lyrics.", "The song you've selected either has no lyrics or we couldn't find any synced lyrics for it. If this song has lyrics and you'd like to add them, <b>use the Add Lyrics button</b> located in the menu.", "Dismiss");
             LoadingDone();
             mainPanel.SetActive(true);
             lyricsError = false; // Reset after showing

@@ -101,9 +101,9 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
         // Validate plain lyrics format
         foreach (string line in plainLyrics.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries))
         {
-            if (!string.IsNullOrEmpty(line) && !(char.IsUpper(line[0]) || char.IsDigit(line[0])))
+            if (!string.IsNullOrEmpty(line) && !(char.IsUpper(line[0]) || char.IsDigit(line[0]) || line[0] == '\''))
             {
-                AlertManager.Instance.ShowWarning("Invalid lyric format.", "Each lyric line must start with a capitalized letter or a number.", "Dismiss");
+                AlertManager.Instance.ShowWarning("Invalid lyric format.", "Each lyric line must start with a capitalized letter, or an apostrophe or a number.", "Dismiss");
                 return;
             }
         }
