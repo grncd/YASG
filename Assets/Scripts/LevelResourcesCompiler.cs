@@ -26,7 +26,6 @@ public class LevelResourcesCompiler : MonoBehaviour
     public TextMeshProUGUI status;
     public string dataPath;
     private string extractedFileName = null;
-    private string filePath;
     private float totalETA = 0f;
     private float currentETA = 0f;
     private bool splittingVocals = false;
@@ -82,7 +81,6 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
         dataPath = PlayerPrefs.GetString("dataPath");
         Application.targetFrameRate = -1;
-        filePath = Path.Combine(dataPath, "corr.json");
         progressBar.gameObject.SetActive(false);
         if (processLocally)
         {
@@ -371,11 +369,6 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         var dataPath = PlayerPrefs.GetString("dataPath");
         var mp3Path = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
-        if (!dontSave)
-        {
-            AppendToJson(Path.Combine(dataPath, "corr.json"), name, Path.GetFileName(Path.ChangeExtension(mp3Path, ".mp3")));
-        }
-        UnityEngine.Debug.Log(mp3Path);
         if (mp3Path == null)
         {
             UnityEngine.Debug.LogError("No MP3 found!");
@@ -421,39 +414,31 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
 
         PlayerPrefs.SetString("currentSong", name);
+        PlayerPrefs.SetString("currentArtist", artist);
 
         if (CheckFile(sanitizedName + ".txt"))
         {
             status.text = "Already downloaded. Loading main scene...";
             PlayerPrefs.SetInt("saved", 1);
-            if (!File.Exists(filePath))
-            {
-                UnityEngine.Debug.LogWarning("corr.json not found. Creating a new one.");
-                File.WriteAllText(filePath, JsonUtility.ToJson(new CorrespondenceData2(), true));
-            }
-            string jsonContent = File.ReadAllText(filePath);
-            CorrespondenceData2 data = JsonUtility.FromJson<CorrespondenceData2>(jsonContent);
 
-            if (data?.correspondences != null)
+            string safeArtist = SanitizeFileName(artist);
+            string expectedFileName = $"{safeArtist} - {sanitizedName}.mp3";
+            string expectedFilePath = Path.Combine(dataPath, "downloads", expectedFileName);
+
+            if (File.Exists(expectedFilePath))
             {
-                var correspondence = data.correspondences.FirstOrDefault(item => item.key == name);
-                if (correspondence != null)
-                {
-                    string value = correspondence.value;
-                    UnityEngine.Debug.Log("Corresponding value: " + value);
-                    string vocalLocation = Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(value) + " [vocals].mp3");
-                    PlayerPrefs.SetString("vocalLocation", vocalLocation);
-                    PlayerPrefs.SetString("fullLocation", Path.Combine(dataPath, value));
-                    if (PlayerPrefs.GetInt("multiplayer") == 0) LoadMain();
-                    return;
-                }
-                UnityEngine.Debug.Log("Key not found: " + name);
+                UnityEngine.Debug.Log("Found corresponding file: " + expectedFilePath);
+                string vocalLocation = Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedFilePath) + " [vocals].mp3");
+                PlayerPrefs.SetString("vocalLocation", vocalLocation);
+                PlayerPrefs.SetString("fullLocation", expectedFilePath);
+                if (PlayerPrefs.GetInt("multiplayer") == 0) LoadMain();
+                return;
             }
             else
             {
-                UnityEngine.Debug.LogError("Failed to parse JSON or empty correspondences.");
+                UnityEngine.Debug.LogError($"Lyrics file found for '{name}', but the corresponding audio file '{expectedFileName}' is missing in the downloads folder. A re-download might be required. If the issue persists, delete the song's .txt file inside YASG's data folder.");
+                return;
             }
-            return;
         }
 
         PlayerPrefs.SetInt("saved", 0);
@@ -668,37 +653,52 @@ public class LevelResourcesCompiler : MonoBehaviour
         dataPath = PlayerPrefs.GetString("dataPath");
         var mp3Path = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
 
+        string songName = PlayerPrefs.GetString("currentSong");
+        string artistName = PlayerPrefs.GetString("currentArtist");
+
+        string sanitizedSongName = SanitizeFileName(songName);
+        string sanitizedArtistName = SanitizeFileName(artistName);
+
+        string newFileName = $"{sanitizedArtistName} - {sanitizedSongName}.mp3";
+        string newFilePath = Path.Combine(dataPath, "downloads", newFileName);
+
         if (mp3Path == null)
         {
             UnityEngine.Debug.LogError("No MP3 found to process!");
             return;
         }
 
+        if (File.Exists(newFilePath))
+        {
+            File.Delete(newFilePath);
+        }
+
+        File.Move(mp3Path, newFilePath);
+        UnityEngine.Debug.Log($"Renamed downloaded file to: {newFilePath}");
+
         if (processLocally)
         {
             var inputFolder = Path.Combine(dataPath, "Mel-Band-Roformer-Vocal-Model-main", "input");
-            var targetPath = Path.Combine(inputFolder, Path.GetFileName(mp3Path));
-            File.Copy(mp3Path, targetPath, true);
-            await RunProcessAsync("ffmpeg", $"-i \"{mp3Path}\" \"{Path.ChangeExtension(mp3Path, ".wav")}\"", dataPath);
+            var targetPath = Path.Combine(inputFolder, Path.GetFileName(newFilePath));
+            File.Copy(newFilePath, targetPath, true);
+            await RunProcessAsync("ffmpeg", $"-i \"{newFilePath}\" \"{Path.ChangeExtension(newFilePath, ".wav")}\"", dataPath);
 
-            PlayerPrefs.SetString("fullLocation", Path.ChangeExtension(mp3Path, ".mp3"));
-            PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "Mel-Band-Roformer-Vocal-Model-main", "output", Path.GetFileNameWithoutExtension(mp3Path) + "_vocals.wav"));
-            AppendToJson(Path.Combine(dataPath, "corr.json"), PlayerPrefs.GetString("currentSong"), Path.GetFileName(Path.ChangeExtension(mp3Path, ".mp3")));
+            PlayerPrefs.SetString("fullLocation", Path.ChangeExtension(newFilePath, ".mp3"));
+            PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "Mel-Band-Roformer-Vocal-Model-main", "output", Path.GetFileNameWithoutExtension(newFilePath) + "_vocals.wav"));
 
             await RunProcessAsync("ffmpeg", $"-i \"{targetPath}\" \"{Path.ChangeExtension(targetPath, ".wav")}\"", dataPath);
-            File.Delete(Path.ChangeExtension(mp3Path, ".wav")); // saves storage
+            File.Delete(Path.ChangeExtension(newFilePath, ".wav")); // saves storage
             splittingVocals = true;
             while (splittingVocals) await Task.Delay(1000);
         }
         else
         {
             var inputFolder = Path.Combine(dataPath, "vocalremover", "input");
-            var targetPath = Path.Combine(inputFolder, Path.GetFileName(mp3Path));
-            File.Copy(mp3Path, targetPath, true);
+            var targetPath = Path.Combine(inputFolder, Path.GetFileName(newFilePath));
+            File.Copy(newFilePath, targetPath, true);
 
-            PlayerPrefs.SetString("fullLocation", mp3Path);
-            PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(mp3Path) + " [vocals].mp3"));
-            AppendToJson(Path.Combine(dataPath, "corr.json"), PlayerPrefs.GetString("currentSong"), Path.GetFileName(Path.ChangeExtension(mp3Path, ".mp3")));
+            PlayerPrefs.SetString("fullLocation", newFilePath);
+            PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(newFilePath) + " [vocals].mp3"));
 
             string pythonArgs = $"-u \"main.py\" " + Path.Combine(dataPath, "output");
             string pythonExe = "python";
@@ -708,24 +708,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         UnityEngine.Debug.Log("Python inference finished!");
     }
 
-    public void AppendToJson(string path, string newKey, string newValue)
-    {
-        if (!File.Exists(path))
-        {
-            UnityEngine.Debug.LogError("JSON file not found: " + path);
-            return;
-        }
-
-        string json = File.ReadAllText(path);
-        CorrespondenceData2 data = JsonUtility.FromJson<CorrespondenceData2>(json);
-        if (data.correspondences.Any(c => c.key == newKey)) return; // Avoid duplicates
-
-        data.correspondences.Add(new KeyValuePair { key = newKey, value = newValue });
-
-        string updatedJson = JsonUtility.ToJson(data, true);
-        File.WriteAllText(path, updatedJson);
-        UnityEngine.Debug.Log("Added new entry: " + newKey + " -> " + newValue);
-    }
+    
 
     public float ParseTime(string timeString)
     {
@@ -909,25 +892,6 @@ public class LevelResourcesCompiler : MonoBehaviour
     }
 
     // --- SERIALIZABLE CLASSES ---
-
-    [Serializable]
-    public class KeyValuePair
-    {
-        public string key;
-        public string value;
-    }
-
-    [Serializable]
-    public class CorrespondenceData
-    {
-        public KeyValuePair[] correspondences;
-    }
-
-    [Serializable]
-    public class CorrespondenceData2
-    {
-        public List<KeyValuePair> correspondences = new List<KeyValuePair>();
-    }
 
     [Serializable]
     public class LrcLibResponse
