@@ -272,7 +272,7 @@ public class PlayerPerformance : MonoBehaviour
             mehParticles.Play();
             mehCount++;
         }
-        else if (currentRatio < 0.90f)
+        else if (currentRatio < 0.915f)
         {
             Color temp = new Color(91f / 255f, 1f, 71f / 255f);
             judgmentGlow.color = temp;

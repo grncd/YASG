@@ -17008,7 +17008,7 @@ MonoBehaviour:
   midFrequencyThreshold: 3500
   lowMultiplier: 0.55
   midMultiplier: 0.35
-  highMultiplier: 0.4
+  highMultiplier: 0.29
   smoothing: 0.1
 --- !u!4 &1941691837
 Transform:

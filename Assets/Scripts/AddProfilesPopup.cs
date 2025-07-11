@@ -12,6 +12,7 @@ public class AddProfilesPopup : MonoBehaviour
     public GameObject profilePrefab;
     public Transform prefabDestination;
     public AudioSource clickFX;
+    private bool canDismiss = true;
     void Awake()
     {
         animator = GetComponent<Animator>();
@@ -42,10 +43,15 @@ public class AddProfilesPopup : MonoBehaviour
 
     public async void Dismiss()
     {
-        SelectorOutline.Instance.defaultObject = transform.parent.GetChild(0).gameObject;
-        SelectorOutline.Instance.UnrestrictAllButtons();
-        animator.Play("ProfileCreationOut");
-        await Task.Delay(TimeSpan.FromSeconds(0.5f));
-        gameObject.SetActive(false);
+        if (canDismiss)
+        {
+            canDismiss = false;
+            SelectorOutline.Instance.defaultObject = transform.parent.GetChild(0).gameObject;
+            SelectorOutline.Instance.UnrestrictAllButtons();
+            animator.Play("ProfileCreationOut");
+            await Task.Delay(TimeSpan.FromSeconds(0.5f));
+            gameObject.SetActive(false);
+            canDismiss = true;
+        }
     }
 }
