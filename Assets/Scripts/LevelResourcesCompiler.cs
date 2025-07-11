@@ -18,6 +18,7 @@ using MPUIKIT;
 using static SearchHandler;
 using UnityEngine.Networking;
 using System.Text.RegularExpressions;
+using Debug = UnityEngine.Debug; // Explicitly use UnityEngine.Debug to avoid ambiguity with System.Diagnostics.Debug
 
 public class LevelResourcesCompiler : MonoBehaviour
 {
@@ -45,7 +46,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     private bool processLocally = false;
     public AlertManager alertManager;
     private bool lyricsError = false;
-    private bool lyricsError2 = false;
+    private bool lyricsError2 = false; // Flag for initial lyrics script failure
     public DifficultyHover DIH;
     public DifficultySelector DIH2;
     private float currentPercentage = 0f;
@@ -67,10 +68,9 @@ public class LevelResourcesCompiler : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        //DontDestroyOnLoad(this.gameObject);
     }
 
-    private void Start() 
+    private void Start()
     {
         if (Application.isEditor)
         {
@@ -110,10 +110,10 @@ public class LevelResourcesCompiler : MonoBehaviour
     {
         if (lyricsError)
         {
-            alertManager.ShowError("This song does not have lyrics.", "The song you've selected either has no lyrics or Spotify didn't provide synced lyrics for it. Please choose another song.", "Dismiss");
+            alertManager.ShowError("This song does not have lyrics.", "The song you've selected either has no lyrics or we couldn't find any synced lyrics for it. Please choose another song.", "Dismiss");
             LoadingDone();
             mainPanel.SetActive(true);
-            lyricsError = false;
+            lyricsError = false; // Reset after showing
         }
         if (fakeLoading)
         {
@@ -146,10 +146,8 @@ public class LevelResourcesCompiler : MonoBehaviour
                 extractedFileName = Path.GetFileNameWithoutExtension(extractedFileName);
             }
             string vocalLocation = Path.Combine(dataPath, "output", extractedFileName + " [vocals].mp3");
-            //PlayerPrefs.SetString("vocalLocation", vocalLocation);
             UnityEngine.Debug.Log("PlayerPrefs updated with vocalLocation: " + vocalLocation);
 
-            // Reset the flag so we don't update repeatedly
             extractedFileName = null;
         }
         if (currentPercentage != 0f)
@@ -157,7 +155,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             progressBar.gameObject.SetActive(true);
             progressBar.value = currentPercentage;
         }
-        
+
     }
 
     public bool CheckFile(string name)
@@ -186,18 +184,11 @@ public class LevelResourcesCompiler : MonoBehaviour
             return;
         }
 
-        // Find the highest resolution image (largest width)
-        var highestResImage = track.album.images[0];
-        foreach (var img in track.album.images)
+        var highestResImage = track.album.images.OrderByDescending(img => img.width).FirstOrDefault();
+        if (highestResImage != null)
         {
-            if (img.width > highestResImage.width)
-            {
-                highestResImage = img;
-            }
+            StartCoroutine(DownloadAlbumCover(highestResImage.url, image, image2));
         }
-
-        // Start the coroutine to download and apply the image
-        StartCoroutine(DownloadAlbumCover(highestResImage.url, image, image2));
     }
 
     public string GetURLCoverFromTrack(Track track)
@@ -208,17 +199,8 @@ public class LevelResourcesCompiler : MonoBehaviour
             return "";
         }
 
-        // Find the highest resolution image (largest width)
-        var highestResImage = track.album.images[0];
-        foreach (var img in track.album.images)
-        {
-            if (img.width > highestResImage.width)
-            {
-                highestResImage = img;
-            }
-        }
-
-        return highestResImage.url;        
+        var highestResImage = track.album.images.OrderByDescending(img => img.width).FirstOrDefault();
+        return highestResImage?.url ?? "";
     }
 
     private IEnumerator DownloadAlbumCover(string imageUrl, MPImage image, MPImage image2)
@@ -242,17 +224,15 @@ public class LevelResourcesCompiler : MonoBehaviour
     }
 
 
-    public void PreCompile(string url, string name,string artist,string length, Track track)
+    public void PreCompile(string url, string name, string artist, string length, Track track)
     {
-
-
-        if(ProfileManager.Instance.GetActiveProfiles().Count == 0)
+        if (ProfileManager.Instance.GetActiveProfiles().Count == 0)
         {
             alertManager.ShowError("You don't have any active profiles!", "Please go to the Settings (cogwheel on the bottom right) and either create a new profile or activate an existing one.", "Dismiss");
             return;
         }
-        List<Profile> profiles = ProfileManager.Instance.GetActiveProfiles();
-        foreach (Profile profile in profiles)
+
+        foreach (var profile in ProfileManager.Instance.GetActiveProfiles())
         {
             if (profile.microphone == "Default")
             {
@@ -269,32 +249,32 @@ public class LevelResourcesCompiler : MonoBehaviour
         selectedTrack = track;
         songInfo.transform.GetChild(4).GetChild(0).GetChild(0).GetComponent<TextMeshProUGUI>().text = name;
         songInfo.transform.GetChild(4).GetChild(0).GetChild(1).GetComponent<TextMeshProUGUI>().text = artist;
-        songInfo.transform.GetChild(4).GetChild(0).GetChild(3).GetComponent<TextMeshProUGUI>().text = "Song Length: "+length;
+        songInfo.transform.GetChild(4).GetChild(0).GetChild(3).GetComponent<TextMeshProUGUI>().text = "Song Length: " + length;
 
-        songInfo.transform.GetChild(4).GetChild(0).GetChild(4).GetComponent<Button>().onClick.RemoveAllListeners();
-        songInfo.transform.GetChild(4).GetChild(0).GetChild(5).GetComponent<Button>().onClick.RemoveAllListeners();
-        songInfo.transform.GetChild(4).GetChild(0).GetChild(6).GetComponent<Button>().onClick.RemoveAllListeners();
+        var playButton = songInfo.transform.GetChild(4).GetChild(0).GetChild(4).GetComponent<Button>();
+        var favButton = songInfo.transform.GetChild(4).GetChild(0).GetChild(5).GetComponent<Button>();
+        var unfavButton = songInfo.transform.GetChild(4).GetChild(0).GetChild(6).GetComponent<Button>();
 
-        songInfo.transform.GetChild(4).GetChild(0).GetChild(4).GetComponent<Button>().onClick.AddListener(delegate { StartCompile(url, name,artist,length,cover); });
+        playButton.onClick.RemoveAllListeners();
+        favButton.onClick.RemoveAllListeners();
+        unfavButton.onClick.RemoveAllListeners();
 
-        if (!isFavorite)
-        {
-            songInfo.transform.GetChild(4).GetChild(0).GetChild(5).gameObject.SetActive(true);
-            songInfo.transform.GetChild(4).GetChild(0).GetChild(6).gameObject.SetActive(false);
-        }
-        else
-        {
-            songInfo.transform.GetChild(4).GetChild(0).GetChild(5).gameObject.SetActive(false);
-            songInfo.transform.GetChild(4).GetChild(0).GetChild(6).gameObject.SetActive(true);
-        }
+        playButton.onClick.AddListener(() => StartCompile(url, name, artist, length, cover));
 
-        songInfo.transform.GetChild(4).GetChild(0).GetChild(5).GetComponent<Button>().onClick.AddListener(delegate { AddFavorite(name,artist,length,cover,url); });
-        songInfo.transform.GetChild(4).GetChild(0).GetChild(5).GetComponent<Button>().onClick.AddListener(delegate { songInfo.transform.GetChild(4).GetChild(0).GetChild(5).gameObject.SetActive(false); });
-        songInfo.transform.GetChild(4).GetChild(0).GetChild(5).GetComponent<Button>().onClick.AddListener(delegate { songInfo.transform.GetChild(4).GetChild(0).GetChild(6).gameObject.SetActive(true); });
+        favButton.gameObject.SetActive(!isFavorite);
+        unfavButton.gameObject.SetActive(isFavorite);
 
-        songInfo.transform.GetChild(4).GetChild(0).GetChild(6).GetComponent<Button>().onClick.AddListener(delegate { RemoveFavorite(url); });
-        songInfo.transform.GetChild(4).GetChild(0).GetChild(6).GetComponent<Button>().onClick.AddListener(delegate { songInfo.transform.GetChild(4).GetChild(0).GetChild(5).gameObject.SetActive(true); });
-        songInfo.transform.GetChild(4).GetChild(0).GetChild(6).GetComponent<Button>().onClick.AddListener(delegate { songInfo.transform.GetChild(4).GetChild(0).GetChild(6).gameObject.SetActive(false); });
+        favButton.onClick.AddListener(() => {
+            AddFavorite(name, artist, length, cover, url);
+            favButton.gameObject.SetActive(false);
+            unfavButton.gameObject.SetActive(true);
+        });
+
+        unfavButton.onClick.AddListener(() => {
+            RemoveFavorite(url);
+            favButton.gameObject.SetActive(true);
+            unfavButton.gameObject.SetActive(false);
+        });
 
         SetAlbumCoverFromTrack(track, songInfo.transform.GetChild(4).GetChild(0).GetComponent<MPImage>(), songInfo.transform.GetChild(4).GetChild(0).GetChild(2).GetComponent<MPImage>());
 
@@ -305,22 +285,12 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             highscorePanel.gameObject.SetActive(true);
 
-            // Get UI components based on the paths you provided
-            TextMeshProUGUI scoreText = highscorePanel.GetChild(0).GetComponent<TextMeshProUGUI>();
+            highscorePanel.GetChild(0).GetComponent<TextMeshProUGUI>().text = highscore.score.ToString("#,#");
+            highscorePanel.GetChild(2).GetComponent<TextMeshProUGUI>().text = "By: " + highscore.playerName;
+
             Transform starsLocation = highscorePanel.GetChild(1).transform;
-            TextMeshProUGUI byText = highscorePanel.GetChild(2).GetComponent<TextMeshProUGUI>();
+            foreach (Transform child in starsLocation) Destroy(child.gameObject);
 
-            // Set text values
-            scoreText.text = highscore.score.ToString("#,#");
-            byText.text = "By: " + highscore.playerName;
-
-            // Clear any old stars that might be there from a previous selection
-            foreach (Transform child in starsLocation)
-            {
-                Destroy(child.gameObject);
-            }
-
-            // Instantiate the correct number of stars
             if (starHSPrefab != null)
             {
                 for (int i = 0; i < highscore.stars; i++)
@@ -330,12 +300,11 @@ public class LevelResourcesCompiler : MonoBehaviour
             }
             else
             {
-                UnityEngine.Debug.LogWarning("starHSPrefab is not assigned in the LevelResourcesCompiler Inspector!");
+                UnityEngine.Debug.LogWarning("starHSPrefab is not assigned!");
             }
         }
         else
         {
-            // If no highscore exists for this song, hide the panel
             highscorePanel.gameObject.SetActive(false);
         }
     }
@@ -344,14 +313,12 @@ public class LevelResourcesCompiler : MonoBehaviour
     {
         FavoritesManager.AddFavorite(name, artist, length, cover, url);
         songInfo.transform.GetChild(5).GetComponent<AudioSource>().Play();
-        FavoritesManager.PrintAllFavorites();
     }
 
     public void RemoveFavorite(string url)
     {
         FavoritesManager.RemoveFavoriteByUrl(url);
         songInfo.transform.GetChild(6).GetComponent<AudioSource>().Play();
-        FavoritesManager.PrintAllFavorites();
     }
 
     public async void Dismiss()
@@ -359,7 +326,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         DIH.Close();
         DIH2.Close();
         songInfo.GetComponent<Animator>().Play("SongInfoOut");
-        await Task.Delay(TimeSpan.FromMilliseconds(200));
+        await Task.Delay(200);
         songInfo.SetActive(false);
     }
 
@@ -414,83 +381,73 @@ public class LevelResourcesCompiler : MonoBehaviour
             UnityEngine.Debug.LogError("No MP3 found!");
             return;
         }
-        
+
         dontSave = false;
         LoadingDone();
         loadingFX.SetActive(false);
     }
 
-    public async Task StartCompile(string url,string name,string artist,string length,string cover)
+    private string SanitizeFileName(string name)
+    {
+        string charactersToRemovePattern = @"[/\\:*?""<>|]";
+        return Regex.Replace(name, charactersToRemovePattern, string.Empty);
+    }
+
+    public async Task StartCompile(string url, string name, string artist, string length, string cover)
     {
         dataPath = PlayerPrefs.GetString("dataPath");
         UnityEngine.Debug.Log($"CALLED: {url}, {name}, {artist}, {length}, {cover}");
         PlayerPrefs.SetString("currentSongURL", url);
         name = name.Replace("\\", " ");
         songInfo.transform.GetChild(4).GetComponent<AudioSource>().Play();
-        if (!CheckFile(name + ".txt"))
+
+        string sanitizedName = SanitizeFileName(name);
+
+        if (!CheckFile(sanitizedName + ".txt"))
         {
             transitionAnim.Play("Transition");
-            await Task.Delay(TimeSpan.FromMilliseconds(1350));
+            await Task.Delay(1350);
             if (songInfo.activeSelf)
             {
                 Dismiss();
                 mainPanel.SetActive(false);
             }
-            await Task.Delay(TimeSpan.FromMilliseconds(384));
+            await Task.Delay(384);
         }
         else
         {
             transitionAnim.Play("TransitionSaved");
-            await Task.Delay(TimeSpan.FromMilliseconds(1450));
+            await Task.Delay(1450);
         }
+
         PlayerPrefs.SetString("currentSong", name);
-        string charactersToRemovePattern = @"[/\\:*?""<>|]";
-        name = Regex.Replace(name, charactersToRemovePattern, string.Empty);
-        UnityEngine.Debug.Log(CheckFile(name+".txt"));
-        if (CheckFile(name + ".txt")) // Checking if this process has already been done for the song
+
+        if (CheckFile(sanitizedName + ".txt"))
         {
             status.text = "Already downloaded. Loading main scene...";
-            PlayerPrefs.SetInt("saved",1);
+            PlayerPrefs.SetInt("saved", 1);
             if (!File.Exists(filePath))
             {
                 UnityEngine.Debug.LogWarning("corr.json not found. Creating a new one.");
-                var newData = new CorrespondenceData2();
-                string newJsonContent = JsonUtility.ToJson(newData, true);
-                File.WriteAllText(filePath, newJsonContent);
+                File.WriteAllText(filePath, JsonUtility.ToJson(new CorrespondenceData2(), true));
             }
             string jsonContent = File.ReadAllText(filePath);
             CorrespondenceData2 data = JsonUtility.FromJson<CorrespondenceData2>(jsonContent);
 
-            if (data != null && data.correspondences != null)
+            if (data?.correspondences != null)
             {
-                string key = name;
-                bool found = false;
-                foreach (var item in data.correspondences)
+                var correspondence = data.correspondences.FirstOrDefault(item => item.key == name);
+                if (correspondence != null)
                 {
-                    if (item.key == key)
-                    {
-                        string value = item.value;
-                        UnityEngine.Debug.Log("Corresponding value: " + value);
-                        string vocalLocation = Path.Combine(dataPath, "output","htdemucs", value.Substring(0, value.Length - 4) + " [vocals].mp3");
-                        PlayerPrefs.SetString("vocalLocation", vocalLocation);
-                        PlayerPrefs.SetString("fullLocation", Path.Combine(dataPath, value));
-                        //if (PlayerPrefs.GetInt("multiplayer") == 1)
-                        //{
-                        //status.text = "Sending files to players...";
-                        //await Task.Delay(TimeSpan.FromMilliseconds(2500));
-                        //}
-                        if (PlayerPrefs.GetInt("multiplayer") == 0)
-                        {
-                            LoadMain();
-                        }
-                        found = true;
-                        break;
-                    }
+                    string value = correspondence.value;
+                    UnityEngine.Debug.Log("Corresponding value: " + value);
+                    string vocalLocation = Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(value) + " [vocals].mp3");
+                    PlayerPrefs.SetString("vocalLocation", vocalLocation);
+                    PlayerPrefs.SetString("fullLocation", Path.Combine(dataPath, value));
+                    if (PlayerPrefs.GetInt("multiplayer") == 0) LoadMain();
+                    return;
                 }
-                if (!found)
-                {
-                    UnityEngine.Debug.Log("Key not found: " + key);
-                }
+                UnityEngine.Debug.Log("Key not found: " + name);
             }
             else
             {
@@ -498,6 +455,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             }
             return;
         }
+
         PlayerPrefs.SetInt("saved", 0);
         loadingCanvas.SetActive(true);
         loadingSecond.SetActive(true);
@@ -519,8 +477,8 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         ProcessStartInfo psi = new ProcessStartInfo
         {
-            FileName = dataPath+"\\getlyrics.bat",
-            Arguments = url+ " "+dataPath,
+            FileName = dataPath + "\\getlyrics.bat",
+            Arguments = url + " " + dataPath,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -528,36 +486,44 @@ public class LevelResourcesCompiler : MonoBehaviour
         };
 
         Process process = new Process { StartInfo = psi };
-
-        // Capture output and error asynchronously
         process.OutputDataReceived += (sender, args) =>
         {
-            if (!string.IsNullOrEmpty(args.Data))
-                UnityEngine.Debug.Log("Output: " + args.Data);
+            if (string.IsNullOrEmpty(args.Data)) return;
+            UnityEngine.Debug.Log("Output: " + args.Data);
             if (args.Data.Contains("some tracks"))
             {
-                loadingFX.SetActive(false);
-                lyricsError = true;
-                lyricsError2 = true;
-                return;
+                lyricsError2 = true; // Set flag to try fallback
             }
         };
-
-
         process.Start();
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        // Wait asynchronously without freezing the game
         await Task.Run(() => process.WaitForExit());
-        UnityEngine.Debug.Log("DONE");
+        UnityEngine.Debug.Log("Lyrics script finished.");
+
+        // --- FALLBACK LOGIC ---
         if (lyricsError2)
         {
-            loadingFX.SetActive(false);
-            lyricsError2 = false;
-            return;
-        }
+            lyricsError2 = false; // Reset flag
+            status.text = "Primary source failed. Trying LRCLib...";
+            UnityEngine.Debug.Log("Initial lyric fetch failed. Attempting LRCLib fallback.");
 
+            bool fallbackSuccess = await FetchLyricsFromLrcLib(selectedTrack);
+
+            if (!fallbackSuccess)
+            {
+                UnityEngine.Debug.LogError("LRCLib fallback also failed. No lyrics found.");
+                lyricsError = true; // Trigger the final error UI
+                loadingFX.SetActive(false);
+                return;
+            }
+
+            UnityEngine.Debug.Log("LRCLib fallback successful!");
+        }
+        // --- END FALLBACK LOGIC ---
+
+        // Mark Stage 1 as complete
         stage1.transform.GetChild(1).gameObject.SetActive(false);
         stage1.transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.3443396f, 1f, 0.3759922f);
         stage1.transform.GetChild(2).GetComponent<TextMeshProUGUI>().color = new Color(0.3443396f, 1f, 0.3759922f);
@@ -600,17 +566,15 @@ public class LevelResourcesCompiler : MonoBehaviour
         stage3.transform.GetChild(1).gameObject.SetActive(true);
 
         bgDarken.Play("Darken");
-        await Task.Delay(TimeSpan.FromMilliseconds(1010));
+        await Task.Delay(1010);
         bgGM.SetActive(false);
 
-        // Store original VSync setting and disable it, then set target FPS
         _originalVSyncCount = QualitySettings.vSyncCount;
         QualitySettings.vSyncCount = 0;
         Application.targetFrameRate = 30;
 
         await RunPythonDirectly();
 
-        // Restore original settings
         Application.targetFrameRate = -1;
         QualitySettings.vSyncCount = _originalVSyncCount;
 
@@ -618,11 +582,6 @@ public class LevelResourcesCompiler : MonoBehaviour
         currentPercentage = 0f;
 
         FavoritesManager.AddDownload(name, artist, length, cover, url);
-        //if(PlayerPrefs.GetInt("multiplayer") == 1)
-        //{
-        //status.text = "Sending files to players...";
-        //await Task.Delay(TimeSpan.FromMilliseconds(2500));
-        //}
 
         stage3.transform.GetChild(1).gameObject.SetActive(false);
         stage3.transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.3443396f, 1f, 0.3759922f);
@@ -637,81 +596,119 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         status.text = "Loading Main Scene...";
         stage4.transform.GetChild(1).gameObject.SetActive(true);
-        await Task.Delay(TimeSpan.FromMilliseconds(1010));
+        await Task.Delay(1010);
         if (PlayerPrefs.GetInt("multiplayer") == 0)
         {
             LoadMain();
         }
     }
 
-    private async Task RunPythonDirectly()
+    private async Task<bool> FetchLyricsFromLrcLib(Track track)
     {
-        if (processLocally)
+        if (track == null)
         {
-            // 1. Find your mp3 file in the folder
-            var mp3Path = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
-            if (mp3Path == null)
+            UnityEngine.Debug.LogError("Cannot fetch from LRCLib: selectedTrack is null.");
+            return false;
+        }
+
+        string trackName = UnityWebRequest.EscapeURL(track.name);
+        string artistName = UnityWebRequest.EscapeURL(track.artists[0].name);
+        string albumName = UnityWebRequest.EscapeURL(track.album.name);
+        int duration = track.duration_ms / 1000;
+
+        string url = $"https://lrclib.net/api/get?track_name={trackName}&artist_name={artistName}&album_name={albumName}&duration={duration}";
+
+        using (UnityWebRequest request = UnityWebRequest.Get(url))
+        {
+            await request.SendWebRequest();
+
+            if (request.result != UnityWebRequest.Result.Success)
             {
-                UnityEngine.Debug.LogError("No MP3 found!");
-                return;
+                UnityEngine.Debug.LogError($"LRCLib Error: {request.error}");
+                return false;
             }
 
-            // 2. Move it into input folder
+            string jsonResponse = request.downloadHandler.text;
+            if (string.IsNullOrEmpty(jsonResponse) || jsonResponse.Trim() == "null")
+            {
+                UnityEngine.Debug.Log("LRCLib: No entry found for this track.");
+                return false;
+            }
+
+            LrcLibResponse response = JsonUtility.FromJson<LrcLibResponse>(jsonResponse);
+
+            if (string.IsNullOrEmpty(response.syncedLyrics))
+            {
+                UnityEngine.Debug.Log("LRCLib: Found an entry, but it has no synced lyrics.");
+                return false;
+            }
+
+            // Save the lyrics to file, mimicking the original script's output
+            string sanitizedName = SanitizeFileName(track.name);
+            string lyricsFilePath = Path.Combine(dataPath, "downloads", $"{sanitizedName}.txt");
+
+            try
+            {
+                await File.WriteAllTextAsync(lyricsFilePath, response.syncedLyrics);
+                UnityEngine.Debug.Log($"Successfully fetched and saved lyrics from LRCLib to {lyricsFilePath}");
+                return true;
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"Failed to write lyrics file from LRCLib: {e.Message}");
+                return false;
+            }
+        }
+    }
+
+
+    private async Task RunPythonDirectly()
+    {
+        dataPath = PlayerPrefs.GetString("dataPath");
+        var mp3Path = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
+
+        if (mp3Path == null)
+        {
+            UnityEngine.Debug.LogError("No MP3 found to process!");
+            return;
+        }
+
+        if (processLocally)
+        {
             var inputFolder = Path.Combine(dataPath, "Mel-Band-Roformer-Vocal-Model-main", "input");
-            var mp3FileName = Path.GetFileName(mp3Path);
-            var targetPath = Path.Combine(inputFolder, mp3FileName);
-            File.Copy(mp3Path, targetPath);
-            await RunProcessAsync("ffmpeg", $"-i \"" + mp3Path + "\" \"" + Path.ChangeExtension(mp3Path, ".wav") + "\"", dataPath);
+            var targetPath = Path.Combine(inputFolder, Path.GetFileName(mp3Path));
+            File.Copy(mp3Path, targetPath, true);
+            await RunProcessAsync("ffmpeg", $"-i \"{mp3Path}\" \"{Path.ChangeExtension(mp3Path, ".wav")}\"", dataPath);
 
             PlayerPrefs.SetString("fullLocation", Path.ChangeExtension(mp3Path, ".mp3"));
             PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "Mel-Band-Roformer-Vocal-Model-main", "output", Path.GetFileNameWithoutExtension(mp3Path) + "_vocals.wav"));
             AppendToJson(Path.Combine(dataPath, "corr.json"), PlayerPrefs.GetString("currentSong"), Path.GetFileName(Path.ChangeExtension(mp3Path, ".mp3")));
 
-            // 3. Convert to .wav with ffmpeg
             await RunProcessAsync("ffmpeg", $"-i \"{targetPath}\" \"{Path.ChangeExtension(targetPath, ".wav")}\"", dataPath);
-            // 4. Run python inference
-            File.Delete(Path.ChangeExtension(mp3Path,".wav")); // saves storage
+            File.Delete(Path.ChangeExtension(mp3Path, ".wav")); // saves storage
             splittingVocals = true;
-            while (splittingVocals)
-            {
-                await Task.Delay(1000);
-            }
+            while (splittingVocals) await Task.Delay(1000);
         }
         else
         {
-            dataPath = PlayerPrefs.GetString("dataPath");
-            // 1. Find your mp3 file in the folder
-            var mp3Path = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
-            UnityEngine.Debug.Log(mp3Path);
-            if (mp3Path == null)
-            {
-                UnityEngine.Debug.LogError("No MP3 found!");
-                return;
-            }
-
-            // 2. Move it into input folder
             var inputFolder = Path.Combine(dataPath, "vocalremover", "input");
-            var mp3FileName = Path.GetFileName(mp3Path);
-            var targetPath = Path.Combine(inputFolder, mp3FileName);
-            File.Copy(mp3Path, targetPath);
-            //await RunProcessAsync("ffmpeg", $"-i \"" + mp3Path + "\" \"" + Path.ChangeExtension(mp3Path, ".wav") + "\"", dataPath);
+            var targetPath = Path.Combine(inputFolder, Path.GetFileName(mp3Path));
+            File.Copy(mp3Path, targetPath, true);
+
             PlayerPrefs.SetString("fullLocation", mp3Path);
-            PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "output","htdemucs", Path.GetFileNameWithoutExtension(mp3Path) + " [vocals].mp3"));
+            PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(mp3Path) + " [vocals].mp3"));
             AppendToJson(Path.Combine(dataPath, "corr.json"), PlayerPrefs.GetString("currentSong"), Path.GetFileName(Path.ChangeExtension(mp3Path, ".mp3")));
 
-            // 4. Run python inference
-            //File.Delete(Path.ChangeExtension(mp3Path, ".wav")); // saves storage
-            string pythonArgs = $"-u \"main.py\" "+Path.Combine(dataPath,"output");
-            string pythonExe = "python"; // or full path to python if needed
+            string pythonArgs = $"-u \"main.py\" " + Path.Combine(dataPath, "output");
+            string pythonExe = "python";
             string workingDir = Path.Combine(dataPath, "vocalremover");
-            await RunProcessAsync(pythonExe,pythonArgs,workingDir);
+            await RunProcessAsync(pythonExe, pythonArgs, workingDir);
         }
         UnityEngine.Debug.Log("Python inference finished!");
     }
 
     public void AppendToJson(string path, string newKey, string newValue)
     {
-        // Load the existing JSON data
         if (!File.Exists(path))
         {
             UnityEngine.Debug.LogError("JSON file not found: " + path);
@@ -720,47 +717,27 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         string json = File.ReadAllText(path);
         CorrespondenceData2 data = JsonUtility.FromJson<CorrespondenceData2>(json);
+        if (data.correspondences.Any(c => c.key == newKey)) return; // Avoid duplicates
 
-        // Append new entry
-        KeyValuePair newEntry = new KeyValuePair { key = newKey, value = newValue };
-        data.correspondences.Add(newEntry);
+        data.correspondences.Add(new KeyValuePair { key = newKey, value = newValue });
 
-        // Save updated JSON back to file
         string updatedJson = JsonUtility.ToJson(data, true);
         File.WriteAllText(path, updatedJson);
-
         UnityEngine.Debug.Log("Added new entry: " + newKey + " -> " + newValue);
     }
 
     public float ParseTime(string timeString)
     {
-        // Split the string by the space to separate the number and the "seconds" part
         string[] parts = timeString.Split(' ');
+        if (float.TryParse(parts[0], out float result)) return result;
 
-        // Try to parse the first part as a float
-        if (float.TryParse(parts[0], out float result))
-        {
-            return result;
-        }
-        else
-        {
-            UnityEngine.Debug.LogError("Invalid time format");
-            return 0f;
-        }
+        UnityEngine.Debug.LogError("Invalid time format");
+        return 0f;
     }
     public void LowpassTransition(bool inOut) // true = in / false = out
     {
-        if (transitionCoroutine != null)
-            StopCoroutine(transitionCoroutine);
-
-        if (inOut)
-        {
-            transitionCoroutine = StartCoroutine(ChangeCutoffOverTime(20000f, 650f, 0.5f));
-        }
-        else
-        {
-            transitionCoroutine = StartCoroutine(ChangeCutoffOverTime(650f, 20000f, 1f));
-        }
+        if (transitionCoroutine != null) StopCoroutine(transitionCoroutine);
+        transitionCoroutine = StartCoroutine(inOut ? ChangeCutoffOverTime(20000f, 650f, 0.5f) : ChangeCutoffOverTime(650f, 20000f, 1f));
     }
 
     private IEnumerator ChangeCutoffOverTime(float startFreq, float endFreq, float duration)
@@ -773,14 +750,14 @@ public class LevelResourcesCompiler : MonoBehaviour
             musicControl.audioMixer.SetFloat("LowpassCutoff", newFreq);
             yield return null;
         }
-        musicControl.audioMixer.SetFloat("LowpassCutoff", endFreq); // Ensure it reaches exactly 20000Hz
+        musicControl.audioMixer.SetFloat("LowpassCutoff", endFreq);
     }
     public async void LoadingDone()
     {
         LowpassTransition(false);
         blurAnim.Play("BlurOut");
         loadingAnim.Play("LoadingOut");
-        await Task.Delay(TimeSpan.FromSeconds(0.5f));
+        await Task.Delay(500);
         loadingCanvas.SetActive(false);
     }
 
@@ -794,7 +771,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     private async Task RunProcessAsync(string exePath, string arguments, string workingDirectory)
     {
-        if(exePath == "python" && processLocally)
+        if (exePath == "python" && processLocally)
         {
             loadingCanvas.SetActive(true);
             loadingSecond.SetActive(false);
@@ -818,66 +795,45 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         process.OutputDataReceived += (sender, args) =>
         {
-            if (!string.IsNullOrEmpty(args.Data))
+            if (string.IsNullOrEmpty(args.Data)) return;
+
+            UnityEngine.Debug.Log($"[STDOUT] {args.Data}");
+            if (args.Data.Contains("Estimated total processing time for this track:"))
             {
-                UnityEngine.Debug.Log($"[STDOUT] {args.Data}");
-                if (args.Data.Contains("Estimated total processing time for this track:"))
+                totalETA = ParseTime(args.Data.Substring(48));
+                UnityEngine.Debug.Log("Extracted ETA: " + totalETA);
+            }
+            if (args.Data.Contains("Processing track") && exePath == "python" && processLocally)
+            {
+                Process.GetCurrentProcess().ProcessorAffinity = (IntPtr)0b0001;
+                Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.Idle;
+                process.PriorityClass = ProcessPriorityClass.RealTime;
+            }
+            if (args.Data.Contains("Model is ready.") && exePath == "python" && processLocally) initLoadingDone = true;
+            if (args.Data.Contains("Processing finished.") && exePath == "python" && processLocally) done = true;
+            if (args.Data.Contains("Progress:"))
+            {
+                string progressStr = Regex.Match(args.Data, @"\d+").Value;
+                if (int.TryParse(progressStr, out int temp))
                 {
-                    var temp = args.Data.Substring(48, args.Data.Length - 48);
-                    var tempf = ParseTime(temp);
-                    totalETA = tempf;
-                    UnityEngine.Debug.Log("Extracted ETA: " + tempf.ToString());
+                    currentPercentage = (float)temp / 100;
                 }
-                if (args.Data.Contains("Processing track") && exePath == "python" && processLocally)
+            }
+
+            if (args.Data.Contains(processLocally ? "Processing track 1/1:" : "Uploading file:"))
+            {
+                int startIndex = processLocally ? 22 : 15;
+                int endIndexTrim = processLocally ? 4 : 4;
+                if (args.Data.Length >= startIndex + endIndexTrim)
                 {
-                    Process.GetCurrentProcess().ProcessorAffinity = (IntPtr)0b0001;
-                    Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.Idle;
-                    process.PriorityClass = ProcessPriorityClass.RealTime;
-                }
-                if (args.Data.Contains("Model is ready.") && exePath == "python" && processLocally)
-                {
-                    initLoadingDone = true;
-                }
-                if (args.Data.Contains("Processing finished.") && exePath == "python" && processLocally)
-                {
-                    done = true;
-                }
-                if (args.Data.Contains("Progress:"))
-                {
-                    int temp = Convert.ToInt32(args.Data.Substring(10, args.Data.Length - 11).Replace("%",""));
-                    currentPercentage = (float)temp/100;
-                }
-                if (processLocally)
-                {
-                    if (args.Data.Contains("Processing track 1/1:"))
-                    {
-                        // Correct the substring calculation:
-                        // Starting at 22, length = args.Data.Length - 26 to remove first 22 and last 4 characters.
-                        if (args.Data.Length >= 26)
-                        {
-                            extractedFileName = args.Data.Substring(22, args.Data.Length - 26).Trim();
-                            UnityEngine.Debug.Log("Extracted file name: " + extractedFileName);
-                        }
-                        else
-                        {
-                            UnityEngine.Debug.LogError("Data too short for substring extraction: " + args.Data);
-                        }
-                    }
-                }
-                else
-                {
-                    if (args.Data.Contains("Uploading file:"))
-                    {
-                        extractedFileName = args.Data.Substring(15, args.Data.Length - 19).Trim();
-                        UnityEngine.Debug.Log("Extracted file name: " + extractedFileName);
-                    }
+                    extractedFileName = args.Data.Substring(startIndex, args.Data.Length - (startIndex + endIndexTrim)).Trim();
+                    UnityEngine.Debug.Log("Extracted file name: " + extractedFileName);
                 }
             }
         };
         process.ErrorDataReceived += (sender, args) =>
         {
-            if (!string.IsNullOrEmpty(args.Data))
-                UnityEngine.Debug.Log($"[STDERR] {args.Data}");
+            if (!string.IsNullOrEmpty(args.Data)) UnityEngine.Debug.Log($"[STDERR] {args.Data}");
         };
 
         process.Start();
@@ -889,17 +845,16 @@ public class LevelResourcesCompiler : MonoBehaviour
             vocalSplitProc = process;
             while (true)
             {
-                while (!done)
-                {
-                    await Task.Delay(1000);
-                }
+                while (!done) await Task.Delay(1000);
+
                 UnityEngine.Debug.Log("end detected");
                 splittingVocals = false;
                 Process.GetCurrentProcess().ProcessorAffinity = tempCPU;
                 Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.Normal;
                 done = false;
             }
-        } else
+        }
+        else
         {
             await Task.Run(() => process.WaitForExit());
         }
@@ -920,29 +875,21 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         Process process = new Process { StartInfo = psi };
 
-        // Capture output and error asynchronously
         process.OutputDataReceived += (sender, args) =>
         {
-            if (!string.IsNullOrEmpty(args.Data))
-            {
-                UnityEngine.Debug.Log("Output: " + args.Data);
-                if (args.Data.Contains("duplicate"))
-                {
-                    dontSave = true;
-                }
-            }
+            if (string.IsNullOrEmpty(args.Data)) return;
+            UnityEngine.Debug.Log("Output: " + args.Data);
+            if (args.Data.Contains("duplicate")) dontSave = true;
         };
 
         process.ErrorDataReceived += (sender, args) =>
         {
-            if (!string.IsNullOrEmpty(args.Data))
+            if (string.IsNullOrEmpty(args.Data)) return;
+            UnityEngine.Debug.LogError("Error: " + args.Data);
+            if (args.Data.Contains("Traceback"))
             {
-                UnityEngine.Debug.LogError("Error: " + args.Data);
-                if (args.Data.Contains("Traceback"))
-                {
-                    fail = true;
-                    process.Kill();
-                }
+                fail = true;
+                if (!process.HasExited) process.Kill();
             }
         };
 
@@ -951,19 +898,16 @@ public class LevelResourcesCompiler : MonoBehaviour
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        // Wait asynchronously without freezing the game
         await Task.Run(() => process.WaitForExit());
-        if (fail)
-        {
-            return false;
-        }
-        return true;
+        return !fail;
     }
 
     public void LoadMain()
     {
         SceneManager.LoadScene("Main");
     }
+
+    // --- SERIALIZABLE CLASSES ---
 
     [Serializable]
     public class KeyValuePair
@@ -978,12 +922,16 @@ public class LevelResourcesCompiler : MonoBehaviour
         public KeyValuePair[] correspondences;
     }
 
-    [System.Serializable]
+    [Serializable]
     public class CorrespondenceData2
     {
         public List<KeyValuePair> correspondences = new List<KeyValuePair>();
     }
 
-    
-
+    [Serializable]
+    public class LrcLibResponse
+    {
+        public string syncedLyrics;
+        // You can add other fields from the response if needed, e.g., plainLyrics, instrumental
+    }
 }

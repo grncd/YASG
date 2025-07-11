@@ -80,8 +80,7 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
             return;
         }
 
-        Debug.Log("Starting lyrics publication process...");
-        LevelResourcesCompiler.Instance.ChallengeBegin();
+        
 
         // Load Lyrics
         string dataPath = PlayerPrefs.GetString("dataPath");
@@ -116,6 +115,10 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
             {
                 syncedLines[i] = syncedLines[i].Replace("]", "] ");
             }
+            if (syncedLines[i].Contains("["))
+            {
+                syncedLines[i] = syncedLines[i].Replace("[", "[0");
+            }
         }
         string formattedSyncedLyrics = string.Join("\n", syncedLines);
 
@@ -130,6 +133,9 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
             return;
         }
 
+        Debug.Log("Starting lyrics publication process...");
+        LevelResourcesCompiler.Instance.ChallengeBegin();
+
         lyricsToPublish = new LyricsData { trackName = trackName, artistName = artistName, albumName = albumName, duration = duration, plainLyrics = plainLyrics, syncedLyrics = formattedSyncedLyrics };
 
         // Step 1: Get Challenge
@@ -139,6 +145,7 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
             Debug.LogError("Failed to get a valid challenge from the server.");
             return;
         }
+
 
         // Step 2: Schedule Job
         Debug.Log("Solving challenge with Unity Job System... The game will not freeze.");
