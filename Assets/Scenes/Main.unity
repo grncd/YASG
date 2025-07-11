@@ -10015,7 +10015,7 @@ MonoBehaviour:
   maxOverallAverageRMSForFactorMapping: 0.1266
   minVolumeThresholdFactor: 0.743
   maxVolumeThresholdFactor: 0.948
-  dynamicVolumeThresholdDbBoost: -5.12
+  dynamicVolumeThresholdDbBoost: -1.2
   pitchOverTime: []
   AUDIO_TRIM_TIME: 0.2
   guideArrow: {fileID: 0}
