@@ -50,10 +50,13 @@ public class VolumeController : MonoBehaviour
     private float lastVolumeChangeTime;
     private bool isFadingOut = false;
 
+    private AudioSource feedbackAudioSource;
+
     void Start()
     {
         // Load settings and apply them to the mixers and UI on game start.
         LoadAndApplySettings();
+        feedbackAudioSource = GetComponent<AudioSource>();
     }
 
     void Update()
@@ -117,6 +120,12 @@ public class VolumeController : MonoBehaviour
 
         // Show feedback UI
         ShowVolumeFeedback();
+
+        // Play feedback sound
+        if (feedbackAudioSource != null)
+        {
+            feedbackAudioSource.Play();
+        }
     }
 
     private void ShowVolumeFeedback()
