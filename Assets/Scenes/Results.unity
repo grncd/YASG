@@ -1177,7 +1177,7 @@ MonoBehaviour:
     mehsText: {fileID: 5305347916371626846}
     progressBar: {fileID: 5305347916371626844}
     levelText: {fileID: 5305347916371626843}
-    levelUpParticles: {fileID: 0}
+    levelUpParticles: {fileID: 748852148}
   - panelRoot: {fileID: 308356415}
     playerNameText: {fileID: 308356414}
     scoreText: {fileID: 308356413}
@@ -1188,7 +1188,7 @@ MonoBehaviour:
     mehsText: {fileID: 308356409}
     progressBar: {fileID: 308356407}
     levelText: {fileID: 308356406}
-    levelUpParticles: {fileID: 0}
+    levelUpParticles: {fileID: 2135685088}
   - panelRoot: {fileID: 1395591024}
     playerNameText: {fileID: 1395591023}
     scoreText: {fileID: 1395591022}
@@ -1199,7 +1199,7 @@ MonoBehaviour:
     mehsText: {fileID: 1395591018}
     progressBar: {fileID: 1395591016}
     levelText: {fileID: 1395591015}
-    levelUpParticles: {fileID: 0}
+    levelUpParticles: {fileID: 963541823}
   - panelRoot: {fileID: 98003681}
     playerNameText: {fileID: 98003680}
     scoreText: {fileID: 98003679}
@@ -1210,7 +1210,7 @@ MonoBehaviour:
     mehsText: {fileID: 98003675}
     progressBar: {fileID: 98003673}
     levelText: {fileID: 98003672}
-    levelUpParticles: {fileID: 0}
+    levelUpParticles: {fileID: 1542490350}
   starPrefab: {fileID: 8579780331156368963, guid: 80c50a709500adc479d20322f860db64, type: 3}
   levelFX: {fileID: 586227641}
   levelUpFX: {fileID: 1665444451}
@@ -1343,6 +1343,11 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 7
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!198 &748852148 stripped
+ParticleSystem:
+  m_CorrespondingSourceObject: {fileID: 6945078518309648696, guid: 31b5425642dbe344abe59cf157a82798, type: 3}
+  m_PrefabInstance: {fileID: 5305347916371626841}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &814211330
 GameObject:
   m_ObjectHideFlags: 0
@@ -1546,6 +1551,11 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 925100316}
   m_CullTransparentMesh: 1
+--- !u!198 &963541823 stripped
+ParticleSystem:
+  m_CorrespondingSourceObject: {fileID: 6945078518309648696, guid: 31b5425642dbe344abe59cf157a82798, type: 3}
+  m_PrefabInstance: {fileID: 1395591013}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &981527331
 GameObject:
   m_ObjectHideFlags: 0
@@ -3021,6 +3031,11 @@ MonoBehaviour:
   blendDistance: 0
   weight: 1
   priority: 0
+--- !u!198 &1542490350 stripped
+ParticleSystem:
+  m_CorrespondingSourceObject: {fileID: 6945078518309648696, guid: 31b5425642dbe344abe59cf157a82798, type: 3}
+  m_PrefabInstance: {fileID: 98003670}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1599403272
 GameObject:
   m_ObjectHideFlags: 0
@@ -4080,6 +4095,11 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2133923012}
   m_CullTransparentMesh: 1
+--- !u!198 &2135685088 stripped
+ParticleSystem:
+  m_CorrespondingSourceObject: {fileID: 6945078518309648696, guid: 31b5425642dbe344abe59cf157a82798, type: 3}
+  m_PrefabInstance: {fileID: 308356404}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &5305347916371626841
 PrefabInstance:
   m_ObjectHideFlags: 0

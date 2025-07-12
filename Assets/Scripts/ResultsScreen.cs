@@ -206,7 +206,7 @@ public class ResultsScreen : MonoBehaviour
         panel.progressBar.fillAmount = fromProgress;
 
         // Optional: A delay before the animation starts. 3.5s is quite long, you might want to reduce it.
-        yield return new WaitForSeconds(1.5f); // Reduced for better feel, change as needed.
+        yield return new WaitForSeconds(3.5f); // Reduced for better feel, change as needed.
 
         if (leveledUp)
         {
