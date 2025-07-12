@@ -2,6 +2,7 @@ using MPUIKIT;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.UI;
+using System.Collections;
 
 public class VolumeController : MonoBehaviour
 {
@@ -27,6 +28,9 @@ public class VolumeController : MonoBehaviour
     [Tooltip("How much the volume changes per scroll wheel tick.")]
     [SerializeField] private float scrollSensitivity = 0.1f;
 
+    [Header("Volume Feedback UI")]
+    public CanvasGroup volumeFeedbackGroup;
+
     // Default "maxed out" volume levels in decibels (dB).
     private const float MAX_MUSIC_DB = 0f;
     private const float MAX_FX_DB = -14f;
@@ -40,6 +44,11 @@ public class VolumeController : MonoBehaviour
 
     // Tracks which VolumeHoverArea the mouse is currently over.
     private VolumeHoverArea.VolumeType? currentHover = null;
+
+    // Coroutine and timer tracking
+    private Coroutine feedbackCoroutine;
+    private float lastVolumeChangeTime;
+    private bool isFadingOut = false;
 
     void Start()
     {
@@ -105,6 +114,52 @@ public class VolumeController : MonoBehaviour
         // Apply all settings to the mixers and update the UI.
         ApplyAllVolumeSettings();
         UpdateFillImages();
+
+        // Show feedback UI
+        ShowVolumeFeedback();
+    }
+
+    private void ShowVolumeFeedback()
+    {
+        lastVolumeChangeTime = Time.time;
+        if (feedbackCoroutine != null)
+            StopCoroutine(feedbackCoroutine);
+        feedbackCoroutine = StartCoroutine(VolumeFeedbackRoutine());
+    }
+
+    private IEnumerator VolumeFeedbackRoutine()
+    {
+        // Fade in to alpha 1 over 0.25s
+        yield return StartCoroutine(FadeCanvasGroup(volumeFeedbackGroup, volumeFeedbackGroup != null ? volumeFeedbackGroup.alpha : 0f, 1f, 0.25f));
+
+        // Wait for 2 seconds after last volume change
+        isFadingOut = false;
+        while (Time.time - lastVolumeChangeTime < 2f)
+        {
+            yield return null;
+        }
+
+        // Fade out to alpha 0 over 0.25s
+        isFadingOut = true;
+        yield return StartCoroutine(FadeCanvasGroup(volumeFeedbackGroup, volumeFeedbackGroup != null ? volumeFeedbackGroup.alpha : 1f, 0f, 0.25f));
+        isFadingOut = false;
+    }
+
+    private IEnumerator FadeCanvasGroup(CanvasGroup group, float from, float to, float duration)
+    {
+        if (group == null) yield break;
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            group.alpha = Mathf.Lerp(from, to, elapsed / duration);
+            yield return null;
+            elapsed += Time.deltaTime;
+        }
+        group.alpha = to;
+        // Set interactable and blocksRaycasts based on final alpha
+        bool visible = Mathf.Approximately(to, 1f);
+        group.interactable = visible;
+        group.blocksRaycasts = visible;
     }
 
     private void LoadAndApplySettings()

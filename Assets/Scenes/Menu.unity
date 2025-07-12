@@ -56113,6 +56113,7 @@ GameObject:
   - component: {fileID: 1756052981}
   - component: {fileID: 1756052980}
   - component: {fileID: 1756052979}
+  - component: {fileID: 1756052982}
   m_Layer: 0
   m_Name: VolumeSliders
   m_TagString: Untagged
@@ -56141,7 +56142,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 1184, y: -1e-15}
+  m_AnchoredPosition: {x: 736.01, y: 0.23004}
   m_SizeDelta: {x: 447.98, y: 783.13}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1756052979
@@ -56162,10 +56163,11 @@ MonoBehaviour:
   musicVolumeParam: MusicVol
   fxVolumeParam: FXVol
   fxResultsVolumeParam: FXResultsVol
-  masterFillImage: {fileID: 0}
-  musicFillImage: {fileID: 0}
-  fxFillImage: {fileID: 0}
-  scrollSensitivity: 0.1
+  masterFillImage: {fileID: 74839421}
+  musicFillImage: {fileID: 385117000}
+  fxFillImage: {fileID: 1459895920}
+  scrollSensitivity: 0.2
+  volumeFeedbackGroup: {fileID: 1756052982}
 --- !u!114 &1756052980
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -56279,6 +56281,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1756052977}
   m_CullTransparentMesh: 1
+--- !u!225 &1756052982
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1756052977}
+  m_Enabled: 1
+  m_Alpha: 0
+  m_Interactable: 0
+  m_BlocksRaycasts: 0
+  m_IgnoreParentGroups: 0
 --- !u!1001 &1759448023
 PrefabInstance:
   m_ObjectHideFlags: 0
