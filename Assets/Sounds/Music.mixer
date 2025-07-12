@@ -34,6 +34,8 @@ AudioMixerController:
   m_EnableSuspend: 1
   m_UpdateMode: 0
   m_ExposedParameters:
+  - guid: 9f22457e6f0892647b55810c667d6185
+    name: MusicVol
   - guid: 189e3dccdb2da384d94f90d72116d96a
     name: LowpassCutoff
   m_AudioMixerGroupViews:
