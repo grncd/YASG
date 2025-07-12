@@ -197,47 +197,58 @@ public class ResultsScreen : MonoBehaviour
     // ==========================================================
     private IEnumerator AnimatePlayerXP(PlayerResultPanel panel, int finalLevel, float fromProgress, float toProgress, bool leveledUp)
     {
-        float duration = 1.5f;
+        // Total duration for a full 0-100% bar fill.
+        // The actual animation phases will be shorter based on their percentage.
+        float fullBarAnimationDuration = 1.5f;
+
+        // Set initial state
         panel.levelText.text = leveledUp ? (finalLevel - 1).ToString() : finalLevel.ToString();
         panel.progressBar.fillAmount = fromProgress;
 
-        yield return new WaitForSeconds(3.5f);
+        // Optional: A delay before the animation starts. 3.5s is quite long, you might want to reduce it.
+        yield return new WaitForSeconds(1.5f); // Reduced for better feel, change as needed.
 
         if (leveledUp)
         {
             // --- Phase 1: Animate from current progress to 100% ---
             float elapsed = 0f;
-            float firstPhaseDuration = duration * (1f - fromProgress);
+            // Duration is proportional to how much of the bar we need to fill
+            float firstPhaseDuration = fullBarAnimationDuration * (1f - fromProgress);
+
             if (firstPhaseDuration > 0)
             {
-                levelFX.Play();
+                levelFX.Play(); // Start the looping sound effect
                 while (elapsed < firstPhaseDuration)
                 {
                     float t = elapsed / firstPhaseDuration;
-                    panel.progressBar.fillAmount = Mathf.Lerp(fromProgress, 1f, EaseInOutSine(t));
+                    // CHANGED: Use EaseInSine for a "build-up" effect, accelerating towards the end.
+                    panel.progressBar.fillAmount = Mathf.Lerp(fromProgress, 1f, EaseInSine(t));
                     elapsed += Time.deltaTime;
                     yield return null;
                 }
             }
 
             // --- Level Up Moment ---
-            panel.progressBar.fillAmount = 0f; // Reset for the new level
+            panel.progressBar.fillAmount = 0f; // Reset bar for the new level
             panel.levelText.text = finalLevel.ToString();
-            if (panel.levelUpParticles != null) panel.levelUpParticles.Play();
-            if (levelUpFX != null) levelUpFX.Play();
+            if (panel.levelUpParticles != null) panel.levelUpParticles.Play(); // Play one-shot particle effect
+            if (levelUpFX != null) levelUpFX.Play(); // Play one-shot sound effect
 
-            yield return new WaitForSeconds(0.1f); // Small pause for effect
+            yield return new WaitForSeconds(0.1f); // Small dramatic pause
 
             // --- Phase 2: Animate from 0% to the new progress ---
             elapsed = 0f;
-            float secondPhaseDuration = duration * toProgress;
+            // Duration is proportional to the final progress
+            float secondPhaseDuration = fullBarAnimationDuration * toProgress;
+
             if (secondPhaseDuration > 0)
             {
-                if (!levelFX.isPlaying) levelFX.Play();
+                if (!levelFX.isPlaying) levelFX.Play(); // Ensure looping sound is playing
                 while (elapsed < secondPhaseDuration)
                 {
                     float t = elapsed / secondPhaseDuration;
-                    panel.progressBar.fillAmount = Mathf.Lerp(0f, toProgress, EaseInOutSine(t));
+                    // CHANGED: Use EaseOutSine for a "burst" effect, starting fast and slowing down.
+                    panel.progressBar.fillAmount = Mathf.Lerp(0f, toProgress, EaseOutSine(t));
                     elapsed += Time.deltaTime;
                     yield return null;
                 }
@@ -245,19 +256,25 @@ public class ResultsScreen : MonoBehaviour
         }
         else
         {
-            // --- Standard Animation: fromProgress to toProgress ---
+            // --- Standard Animation (No Level Up) ---
             float elapsed = 0f;
+            float standardDuration = fullBarAnimationDuration * (toProgress - fromProgress); // Proportional duration
             if (!levelFX.isPlaying) levelFX.Play();
-            while (elapsed < duration)
+
+            while (elapsed < standardDuration)
             {
-                float t = elapsed / duration;
+                float t = elapsed / standardDuration;
+                // EaseInOutSine is good for a standard, smooth animation
                 panel.progressBar.fillAmount = Mathf.Lerp(fromProgress, toProgress, EaseInOutSine(t));
                 elapsed += Time.deltaTime;
                 yield return null;
             }
         }
 
-        panel.progressBar.fillAmount = toProgress; // Ensure it ends exactly at the target
+        // --- Finalization ---
+        // Ensure the progress bar and text end at the exact final values
+        panel.progressBar.fillAmount = toProgress;
+        panel.levelText.text = finalLevel.ToString(); // Ensure final level is displayed
         if (levelFX.isPlaying) levelFX.Stop();
     }
 
@@ -318,9 +335,28 @@ public class ResultsScreen : MonoBehaviour
         return totalXp;
     }
 
-    private float EaseInOutSine(float t)
+    /// <summary>
+    /// Easing function that starts slow and accelerates. Perfect for building anticipation.
+    /// </summary>
+    private float EaseInSine(float x)
     {
-        return -(Mathf.Cos(Mathf.PI * t) - 1) / 2;
+        return 1 - Mathf.Cos((x * Mathf.PI) / 2);
+    }
+
+    /// <summary>
+    /// Easing function that starts fast and decelerates. Perfect for a satisfying burst.
+    /// </summary>
+    private float EaseOutSine(float x)
+    {
+        return Mathf.Sin((x * Mathf.PI) / 2);
+    }
+
+    /// <summary>
+    /// Easing function that starts slow, speeds up, and then ends slow. Good for general purpose animations.
+    /// </summary>
+    private float EaseInOutSine(float x)
+    {
+        return -(Mathf.Cos(Mathf.PI * x) - 1) / 2;
     }
 
     public void BackToMenu()

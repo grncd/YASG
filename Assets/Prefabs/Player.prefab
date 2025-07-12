@@ -20259,7 +20259,7 @@ ParticleSystemRenderer:
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 393163217
   m_SortingLayer: 1
-  m_SortingOrder: 100
+  m_SortingOrder: 1
   m_RenderMode: 0
   m_MeshDistribution: 0
   m_SortMode: 0
@@ -21238,6 +21238,7 @@ MonoBehaviour:
   minFrequency: 66
   maxFrequency: 490
   _localScore: 0
+  micGlowImage: {fileID: 5373051981274551435}
   vocalArrow: 0
   vocalArrow2: 0
   vocalArrow3: 0
@@ -26387,7 +26388,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &6243271140658628687
 RectTransform:
   m_ObjectHideFlags: 0

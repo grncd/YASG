@@ -600,8 +600,8 @@ public class RealTimePitchDetector : MonoBehaviour
         {
             currentLeniencyCoefficient *= 0.8f;
         }
-
-        bool canAttemptScore = vocalArrowS != null && vocalArrow != 30f && AudioClipPitchProcessor.Instance.currentPitch != 0f;
+        bool ppJudge = (PP != null && PP.judgeInt);
+        bool canAttemptScore = vocalArrowS != null && vocalArrow != 30f && AudioClipPitchProcessor.Instance.currentPitch != 0f && ppJudge;
         if (debugMode && !canAttemptScore)
         {
             string reason = "Scoring check failed:";
@@ -611,7 +611,6 @@ public class RealTimePitchDetector : MonoBehaviour
             //Debug.Log(reason);
         }
 
-        bool ppJudge = (PP != null && PP.judgeInt);
         bool songNotOver = (LyricsHandler.Instance != null && !LyricsHandler.Instance.songOver);
 
         /*
