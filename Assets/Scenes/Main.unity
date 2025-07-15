@@ -10237,7 +10237,7 @@ MonoBehaviour:
   musicControl: {fileID: 24300002, guid: 59bbcc131587b4449b6891e7ec84af71, type: 2}
   overallSongActivity: 0
   paused: 0
-  playersParent: {fileID: 0}
+  playersParent: {fileID: 906127650}
   processingProgress: 0
 --- !u!4 &1198294041
 Transform:
