@@ -15,6 +15,8 @@ public class LobbyDisplayUI : MonoBehaviour
     public GameObject playerListItemPrefab;
     public TextMeshProUGUI creatorNameDisplay;
     public TextMeshProUGUI ipAddress;
+    public Button backButton;
+    public GameObject selectorGO;
 
     [Header("Song Display")]
     public TextMeshProUGUI songTitleText;
@@ -32,7 +34,7 @@ public class LobbyDisplayUI : MonoBehaviour
     // --- Private Fields (No changes here) ---
     private readonly Dictionary<PlayerData, GameObject> _playerListItems = new Dictionary<PlayerData, GameObject>();
     private Coroutine _refreshCoroutine;
-    public float checkInterval = 0.5f;
+    public float checkInterval = 0.25f;
 
     // --- NEW OnEnable ---
     private void OnEnable()

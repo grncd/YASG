@@ -252,6 +252,7 @@ public class LyricsHandler : MonoBehaviour
             Match match = regex.Match(line);
             if (match.Success)
             {
+                Debug.Log("Parsing line: " + line);
                 int minutes = int.Parse(match.Groups[1].Value);
                 float seconds = float.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
                 string lyricLine = match.Groups[3].Value.Trim();
