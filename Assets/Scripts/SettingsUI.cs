@@ -24,21 +24,23 @@ public class SettingsUI : MonoBehaviour
     public GameObject mainGO;
     public GameObject backButtonMenu;
     public ParticleSystem mainMenuParticles;
+    public GameObject multiplayerSet;
+    public AudioSource clickFX;
     private bool fromSettings = false;
     private void Start()
     {
-        for(int i = 1; i < 5; i++)
+        for (int i = 1; i < 5; i++)
         {
-            if (PlayerPrefs.GetInt("Player"+i) == 1)
+            if (PlayerPrefs.GetInt("Player" + i) == 1)
             {
-                AddProfile(PlayerPrefs.GetString("Player"+i+"Name"));
+                AddProfile(PlayerPrefs.GetString("Player" + i + "Name"));
             }
         }
         settingsContainer.SetActive(false);
     }
     public async void ToggleSettings()
     {
-        if(canClick)
+        if (canClick)
         {
             if (!onSettings)
             {
@@ -63,7 +65,7 @@ public class SettingsUI : MonoBehaviour
                 {
                     if (profile.microphone == "Default")
                     {
-                        AlertManager.Instance.ShowWarning("There are micless profiles.","One of your profiles has no microphone selected. If you aren't going to use said profile, please disable it.","Dismiss");
+                        AlertManager.Instance.ShowWarning("There are micless profiles.", "One of your profiles has no microphone selected. If you aren't going to use said profile, please disable it.", "Dismiss");
                         return;
                     }
                 }
@@ -202,6 +204,33 @@ public class SettingsUI : MonoBehaviour
         ProfileDisplay.Instance.InstantiateProfile(ProfileManager.Instance.GetProfileByName(name));
         GameObject temp = Instantiate(playerPrefab, playerContainer);
         temp.name = name;
+    }
+
+    public void CheckMultiplayer()
+    {
+        if (ProfileManager.Instance.GetActiveProfiles().Count == 0)
+        {
+            AlertManager.Instance.ShowError("You don't have any active profiles!", "Please go to the Settings (cogwheel on the bottom right) and either create a new profile or activate an existing one.", "Dismiss");
+            return;
+        }
+
+        if (ProfileManager.Instance.GetActiveProfiles().Count > 1)
+        {
+            AlertManager.Instance.ShowError("You have more than one active profile!", "Multiplayer supports only one profile per client. Please deactivate profiles that are not going to be used.", "Dismiss");
+            return;
+        }
+
+        foreach (var profile in ProfileManager.Instance.GetActiveProfiles())
+        {
+            if (profile.microphone == "Default")
+            {
+                AlertManager.Instance.ShowWarning("There are micless profiles.", "One of your profiles has no microphone selected. If you aren't going to use said profile, please disable it.", "Dismiss");
+                return;
+            }
+        }
+
+        multiplayerSet.SetActive(true);
+        clickFX.Play();
     }
 
 }

@@ -6,6 +6,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UI;
+using FishNet;
 
 public class LobbyDisplayUI : MonoBehaviour
 {
@@ -252,5 +253,22 @@ public class LobbyDisplayUI : MonoBehaviour
         {
             Debug.LogError("Failed to download cover image: " + request.error);
         }
+    }
+
+    public void Disconnect()
+    {
+        // If running as host, stop the server.
+        if (InstanceFinder.ServerManager.Started)
+        {
+            InstanceFinder.ServerManager.StopConnection(true);
+        }
+        // If running as client, stop the client.
+        else if (InstanceFinder.ClientManager.Started)
+        {
+            InstanceFinder.ClientManager.StopConnection();
+        }
+
+        // After disconnecting, load the main menu scene.
+        //SceneManager.LoadScene("Menu");
     }
 }
