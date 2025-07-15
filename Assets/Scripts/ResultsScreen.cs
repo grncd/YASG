@@ -29,6 +29,7 @@ public class ResultsScreen : MonoBehaviour
     [Header("UI Setup")]
     public List<PlayerResultPanel> resultPanels;
     public GameObject starPrefab;
+    public TextMeshProUGUI btmLabel;
 
     [Header("Audio")]
     public AudioSource levelFX;
@@ -71,6 +72,11 @@ public class ResultsScreen : MonoBehaviour
         ProfileManager.Instance.SetProfileTotalScore(ProfileManager.Instance.GetActiveProfiles()[0].name, PlayerData.LocalPlayerInstance.TotalScore.Value);
 
         Debug.Log("Starting Results Screen in MULTIPLAYER mode.");
+
+        if (PlayerData.LocalPlayerInstance.IsHost.Value == false)
+        {
+            btmLabel.text = "Waiting for host...";
+        }
 
         // Deactivate all panels initially.
         foreach (var panel in resultPanels) panel.panelRoot.SetActive(false);
@@ -362,6 +368,25 @@ public class ResultsScreen : MonoBehaviour
     public void BackToMenu()
     {
         PlayerPrefs.SetInt("fromMP", 1);
-        SceneManager.LoadScene("Menu");
+        // Check if we are in a multiplayer session.
+        if (PlayerPrefs.GetInt("multiplayer") == 1)
+        {
+            // In multiplayer, only the host can trigger the return to the lobby.
+            if (PlayerData.LocalPlayerInstance != null && PlayerData.LocalPlayerInstance.IsHost.Value)
+            {
+                Debug.Log("Host is requesting to return to the lobby.");
+                PlayerData.LocalPlayerInstance.RequestReturnToLobby_ServerRpc();
+            }
+            else
+            {
+                Debug.Log("Only the host can return to the lobby. Non-host button should be disabled.");
+                // Optionally, you could have non-hosts just leave the room, but for now, we do nothing.
+            }
+        }
+        else
+        {
+            // This is the original single-player logic.
+            SceneManager.LoadScene("Menu");
+        }
     }
 }

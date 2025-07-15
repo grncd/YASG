@@ -1212,6 +1212,7 @@ MonoBehaviour:
     levelText: {fileID: 98003672}
     levelUpParticles: {fileID: 1542490350}
   starPrefab: {fileID: 8579780331156368963, guid: 80c50a709500adc479d20322f860db64, type: 3}
+  btmLabel: {fileID: 43047344}
   levelFX: {fileID: 586227641}
   levelUpFX: {fileID: 1665444451}
   starFX: {fileID: 5305347916371626853}

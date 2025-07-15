@@ -160,6 +160,9 @@ public class SearchHandler : MonoBehaviour
                         // 2. Check if we are the host.
                         if (PlayerData.LocalPlayerInstance != null && PlayerData.LocalPlayerInstance.IsHost.Value)
                         {
+                            // --- NEW: Cache the adapted track object before sending the RPC ---
+                            LevelResourcesCompiler.lastPrecompiledTrack = currentAdaptedTrack;
+
                             // 3. Call the RPC on our own player object to request the change.
                             PlayerData.LocalPlayerInstance.RequestChangeSong_ServerRpc(newSong);
                         }
@@ -276,6 +279,9 @@ public class SearchHandler : MonoBehaviour
                         // 2. Check if we are the host.
                         if (PlayerData.LocalPlayerInstance != null && PlayerData.LocalPlayerInstance.IsHost.Value)
                         {
+                            // --- NEW: Cache the adapted track object before sending the RPC ---
+                            LevelResourcesCompiler.lastPrecompiledTrack = currentAdaptedTrack;
+
                             // 3. Call the RPC on our own player object to request the change.
                             PlayerData.LocalPlayerInstance.RequestChangeSong_ServerRpc(newSong);
                         }
@@ -418,6 +424,9 @@ public class SearchHandler : MonoBehaviour
                                 // 2. Check if we are the host.
                                 if (PlayerData.LocalPlayerInstance != null && PlayerData.LocalPlayerInstance.IsHost.Value)
                                 {
+                                    // --- NEW: Cache the full track object before sending the RPC ---
+                                    LevelResourcesCompiler.lastPrecompiledTrack = track;
+
                                     // 3. Call the RPC on our own player object to request the change.
                                     PlayerData.LocalPlayerInstance.RequestChangeSong_ServerRpc(newSong);
                                 }

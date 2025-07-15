@@ -512,11 +512,7 @@ public class PlayerData : NetworkBehaviour
         string charactersToRemovePattern = @"[/\\:*?""<>|]";
         string currentSong = PlayerPrefs.GetString("currentSong");
         string cleanSongName = System.Text.RegularExpressions.Regex.Replace(currentSong, charactersToRemovePattern, string.Empty);
-        string lrcLocation = Path.Combine(PlayerPrefs.GetString("dataPath"), "downloads", cleanSongName + ".lrc");
-        if (!File.Exists(lrcLocation))
-        {
-            lrcLocation = Path.Combine(PlayerPrefs.GetString("dataPath"), "downloads", cleanSongName + ".txt");
-        }
+        string lrcLocation = Path.Combine(PlayerPrefs.GetString("dataPath"), "downloads", cleanSongName + ".txt");
 
         // Basic validation
         if (string.IsNullOrEmpty(fullLocation) || string.IsNullOrEmpty(vocalLocation) || !File.Exists(lrcLocation))
@@ -591,8 +587,9 @@ public class PlayerData : NetworkBehaviour
         {
             Debug.Log("All necessary files already exist locally. Skipping download.");
             PlayerPrefs.SetInt("saved", 1);
-            PlayerPrefs.SetString("vocalLocation", vocalSavePath);
-            PlayerPrefs.SetString("fullLocation", fullSavePath);
+            // --- FIX: Do not overwrite PlayerPrefs here. The correct paths are already set by the single-player download process. ---
+            // PlayerPrefs.SetString("vocalLocation", vocalSavePath);
+            // PlayerPrefs.SetString("fullLocation", fullSavePath);
             // Immediately report ready status
             if (PlayerData.LocalPlayerInstance != null)
             {
@@ -698,6 +695,13 @@ public class PlayerData : NetworkBehaviour
     {
         if (!this.IsHost.Value) return;
         RoomManager.Instance.StartGame_Server();
+    }
+
+    [ServerRpc(RequireOwnership = true)]
+    public void RequestReturnToLobby_ServerRpc()
+    {
+        if (!this.IsHost.Value) return;
+        RoomManager.Instance.ReturnToLobby_Server();
     }
     #endregion
 

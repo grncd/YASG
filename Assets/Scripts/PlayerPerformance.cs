@@ -90,7 +90,9 @@ public class PlayerPerformance : MonoBehaviour
                 remoteScore = 0;
             }else
             {
-                remoteScore = int.Parse(transform.GetChild(4).GetComponent<TextMeshProUGUI>().text.Replace(",", ""));
+                string temp = transform.GetChild(4).GetComponent<TextMeshProUGUI>().text.Replace(",", "");
+                temp = temp.Replace(".", "");
+                remoteScore = int.Parse(temp);
             }
             //Debug.Log(remoteScore);
         }

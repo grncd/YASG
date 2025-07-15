@@ -234,4 +234,45 @@ public class RoomManager : NetworkBehaviour
         }
     }
 
+    [Server]
+    public void ResetAllPlayersState_Server()
+    {
+        if (!IsServer) return;
+
+        Debug.Log("Server is resetting all player states for replayability.");
+
+        foreach (var conn in ServerManager.Clients.Values)
+        {
+            if (conn.FirstObject != null)
+            {
+                PlayerData playerData = conn.FirstObject.GetComponent<PlayerData>();
+                if (playerData != null)
+                {
+                    playerData.CurrentGameScore.Value = 0;
+                    playerData.Perfects.Value = 0;
+                    playerData.Greats.Value = 0;
+                    playerData.Mehs.Value = 0;
+                    playerData.Stars.Value = 0;
+                    playerData.Placement.Value = 0;
+                    playerData.IsReady.Value = false;
+                    playerData.IsGameReady.Value = false;
+                }
+            }
+        }
+    }
+
+    [Server]
+    public void ReturnToLobby_Server()
+    {
+        if (!IsServer) return;
+
+        // First, reset everyone's state
+        ResetAllPlayersState_Server();
+
+        // Then, load the lobby scene for everyone
+        Debug.Log("All players reset. Returning to lobby scene.");
+        SceneLoadData sld = new SceneLoadData("Menu"); // Assuming "Menu" is the lobby scene
+        sld.ReplaceScenes = ReplaceOption.All;
+        InstanceFinder.NetworkManager.SceneManager.LoadGlobalScenes(sld);
+    }
 }

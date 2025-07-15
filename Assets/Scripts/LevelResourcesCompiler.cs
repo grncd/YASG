@@ -22,6 +22,7 @@ using Debug = UnityEngine.Debug; // Explicitly use UnityEngine.Debug to avoid am
 
 public class LevelResourcesCompiler : MonoBehaviour
 {
+    public static Track lastPrecompiledTrack;
     public GameObject loadingCanvas;
     public TextMeshProUGUI status;
     public string dataPath;
@@ -221,6 +222,10 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
     }
 
+    public void SetSelectedTrack(Track track)
+    {
+        selectedTrack = track;
+    }
 
     public void PreCompile(string url, string name, string artist, string length, Track track)
     {
@@ -245,6 +250,8 @@ public class LevelResourcesCompiler : MonoBehaviour
         songInfo.SetActive(true);
         songInfo.GetComponent<Animator>().Play("SongInfoIn");
         selectedTrack = track;
+        lastPrecompiledTrack = track; // Cache the track object for multiplayer
+
         songInfo.transform.GetChild(4).GetChild(0).GetChild(0).GetComponent<TextMeshProUGUI>().text = name;
         songInfo.transform.GetChild(4).GetChild(0).GetChild(1).GetComponent<TextMeshProUGUI>().text = artist;
         songInfo.transform.GetChild(4).GetChild(0).GetChild(3).GetComponent<TextMeshProUGUI>().text = "Song Length: " + length;
@@ -262,13 +269,15 @@ public class LevelResourcesCompiler : MonoBehaviour
         favButton.gameObject.SetActive(!isFavorite);
         unfavButton.gameObject.SetActive(isFavorite);
 
-        favButton.onClick.AddListener(() => {
+        favButton.onClick.AddListener(() =>
+        {
             AddFavorite(name, artist, length, cover, url);
             favButton.gameObject.SetActive(false);
             unfavButton.gameObject.SetActive(true);
         });
 
-        unfavButton.onClick.AddListener(() => {
+        unfavButton.onClick.AddListener(() =>
+        {
             RemoveFavorite(url);
             favButton.gameObject.SetActive(true);
             unfavButton.gameObject.SetActive(false);
@@ -529,7 +538,25 @@ public class LevelResourcesCompiler : MonoBehaviour
             status.text = "Primary source failed. Trying LRCLib...";
             UnityEngine.Debug.Log("Initial lyric fetch failed. Attempting LRCLib fallback.");
 
-            bool fallbackSuccess = await FetchLyricsFromLrcLib(selectedTrack);
+            // In multiplayer, selectedTrack might be null. Use the cached track.
+            Track trackForLrcLib = selectedTrack;
+            if (PlayerPrefs.GetInt("multiplayer") == 1 && trackForLrcLib == null)
+            {
+                if (lastPrecompiledTrack != null && lastPrecompiledTrack.name == name && lastPrecompiledTrack.artists[0].name == artist)
+                {
+                    trackForLrcLib = lastPrecompiledTrack;
+                    UnityEngine.Debug.Log("Using cached track for LRCLib fallback in multiplayer.");
+                }
+                else
+                {
+                    UnityEngine.Debug.LogError("LRCLib fallback in multiplayer failed: No valid cached track found.");
+                    lyricsError = true;
+                    loadingFX.SetActive(false);
+                    return;
+                }
+            }
+
+            bool fallbackSuccess = await FetchLyricsFromLrcLib(trackForLrcLib);
 
             if (!fallbackSuccess)
             {
@@ -636,10 +663,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         status.text = "Loading Main Scene...";
         stage4.transform.GetChild(1).gameObject.SetActive(true);
         await Task.Delay(1010);
-        if (PlayerPrefs.GetInt("multiplayer") == 0)
-        {
-            LoadMain();
-        }
+        if (PlayerPrefs.GetInt("multiplayer") == 0) LoadMain();
     }
 
     private async Task<bool> FetchLyricsFromLrcLib(Track track)
