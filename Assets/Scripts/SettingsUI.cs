@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 using UnityEngine.UI;
 using TMPro;
 using MPUIKIT;
+using System.IO;
+using System.Text;
+using System.Linq;
 
 public class SettingsUI : MonoBehaviour
 {
@@ -27,8 +30,26 @@ public class SettingsUI : MonoBehaviour
     public GameObject multiplayerSet;
     public AudioSource clickFX;
     private bool fromSettings = false;
+
+    private void Awake()
+    {
+        if (Instance == null)
+        {
+            Instance = this;
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
+    }
+
+
     private void Start()
     {
+        if (PlayerPrefs.GetInt("firstRun") == 0)
+        {
+            //SaveSettingToJson("audioClip")
+        }
         for (int i = 1; i < 5; i++)
         {
             if (PlayerPrefs.GetInt("Player" + i) == 1)
@@ -231,6 +252,66 @@ public class SettingsUI : MonoBehaviour
 
         multiplayerSet.SetActive(true);
         clickFX.Play();
+    }
+
+    public void SaveSettingToJson(string key, string value)
+    {
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        string filePath = Path.Combine(dataPath, "settings.json");
+        Dictionary<string, string> settings = new Dictionary<string, string>();
+
+        // Read existing settings if file exists
+        if (File.Exists(filePath))
+        {
+            string json = File.ReadAllText(filePath, Encoding.UTF8);
+            settings = JsonUtility.FromJson<SerializableDictionary>(json)?.ToDictionary() ?? new Dictionary<string, string>();
+        }
+
+        // Update or add the key-value pair
+        settings[key] = value;
+
+        // Serialize and write back to file
+        string newJson = JsonUtility.ToJson(new SerializableDictionary(settings), true);
+        File.WriteAllText(filePath, newJson, Encoding.UTF8);
+    }
+
+    public string GetSettingFromJson(string key)
+    {
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        string filePath = Path.Combine(dataPath, "settings.json");
+        if (!File.Exists(filePath))
+            return null;
+
+        string json = File.ReadAllText(filePath, Encoding.UTF8);
+        var settings = JsonUtility.FromJson<SerializableDictionary>(json)?.ToDictionary();
+        if (settings != null && settings.ContainsKey(key))
+            return settings[key];
+        return null;
+    }
+
+    [System.Serializable]
+    private class SerializableDictionary
+    {
+        public List<string> keys = new List<string>();
+        public List<string> values = new List<string>();
+
+        public SerializableDictionary() { }
+
+        public SerializableDictionary(Dictionary<string, string> dict)
+        {
+            keys = dict.Keys.ToList();
+            values = dict.Values.ToList();
+        }
+
+        public Dictionary<string, string> ToDictionary()
+        {
+            var dict = new Dictionary<string, string>();
+            for (int i = 0; i < Mathf.Min(keys.Count, values.Count); i++)
+            {
+                dict[keys[i]] = values[i];
+            }
+            return dict;
+        }
     }
 
 }
