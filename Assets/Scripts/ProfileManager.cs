@@ -57,14 +57,6 @@ public class ProfileManager : MonoBehaviour
 
     void Awake()
     {
-        if (Application.isEditor)
-        {
-            PlayerPrefs.SetString("dataPath", "C:\\YASGdata");
-        }
-        else
-        {
-            PlayerPrefs.SetString("dataPath", "C:\\YASGdataTesting");
-        }
         // Singleton setup
         if (Instance == null)
         {

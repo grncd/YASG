@@ -7,12 +7,16 @@ using System.Text.RegularExpressions;
 using TMPro;
 using UnityEngine.UI;
 using System;
+using SFB;
+using UnityEngine.Networking;
+using MPUIKIT;
 
 public class SetupManager : MonoBehaviour
 {
     [Header("Retrieved Credentials")]
     public string spdc;
     public string apikey;
+    private string method;
 
     [Header("UI Elements")]
     public TextMeshProUGUI statusTextLogin;
@@ -21,6 +25,11 @@ public class SetupManager : MonoBehaviour
     public TextMeshProUGUI statusTextPreinstall;
     public Slider preinstallProgress;
     public SetupPage preinstallPage;
+    public TextMeshProUGUI selectedDataPath;
+    public Button selectDataPathButton;
+    public Button selectMethodButton;
+    public MPImage demucsButton;
+    public MPImage VRButton;
 
     // --- Private members for handling the process ---
     private Process activeProcess;
@@ -47,7 +56,7 @@ public class SetupManager : MonoBehaviour
             }
         }
     }
-    
+
     /// <summary>
     /// Queues a method (Action) to be executed on the main thread.
     /// </summary>
@@ -79,10 +88,75 @@ public class SetupManager : MonoBehaviour
         // Initial UI state
         if (statusTextPreinstall != null) statusTextPreinstall.text = "Starting...";
         if (preinstallProgress != null) preinstallProgress.value = 0;
-        
+
         currentProcessType = ActiveProcessType.Preinstall;
+        StartCoroutine(DownloadSetupFilesAndRun());
+    }
+
+    private IEnumerator DownloadSetupFilesAndRun()
+    {
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        if (string.IsNullOrEmpty(dataPath))
+        {
+            UnityEngine.Debug.LogError("Data path is not set.");
+            if (statusTextPreinstall != null) statusTextPreinstall.text = "Error: Data path not set.";
+            yield break;
+        }
+
+        string setupUtilitiesPath = Path.Combine(dataPath, "setuputilities");
+        try
+        {
+            if (!Directory.Exists(setupUtilitiesPath))
+            {
+                Directory.CreateDirectory(setupUtilitiesPath);
+                UnityEngine.Debug.Log($"Created directory: {setupUtilitiesPath}");
+            }
+        }
+        catch (Exception e)
+        {
+            UnityEngine.Debug.LogError($"Failed to create directory: {e.Message}");
+            if (statusTextPreinstall != null) statusTextPreinstall.text = "Error: Failed to create directory.";
+            yield break;
+        }
+
+        string batUrl = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/pyinstall.bat";
+        string pyUrl = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/spotifydc.py";
+        string batPath = Path.Combine(setupUtilitiesPath, "pyinstall.bat");
+        string pyPath = Path.Combine(setupUtilitiesPath, "spotifydc.py");
+        statusTextPreinstall.text = "Downloading setup files...";
+        yield return StartCoroutine(DownloadFile(batUrl, batPath));
+        yield return StartCoroutine(DownloadFile(pyUrl, pyPath));
+
         StartCoroutine(RunProcessCoroutine());
     }
+
+    private IEnumerator DownloadFile(string url, string path)
+    {
+        using (UnityWebRequest www = UnityWebRequest.Get(url))
+        {
+            yield return www.SendWebRequest();
+
+            if (www.result != UnityWebRequest.Result.Success)
+            {
+                UnityEngine.Debug.LogError($"Failed to download {url}: {www.error}");
+                if (statusTextPreinstall != null) statusTextPreinstall.text = $"Error downloading {Path.GetFileName(path)}.";
+            }
+            else
+            {
+                try
+                {
+                    File.WriteAllBytes(path, www.downloadHandler.data);
+                    UnityEngine.Debug.Log($"Successfully downloaded and saved {Path.GetFileName(path)} to {path}");
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogError($"Failed to save file {path}: {e.Message}");
+                    if (statusTextPreinstall != null) statusTextPreinstall.text = $"Error saving {Path.GetFileName(path)}.";
+                }
+            }
+        }
+    }
+
 
     public void StartLogin()
     {
@@ -95,7 +169,7 @@ public class SetupManager : MonoBehaviour
         // Initial UI state
         if (statusTextLogin != null) statusTextLogin.text = "Starting...";
         if (loginProgress != null) loginProgress.value = 0;
-        
+
         currentProcessType = ActiveProcessType.Login;
         StartCoroutine(RunProcessCoroutine());
     }
@@ -192,7 +266,7 @@ public class SetupManager : MonoBehaviour
         //QueueForMainThread(() => HandleProcessCompletion(activeProcess.ExitCode));
 
         CleanUpProcess();
-        
+
     }
 
     // --- Parsers and Handlers (now executed by the main thread) ---
@@ -233,24 +307,40 @@ public class SetupManager : MonoBehaviour
             {
                 preinstallPage.NextPage();
             }
-            if (message.Contains("Script finished. Closing browser."))
-            {
-                loginPage.NextPage();
-            }
+
         }
     }
 
     private void ParseLoginOutputLine(string line)
     {
         UnityEngine.Debug.Log($"[Login] {line}");
-        
-        // Robustness Check: Ensure UI elements are valid before updating
-        if(statusTextLogin == null || loginProgress == null) return;
 
+        // Robustness Check: Ensure UI elements are valid before updating
+        if (statusTextLogin == null || loginProgress == null) return;
+        if (line.Contains("Script finished. Closing browser."))
+        {
+            loginPage.NextPage();
+        }
         if (line.Contains("Please log in")) { statusTextLogin.text = "Waiting for you to log into Spotify..."; }
         else if (line.Contains("Redirected to open.spotify.com")) { statusTextLogin.text = "Login successful! Retrieving cookie..."; }
-        else if (line.StartsWith("sp_dc cookie:")) { spdc = line.Split(new[] { ':' }, 2)[1].Trim(); statusTextLogin.text = "Cookie found! Generating API Key..."; }
-        else if (line.StartsWith("Client Secret:")) { apikey = line.Split(new[] { ':' }, 2)[1].Trim(); statusTextLogin.text = "API Key retrieved!"; }
+        else if (line.StartsWith("sp_dc cookie:"))
+        {
+            spdc = line.Split(new[] { ':' }, 2)[1].Trim();
+            statusTextLogin.text = "Cookie found! Generating API Key...";
+            // Save spdc to key.txt in dataPath
+            string dataPath = PlayerPrefs.GetString("dataPath");
+            string keyFilePath = Path.Combine(dataPath, "key.txt");
+            try
+            {
+                File.WriteAllText(keyFilePath, spdc + Environment.NewLine);
+                UnityEngine.Debug.Log($"Saved spdc to {keyFilePath}");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"Failed to save spdc to key.txt: {e.Message}");
+            }
+        }
+        else if (line.StartsWith("Client Secret:")) { apikey = line.Split(new[] { ':' }, 2)[1].Trim(); statusTextLogin.text = "API Key retrieved!"; PlayerPrefs.SetString("APIKEY", apikey); }
         else if (line.Contains("Attempting to create a new app...")) { loginProgress.value = 0.25f; }
         else if (line.Contains("Filling out app creation form...")) { loginProgress.value = 0.5f; }
         else if (line.Contains("Submitting form...")) { loginProgress.value = 0.75f; }
@@ -274,7 +364,7 @@ public class SetupManager : MonoBehaviour
         }
         else if (currentProcessType == ActiveProcessType.Login && statusTextLogin != null)
         {
-             statusTextLogin.text = "An error occurred. Check console.";
+            statusTextLogin.text = "An error occurred. Check console.";
         }
     }
 
@@ -326,5 +416,35 @@ public class SetupManager : MonoBehaviour
             UnityEngine.Debug.Log("Application quitting, killing active process...");
             activeProcess.Kill();
         }
+    }
+
+    public void OpenFolderSelector()
+    {
+        var paths = StandaloneFileBrowser.OpenFolderPanel("Select Folder", "", false);
+        if (paths.Length > 0)
+        {
+            PlayerPrefs.SetString("dataPath", paths[0]);
+            selectedDataPath.text = paths[0];
+        }
+    }
+
+    public void ToggleDemucs()
+    {
+        method = "demucs";
+        selectMethodButton.interactable = true; // 0.1686275f
+        demucsButton.color = new Color(1f, 1f, 1f, 0.2980392f);
+        demucsButton.OutlineColor = new Color(1f, 1f, 1f, 1f); // 0.772549f
+        VRButton.color = new Color(1f, 1f, 1f, 0.1686275f);
+        VRButton.OutlineColor = new Color(0f, 0f, 0f, 0.772549f);
+    }
+
+    public void ToggleVR()
+    {
+        method = "vr";
+        selectMethodButton.interactable = true; // 0.1686275f
+        VRButton.color = new Color(1f, 1f, 1f, 0.2980392f);
+        VRButton.OutlineColor = new Color(1f, 1f, 1f, 1f); // 0.772549f
+        demucsButton.color = new Color(1f, 1f, 1f, 0.1686275f);
+        demucsButton.OutlineColor = new Color(0f, 0f, 0f, 0.772549f);
     }
 }

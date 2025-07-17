@@ -72,14 +72,6 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     private void Start()
     {
-        if (Application.isEditor)
-        {
-            PlayerPrefs.SetString("dataPath", "C:\\YASGdata");
-        }
-        else
-        {
-            PlayerPrefs.SetString("dataPath", "C:\\YASGdataTesting");
-        }
         dataPath = PlayerPrefs.GetString("dataPath");
         Application.targetFrameRate = -1;
         progressBar.gameObject.SetActive(false);
