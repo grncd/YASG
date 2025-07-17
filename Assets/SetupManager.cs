@@ -1,233 +1,330 @@
 using UnityEngine;
-using System.Diagnostics; // Required for Process
-using System.IO;         // Required for Path
+using System.Diagnostics;
+using System.IO;
 using System.Collections;
-using System.Collections.Generic; // Required for Queue
-using System.Threading;
+using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using TMPro;
-using UnityEngine.UI;      // Required for locking
+using UnityEngine.UI;
+using System;
 
 public class SetupManager : MonoBehaviour
 {
-    // These will be populated by the script
     [Header("Retrieved Credentials")]
-    [Tooltip("The sp_dc cookie from Spotify.")]
     public string spdc;
-    [Tooltip("The Client Secret from the Spotify Developer App.")]
     public string apikey;
 
     [Header("UI Elements")]
     public TextMeshProUGUI statusTextLogin;
     public Slider loginProgress;
+    public SetupPage loginPage;
     public TextMeshProUGUI statusTextPreinstall;
     public Slider preinstallProgress;
+    public SetupPage preinstallPage;
 
     // --- Private members for handling the process ---
-    private Process pythonProcess;
-    private bool processStarted = false;
+    private Process activeProcess;
+    private bool processIsRunning = false;
+    private ActiveProcessType currentProcessType = ActiveProcessType.None;
+    private enum ActiveProcessType { None, Login, Preinstall }
 
-    // Thread-safe queues to hold data from the Python process.
-    private readonly Queue<string> outputQueue = new Queue<string>();
-    private readonly Queue<string> errorQueue = new Queue<string>();
+    // --- Main Thread Dispatcher ---
+    // This queue holds Actions (methods) that are sent from background threads
+    // and need to be executed safely on Unity's main thread.
+    private readonly static Queue<Action> executionQueue = new Queue<Action>();
+
+    void Update()
+    {
+        // This runs on the main thread every frame.
+        // It checks if there are any tasks in the queue and executes them.
+        // This is the key to making UI updates from background processes work reliably.
+        lock (executionQueue)
+        {
+            while (executionQueue.Count > 0)
+            {
+                // Dequeue the action and invoke it.
+                executionQueue.Dequeue().Invoke();
+            }
+        }
+    }
+    
+    /// <summary>
+    /// Queues a method (Action) to be executed on the main thread.
+    /// </summary>
+    private void QueueForMainThread(Action action)
+    {
+        if (action == null) return;
+        lock (executionQueue)
+        {
+            executionQueue.Enqueue(action);
+        }
+    }
+
+    // --- Public Methods for UI Buttons ---
 
     public void Quit()
     {
-        if (pythonProcess != null && !pythonProcess.HasExited)
-        {
-            pythonProcess.Kill();
-        }
+        OnApplicationQuit(); // Ensure process is killed
         Application.Quit();
     }
 
-    public void PreinstallProgress()
+    public void StartPreinstall()
     {
-        // HERE
+        if (processIsRunning)
+        {
+            UnityEngine.Debug.LogWarning("A process is already running.");
+            return;
+        }
+
+        // Initial UI state
+        if (statusTextPreinstall != null) statusTextPreinstall.text = "Starting...";
+        if (preinstallProgress != null) preinstallProgress.value = 0;
+        
+        currentProcessType = ActiveProcessType.Preinstall;
+        StartCoroutine(RunProcessCoroutine());
     }
 
     public void StartLogin()
     {
-        if (processStarted)
+        if (processIsRunning)
         {
-            UnityEngine.Debug.LogWarning("Login process is already running.");
+            UnityEngine.Debug.LogWarning("A process is already running.");
             return;
         }
-        StartCoroutine(RunPythonLoginProcess());
+
+        // Initial UI state
+        if (statusTextLogin != null) statusTextLogin.text = "Starting...";
+        if (loginProgress != null) loginProgress.value = 0;
+        
+        currentProcessType = ActiveProcessType.Login;
+        StartCoroutine(RunProcessCoroutine());
     }
 
-    private IEnumerator RunPythonLoginProcess()
+    // --- Core Process Handling Coroutine ---
+
+    private IEnumerator RunProcessCoroutine()
     {
-        processStarted = true;
-        UnityEngine.Debug.Log("Starting Spotify login process...");
+        processIsRunning = true;
 
+        activeProcess = new Process();
         string dataPath = PlayerPrefs.GetString("dataPath");
-        if (string.IsNullOrEmpty(dataPath))
+
+        // Configure the process based on which button was pressed
+        if (currentProcessType == ActiveProcessType.Preinstall)
         {
-            UnityEngine.Debug.LogError("dataPath not found in PlayerPrefs! Cannot locate the python script.");
-            processStarted = false;
-            yield break;
-        }
-        
-        string scriptPath = Path.Combine(dataPath, "setuputilities", "spotifydc.py");
-        
-        if (!File.Exists(scriptPath))
-        {
-            UnityEngine.Debug.LogError($"Python script not found at path: {scriptPath}");
-            processStarted = false;
-            yield break;
-        }
-        
-        string pythonExecutable = "python";
-
-        pythonProcess = new Process();
-        pythonProcess.StartInfo.FileName = pythonExecutable;
-
-        // --- KEY CHANGE HERE ---
-        // The -u flag is critical. It forces Python to run in unbuffered mode,
-        // ensuring that print() statements are sent to stdout immediately
-        // instead of being buffered until the script exits.
-        pythonProcess.StartInfo.Arguments = $"-u \"{scriptPath}\"";
-
-        pythonProcess.StartInfo.UseShellExecute = false;
-        pythonProcess.StartInfo.CreateNoWindow = true;
-        pythonProcess.StartInfo.RedirectStandardOutput = true;
-        pythonProcess.StartInfo.RedirectStandardError = true;
-
-        pythonProcess.OutputDataReceived += (sender, args) =>
-        {
-            if (args.Data != null)
+            string scriptPath = Path.Combine(dataPath, "setuputilities", "pyinstall.bat");
+            if (!File.Exists(scriptPath))
             {
-                lock (outputQueue)
-                {
-                    outputQueue.Enqueue(args.Data);
-                }
+                UnityEngine.Debug.LogError($"Script not found at: {scriptPath}");
+                QueueForMainThread(() => statusTextPreinstall.text = "Error: Script not found.");
+                processIsRunning = false;
+                yield break;
+            }
+            activeProcess.StartInfo.FileName = scriptPath;
+        }
+        else if (currentProcessType == ActiveProcessType.Login)
+        {
+            string scriptPath = Path.Combine(dataPath, "setuputilities", "spotifydc.py");
+            if (!File.Exists(scriptPath))
+            {
+                UnityEngine.Debug.LogError($"Script not found at: {scriptPath}");
+                QueueForMainThread(() => statusTextLogin.text = "Error: Script not found.");
+                processIsRunning = false;
+                yield break;
+            }
+            activeProcess.StartInfo.FileName = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
+            activeProcess.StartInfo.Arguments = $"-u \"{scriptPath}\"";
+        }
+
+        // Common process settings
+        activeProcess.StartInfo.UseShellExecute = false;
+        activeProcess.StartInfo.CreateNoWindow = true;
+        activeProcess.StartInfo.RedirectStandardOutput = true;
+        activeProcess.StartInfo.RedirectStandardError = true;
+        activeProcess.EnableRaisingEvents = true;
+
+        // --- Event Handlers that use the Main Thread Dispatcher ---
+        activeProcess.OutputDataReceived += (sender, args) =>
+        {
+            if (!string.IsNullOrEmpty(args.Data))
+            {
+                // We are on a background thread here. Queue the work.
+                QueueForMainThread(() => ParseOutputLine(args.Data));
             }
         };
 
-        pythonProcess.ErrorDataReceived += (sender, args) =>
+        activeProcess.ErrorDataReceived += (sender, args) =>
         {
-            if (args.Data != null)
+            if (!string.IsNullOrEmpty(args.Data))
             {
-                lock (errorQueue)
-                {
-                    errorQueue.Enqueue(args.Data);
-                }
+                QueueForMainThread(() => ProcessErrorLine(args.Data));
             }
         };
 
         try
         {
-            pythonProcess.Start();
-            pythonProcess.BeginOutputReadLine();
-            pythonProcess.BeginErrorReadLine();
+            activeProcess.Start();
+            activeProcess.BeginOutputReadLine();
+            activeProcess.BeginErrorReadLine();
+            UnityEngine.Debug.Log($"Process '{Path.GetFileName(activeProcess.StartInfo.FileName)}' started successfully.");
         }
-        catch (System.Exception e)
+        catch (Exception e)
         {
-            UnityEngine.Debug.LogError($"Failed to start python process: {e.Message}");
-            UnityEngine.Debug.LogError("Is Python installed and in your system's PATH?");
-            processStarted = false;
+            UnityEngine.Debug.LogError($"Failed to start process: {e.Message}");
+            QueueForMainThread(() =>
+            {
+                if (currentProcessType == ActiveProcessType.Preinstall) statusTextPreinstall.text = "Error: Failed to start.";
+                if (currentProcessType == ActiveProcessType.Login) statusTextLogin.text = "Error: Failed to start.";
+            });
+            processIsRunning = false;
             yield break;
         }
 
-        UnityEngine.Debug.Log("Python script started. Please follow instructions in the Chrome window.");
-
-        while (!pythonProcess.HasExited)
+        // Wait here in the coroutine until the process exits. UI updates are handled by Update().
+        while (!activeProcess.HasExited)
         {
-            ProcessQueues();
             yield return null;
         }
 
-        ProcessQueues(); 
+        UnityEngine.Debug.Log($"Process finished with exit code: {activeProcess.ExitCode}.");
 
-        UnityEngine.Debug.Log($"Python process finished with exit code: {pythonProcess.ExitCode}");
-        if (string.IsNullOrEmpty(spdc) || string.IsNullOrEmpty(apikey))
-        {
-            UnityEngine.Debug.LogWarning("Process finished, but one or more credentials were not found. Check error logs.");
-        }
-        else
-        {
-            UnityEngine.Debug.Log("SUCCESS: All credentials retrieved!");
-            statusTextLogin.text = "Success! Credentials have been saved.";
-        }
+        // Queue a final action to handle completion status
+        //QueueForMainThread(() => HandleProcessCompletion(activeProcess.ExitCode));
 
-        pythonProcess.Close();
-        pythonProcess = null;
-        processStarted = false;
-    }
-
-    private void ProcessQueues()
-    {
-        while (outputQueue.Count > 0)
-        {
-            string line;
-            lock (outputQueue)
-            {
-                line = outputQueue.Dequeue();
-            }
-            ParseOutputLine(line);
-        }
+        CleanUpProcess();
         
-        while (errorQueue.Count > 0)
-        {
-            string line;
-            lock (errorQueue)
-            {
-                line = errorQueue.Dequeue();
-            }
-            UnityEngine.Debug.LogError($"[Python Error] {line}");
-        }
     }
+
+    // --- Parsers and Handlers (now executed by the main thread) ---
 
     private void ParseOutputLine(string line)
     {
-        if (string.IsNullOrEmpty(line)) return;
+        // Route to the correct parser based on the active process
+        if (currentProcessType == ActiveProcessType.Preinstall)
+        {
+            ParsePreinstallOutputLine(line);
+        }
+        else if (currentProcessType == ActiveProcessType.Login)
+        {
+            ParseLoginOutputLine(line);
+        }
+    }
 
-        UnityEngine.Debug.Log($"[Python] {line}");
+    private void ParsePreinstallOutputLine(string line)
+    {
+        UnityEngine.Debug.Log($"[Preinstall] {line}");
+        Match match = Regex.Match(line, @"\[(\d{1,3})%\]\s*(.*)");
 
-        // Here we can update the status text based on the python output
-        if (line.Contains("Please log in"))
+        if (match.Success)
         {
-            statusTextLogin.text = "Waiting for you to log into Spotify...";
+            string message = match.Groups[2].Value.Trim();
+            string percentageStr = match.Groups[1].Value;
+
+            // Robustness Check: Only update UI if the references are not null.
+            if (statusTextPreinstall != null)
+            {
+                statusTextPreinstall.text = message;
+            }
+            if (preinstallProgress != null && int.TryParse(percentageStr, out int percentage))
+            {
+                preinstallProgress.value = percentage / 100.0f;
+            }
+            if (message.Contains("Setup completed"))
+            {
+                preinstallPage.NextPage();
+            }
+            if (message.Contains("Script finished. Closing browser."))
+            {
+                loginPage.NextPage();
+            }
         }
-        else if (line.Contains("Redirected to open.spotify.com"))
+    }
+
+    private void ParseLoginOutputLine(string line)
+    {
+        UnityEngine.Debug.Log($"[Login] {line}");
+        
+        // Robustness Check: Ensure UI elements are valid before updating
+        if(statusTextLogin == null || loginProgress == null) return;
+
+        if (line.Contains("Please log in")) { statusTextLogin.text = "Waiting for you to log into Spotify..."; }
+        else if (line.Contains("Redirected to open.spotify.com")) { statusTextLogin.text = "Login successful! Retrieving cookie..."; }
+        else if (line.StartsWith("sp_dc cookie:")) { spdc = line.Split(new[] { ':' }, 2)[1].Trim(); statusTextLogin.text = "Cookie found! Generating API Key..."; }
+        else if (line.StartsWith("Client Secret:")) { apikey = line.Split(new[] { ':' }, 2)[1].Trim(); statusTextLogin.text = "API Key retrieved!"; }
+        else if (line.Contains("Attempting to create a new app...")) { loginProgress.value = 0.25f; }
+        else if (line.Contains("Filling out app creation form...")) { loginProgress.value = 0.5f; }
+        else if (line.Contains("Submitting form...")) { loginProgress.value = 0.75f; }
+        else if (line.Contains("Copying client secret to clipboard...")) { loginProgress.value = 1f; }
+    }
+
+    private void ProcessErrorLine(string line)
+    {
+        // Filter for the multi-line pip warning.
+        if (line.Contains("WARNING: You are using pip version") || line.Contains("install --upgrade pip"))
         {
-            statusTextLogin.text = "Login successful! Retrieving cookie...";
+            UnityEngine.Debug.Log($"[Ignored Warning] {line}");
+            return; // Exit without showing error on UI
         }
-        else if (line.StartsWith("sp_dc cookie:"))
+
+        // For any other real error, log it and update the UI.
+        UnityEngine.Debug.LogError($"[Process Error] {line}");
+        if (currentProcessType == ActiveProcessType.Preinstall && statusTextPreinstall != null)
         {
-            spdc = line.Split(new[] { ':' }, 2)[1].Trim();
-            UnityEngine.Debug.Log($"<color=green>SP_DC Cookie captured!</color>");
-            statusTextLogin.text = "Cookie found! Generating your API Key...";
+            statusTextPreinstall.text = "An error occurred. Check console.";
         }
-        else if (line.StartsWith("Client Secret:"))
+        else if (currentProcessType == ActiveProcessType.Login && statusTextLogin != null)
         {
-            apikey = line.Split(new[] { ':' }, 2)[1].Trim();
-            UnityEngine.Debug.Log($"<color=green>API Key (Client Secret) captured!</color>");
-            statusTextLogin.text = "API Key retrieved!";
+             statusTextLogin.text = "An error occurred. Check console.";
         }
-        else if (line.Contains("Attempting to create a new app..."))
+    }
+
+    private void HandleProcessCompletion(int exitCode)
+    {
+        if (currentProcessType == ActiveProcessType.Preinstall && statusTextPreinstall != null)
         {
-            loginProgress.value = 0.25f;
+            // Only show success if the last message wasn't an error.
+            if (exitCode == 0 && !statusTextPreinstall.text.ToLower().Contains("error"))
+            {
+                statusTextPreinstall.text = "Setup completed successfully!";
+                if (preinstallProgress != null) preinstallProgress.value = 1f;
+            }
+            else if (exitCode != 0)
+            {
+                statusTextPreinstall.text = "Setup failed. Check console for errors.";
+            }
         }
-        else if (line.Contains("Filling out app creation form..."))
+        else if (currentProcessType == ActiveProcessType.Login && statusTextLogin != null)
         {
-            loginProgress.value = 0.5f;
+            if (exitCode == 0 && !string.IsNullOrEmpty(spdc) && !string.IsNullOrEmpty(apikey))
+            {
+                statusTextLogin.text = "Success! Credentials have been saved.";
+            }
+            else
+            {
+                statusTextLogin.text = "Process finished, but failed to get credentials.";
+            }
         }
-        else if (line.Contains("Submitting form..."))
+    }
+
+    // --- Cleanup ---
+
+    private void CleanUpProcess()
+    {
+        if (activeProcess != null)
         {
-            loginProgress.value = 0.75f;
+            activeProcess.Close();
+            activeProcess = null;
         }
-        else if (line.Contains("Copying client secret to clipboard..."))
-        {
-            loginProgress.value = 1f;
-        }
+        processIsRunning = false;
+        currentProcessType = ActiveProcessType.None;
     }
 
     private void OnApplicationQuit()
     {
-        if (pythonProcess != null && !pythonProcess.HasExited)
+        if (activeProcess != null && !activeProcess.HasExited)
         {
-            UnityEngine.Debug.Log("Application quitting, killing python process...");
-            pythonProcess.Kill();
+            UnityEngine.Debug.Log("Application quitting, killing active process...");
+            activeProcess.Kill();
         }
     }
 }
