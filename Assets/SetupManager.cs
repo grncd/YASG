@@ -30,12 +30,15 @@ public class SetupManager : MonoBehaviour
     public Button selectMethodButton;
     public MPImage demucsButton;
     public MPImage VRButton;
+    public TextMeshProUGUI statusTextFinalInstall;
+    public Slider finalInstallProgress;
+
 
     // --- Private members for handling the process ---
     private Process activeProcess;
     private bool processIsRunning = false;
     private ActiveProcessType currentProcessType = ActiveProcessType.None;
-    private enum ActiveProcessType { None, Login, Preinstall }
+    private enum ActiveProcessType { None, Login, Preinstall, FinalInstall }
 
     // --- Main Thread Dispatcher ---
     // This queue holds Actions (methods) that are sent from background threads
@@ -209,6 +212,19 @@ public class SetupManager : MonoBehaviour
             activeProcess.StartInfo.FileName = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
             activeProcess.StartInfo.Arguments = $"-u \"{scriptPath}\"";
         }
+        else if (currentProcessType == ActiveProcessType.FinalInstall)
+        {
+            string scriptPath = Path.Combine(dataPath, "setuputilities", "fullinstall.py");
+            if (!File.Exists(scriptPath))
+            {
+                UnityEngine.Debug.LogError($"Script not found at: {scriptPath}");
+                QueueForMainThread(() => statusTextFinalInstall.text = "Error: Script not found.");
+                processIsRunning = false;
+                yield break;
+            }
+            activeProcess.StartInfo.FileName = Path.Combine(dataPath,"venv", "Scripts", "python.exe");
+            activeProcess.StartInfo.Arguments = $"\"{scriptPath}\" {(method == "demucs" ? "true" : "false")}";
+        }
 
         // Common process settings
         activeProcess.StartInfo.UseShellExecute = false;
@@ -282,6 +298,10 @@ public class SetupManager : MonoBehaviour
         {
             ParseLoginOutputLine(line);
         }
+        else if (currentProcessType == ActiveProcessType.FinalInstall)
+        {
+            ParseFinalInstallOutputLine(line);
+        }
     }
 
     private void ParsePreinstallOutputLine(string line)
@@ -347,6 +367,27 @@ public class SetupManager : MonoBehaviour
         else if (line.Contains("Copying client secret to clipboard...")) { loginProgress.value = 1f; }
     }
 
+    private void ParseFinalInstallOutputLine(string line)
+    {
+        UnityEngine.Debug.Log($"[FinalInstall] {line}");
+        Match match = Regex.Match(line, @"\[(\d{1,3})%\]\s*(.*)");
+
+        if (match.Success)
+        {
+            string message = match.Groups[2].Value.Trim();
+            string percentageStr = match.Groups[1].Value;
+
+            if (statusTextFinalInstall != null)
+            {
+                statusTextFinalInstall.text = message;
+            }
+            if (finalInstallProgress != null && int.TryParse(percentageStr, out int percentage))
+            {
+                finalInstallProgress.value = percentage / 100.0f;
+            }
+        }
+    }
+
     private void ProcessErrorLine(string line)
     {
         // Filter for the multi-line pip warning.
@@ -365,6 +406,10 @@ public class SetupManager : MonoBehaviour
         else if (currentProcessType == ActiveProcessType.Login && statusTextLogin != null)
         {
             statusTextLogin.text = "An error occurred. Check console.";
+        }
+        else if (currentProcessType == ActiveProcessType.FinalInstall && statusTextFinalInstall != null)
+        {
+            statusTextFinalInstall.text = "An error occurred. Check console.";
         }
     }
 
@@ -446,5 +491,21 @@ public class SetupManager : MonoBehaviour
         VRButton.OutlineColor = new Color(1f, 1f, 1f, 1f); // 0.772549f
         demucsButton.color = new Color(1f, 1f, 1f, 0.1686275f);
         demucsButton.OutlineColor = new Color(0f, 0f, 0f, 0.772549f);
+    }
+
+    public void StartFinalInstall()
+    {
+        if (processIsRunning)
+        {
+            UnityEngine.Debug.LogWarning("A process is already running.");
+            return;
+        }
+
+        // Initial UI state
+        if (statusTextFinalInstall != null) statusTextFinalInstall.text = "Starting...";
+        if (finalInstallProgress != null) finalInstallProgress.value = 0;
+
+        currentProcessType = ActiveProcessType.FinalInstall;
+        StartCoroutine(RunProcessCoroutine());
     }
 }
