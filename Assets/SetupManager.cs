@@ -19,6 +19,8 @@ public class SetupManager : MonoBehaviour
     public string spdc;
     public string apikey;
     private string method;
+    public Animator transitionAnim;
+
 
     [Header("UI Elements")]
     public TextMeshProUGUI statusTextLogin;
@@ -52,6 +54,7 @@ public class SetupManager : MonoBehaviour
 
     void Update()
     {
+        
         // This runs on the main thread every frame.
         // It checks if there are any tasks in the queue and executes them.
         // This is the key to making UI updates from background processes work reliably.
@@ -63,6 +66,7 @@ public class SetupManager : MonoBehaviour
                 executionQueue.Dequeue().Invoke();
             }
         }
+        
     }
 
     /// <summary>
@@ -537,10 +541,11 @@ public class SetupManager : MonoBehaviour
     public async void CompleteSetup()
     {
         PlayerPrefs.SetInt("setupDone", 1);
+        transitionAnim.Play("Outro");
         if (audioSource != null && audioSource.isPlaying)
         {
             float startVolume = audioSource.volume;
-            float duration = 3f;
+            float duration = 2.5f;
             float elapsed = 0f;
             while (elapsed < duration)
             {
@@ -550,7 +555,9 @@ public class SetupManager : MonoBehaviour
             }
             audioSource.volume = 0f;
         }
-        await Task.Delay(TimeSpan.FromSeconds(1.5f));
+        await Task.Delay(TimeSpan.FromSeconds(4f));
         UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
     }
+
+    
 }
