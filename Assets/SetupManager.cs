@@ -362,6 +362,32 @@ public class SetupManager : MonoBehaviour
         else if (line.StartsWith("sp_dc cookie:"))
         {
             spdc = line.Split(new[] { ':' }, 2)[1].Trim();
+            // Create syrics folder and config.json inside it
+            string syricsFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "syrics");
+            Directory.CreateDirectory(syricsFolder);
+
+            // Write config.json with the required content
+            string configPath = Path.Combine(syricsFolder, "config.json");
+            string configJson = "{\n" +
+                $"    \"sp_dc\": \"{spdc}\",\n" +
+                "    \"download_path\": \"downloads\",\n" +
+                "    \"create_folder\": true,\n" +
+                "    \"album_folder_name\": \"{name} - {artists}\",\n" +
+                "    \"play_folder_name\": \"{name} - {owner}\",\n" +
+                "    \"file_name\": \"{track_number}. {name}\",\n" +
+                "    \"synced_lyrics\": true,\n" +
+                "    \"force_download\": false\n" +
+                "}";
+            try
+            {
+                File.WriteAllText(configPath, configJson);
+                UnityEngine.Debug.Log($"Created config.json at {configPath}");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"Failed to write config.json: {e.Message}");
+            }
+
             statusTextLogin.text = "Cookie found! Generating API Key...";
             // Save spdc to key.txt in dataPath
             string dataPath = PlayerPrefs.GetString("dataPath");
