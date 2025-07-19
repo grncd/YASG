@@ -129,12 +129,19 @@ public class SetupManager : MonoBehaviour
 
         string batUrl = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/pyinstall.bat";
         string pyUrl = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/spotifydc.py";
+        string py2Url = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/fullinstall.py";
         string batPath = Path.Combine(setupUtilitiesPath, "pyinstall.bat");
         string pyPath = Path.Combine(setupUtilitiesPath, "spotifydc.py");
+        string py2Path = Path.Combine(setupUtilitiesPath, "fullinstall.py");
         statusTextPreinstall.text = "Downloading setup files...";
         yield return StartCoroutine(DownloadFile(batUrl, batPath));
         yield return StartCoroutine(DownloadFile(pyUrl, pyPath));
-
+        yield return StartCoroutine(DownloadFile(py2Url, py2Path));
+        yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/getlyrics.bat", Path.Combine(dataPath, "getlyrics.bat")));
+        yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/downloadsong.bat", Path.Combine(dataPath, "getlyrics.bat")));
+        yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/main.py", Path.Combine(dataPath,"vocalremover", "main.py")));
+        yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/vr.py", Path.Combine(dataPath,"vocalremover", "vr.py")));
+        Directory.CreateDirectory(Path.Combine(dataPath, "vocalremover", "input"));
         StartCoroutine(RunProcessCoroutine());
     }
 
@@ -486,6 +493,7 @@ public class SetupManager : MonoBehaviour
         if (paths.Length > 0)
         {
             PlayerPrefs.SetString("dataPath", paths[0]);
+            selectDataPathButton.interactable = true;
             selectedDataPath.text = paths[0];
         }
     }
