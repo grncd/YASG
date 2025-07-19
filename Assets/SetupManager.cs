@@ -10,6 +10,8 @@ using System;
 using SFB;
 using UnityEngine.Networking;
 using MPUIKIT;
+using FishNet.Managing.Scened;
+using System.Threading.Tasks;
 
 public class SetupManager : MonoBehaviour
 {
@@ -32,6 +34,9 @@ public class SetupManager : MonoBehaviour
     public MPImage VRButton;
     public TextMeshProUGUI statusTextFinalInstall;
     public Slider finalInstallProgress;
+    public SetupPage finalInstallPage;
+    public AudioSource audioSource;
+    public AudioSource completeFX;
 
 
     // --- Private members for handling the process ---
@@ -222,8 +227,8 @@ public class SetupManager : MonoBehaviour
                 processIsRunning = false;
                 yield break;
             }
-            activeProcess.StartInfo.FileName = Path.Combine(dataPath,"venv", "Scripts", "python.exe");
-            activeProcess.StartInfo.Arguments = $"\"{scriptPath}\" {(method == "demucs" ? "true" : "false")}";
+            activeProcess.StartInfo.FileName = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
+            activeProcess.StartInfo.Arguments = $" -u \"{scriptPath}\" {(method == "demucs" ? "true" : "false")}";
         }
 
         // Common process settings
@@ -307,7 +312,7 @@ public class SetupManager : MonoBehaviour
     private void ParsePreinstallOutputLine(string line)
     {
         UnityEngine.Debug.Log($"[Preinstall] {line}");
-        Match match = Regex.Match(line, @"\[(\d{1,3})%\]\s*(.*)");
+        Match match = Regex.Match(line, @"\[\s*(\d{1,3})%\s*\]\s*(.*)");
 
         if (match.Success)
         {
@@ -370,21 +375,33 @@ public class SetupManager : MonoBehaviour
     private void ParseFinalInstallOutputLine(string line)
     {
         UnityEngine.Debug.Log($"[FinalInstall] {line}");
-        Match match = Regex.Match(line, @"\[(\d{1,3})%\]\s*(.*)");
+        Match match = Regex.Match(line, @"^\s*\[\s*(\d{1,3})%\s*\]\s*(.*)");
 
         if (match.Success)
         {
-            string message = match.Groups[2].Value.Trim();
             string percentageStr = match.Groups[1].Value;
+            string message = match.Groups[2].Value.Trim();
 
-            if (statusTextFinalInstall != null)
+            UnityEngine.Debug.Log($"[FinalInstall] Matched! Percentage: {percentageStr}, Message: {message}");
+
+            if (statusTextFinalInstall != null && !string.IsNullOrEmpty(message))
             {
-                statusTextFinalInstall.text = message;
+                statusTextFinalInstall.text = Regex.Replace(message, "-+", "").Trim();
             }
             if (finalInstallProgress != null && int.TryParse(percentageStr, out int percentage))
             {
                 finalInstallProgress.value = percentage / 100.0f;
+                if (percentage / 100.0f == 100f)
+                {
+                    finalInstallPage.NextPage();
+                    completeFX.Play();
+                    UnityEngine.Debug.Log("Final installation completed successfully.");
+                }
             }
+        }
+        else
+        {
+            UnityEngine.Debug.LogWarning($"[FinalInstall] No match for line: {line}");
         }
     }
 
@@ -507,5 +524,25 @@ public class SetupManager : MonoBehaviour
 
         currentProcessType = ActiveProcessType.FinalInstall;
         StartCoroutine(RunProcessCoroutine());
+    }
+
+    public async void CompleteSetup()
+    {
+        PlayerPrefs.SetInt("setupDone", 1);
+        if (audioSource != null && audioSource.isPlaying)
+        {
+            float startVolume = audioSource.volume;
+            float duration = 3f;
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                audioSource.volume = Mathf.Lerp(startVolume, 0f, elapsed / duration);
+                await Task.Yield();
+            }
+            audioSource.volume = 0f;
+        }
+        await Task.Delay(TimeSpan.FromSeconds(1.5f));
+        UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
     }
 }

@@ -9,6 +9,7 @@ using MPUIKIT;
 using System.IO;
 using System.Text;
 using System.Linq;
+using FishNet.Managing.Scened;
 
 public class SettingsUI : MonoBehaviour
 {
@@ -41,15 +42,15 @@ public class SettingsUI : MonoBehaviour
         {
             Destroy(gameObject);
         }
+        if (PlayerPrefs.GetInt("setupDone") == 0)
+        {
+            UnityEngine.SceneManagement.SceneManager.LoadScene("Setup");
+        }
     }
 
 
     private void Start()
     {
-        if (PlayerPrefs.GetInt("firstRun") == 0)
-        {
-            //SaveSettingToJson("audioClip")
-        }
         for (int i = 1; i < 5; i++)
         {
             if (PlayerPrefs.GetInt("Player" + i) == 1)
