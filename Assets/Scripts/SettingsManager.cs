@@ -3,6 +3,39 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
+using System.Linq;
+
+/// <summary>
+/// Defines the categories for settings.
+/// </summary>
+public enum SettingCategory
+{
+    Gameplay,
+    Processing,
+    Misc
+}
+
+/// <summary>
+/// Defines the UI element type for a setting.
+/// </summary>
+public enum UIType
+{
+    TextInput,
+    Dropdown,
+    Toggle
+}
+
+/// <summary>
+/// Represents a single setting, including its value and category.
+/// </summary>
+public class Setting
+{
+    public object Value { get; set; }
+    public SettingCategory Category { get; set; }
+    public bool IsHidden { get; set; }
+    public UIType UIType { get; set; }
+    public string FormalName { get; set; }
+}
 
 /// <summary>
 /// Manages game settings, persisting them to a JSON file.
@@ -18,10 +51,7 @@ public class SettingsManager : MonoBehaviour
         {
             if (_instance == null)
             {
-                // Find existing instance
                 _instance = FindObjectOfType<SettingsManager>();
-
-                // Create new instance if one doesn't exist
                 if (_instance == null)
                 {
                     GameObject singletonObject = new GameObject("SettingsManager");
@@ -32,12 +62,11 @@ public class SettingsManager : MonoBehaviour
         }
     }
 
-    private Dictionary<string, object> _settings = new Dictionary<string, object>();
+    private Dictionary<string, Setting> _settings = new Dictionary<string, Setting>();
     private string _settingsFilePath;
 
     private void Awake()
     {
-        // Singleton pattern implementation
         if (_instance != null && _instance != this)
         {
             Destroy(this.gameObject);
@@ -46,51 +75,89 @@ public class SettingsManager : MonoBehaviour
         _instance = this;
         DontDestroyOnLoad(this.gameObject);
 
-        // Set the file path and load settings
         string dataPath = PlayerPrefs.GetString("dataPath", Application.persistentDataPath);
         _settingsFilePath = Path.Combine(dataPath, "settings.json");
         LoadSettings();
     }
 
     /// <summary>
-    /// Loads settings from the settings.json file.
-    /// If the file doesn't exist, it creates a default one.
+    /// Loads settings from the JSON file. Handles migration from old format if necessary.
     /// </summary>
     private void LoadSettings()
     {
         if (File.Exists(_settingsFilePath))
         {
             string json = File.ReadAllText(_settingsFilePath);
-            // Using Newtonsoft.Json for robust deserialization
-            _settings = JsonConvert.DeserializeObject<Dictionary<string, object>>(json);
-            if (_settings == null)
+            try
             {
-                _settings = new Dictionary<string, object>();
+                // Try to deserialize to the new format
+                var newSettings = JsonConvert.DeserializeObject<Dictionary<string, Setting>>(json);
+                if (newSettings != null && newSettings.Count > 0)
+                {
+                    _settings = newSettings;
+                }
+                else
+                {
+                    // Handle case where file is empty or invalid
+                    InitializeDefaultSettings();
+                }
+            }
+            catch (JsonSerializationException)
+            {
+                // This likely means it's the old format.
+                Debug.Log("Old settings format detected. Migrating to new format.");
+                var oldSettings = JsonConvert.DeserializeObject<Dictionary<string, object>>(json);
+                InitializeDefaultSettings(); // Start with default structure
+                if (oldSettings != null)
+                {
+                    foreach (var setting in oldSettings)
+                    {
+                        // Update value if the key exists in the new structure
+                        if (_settings.ContainsKey(setting.Key))
+                        {
+                            _settings[setting.Key].Value = setting.Value;
+                        }
+                    }
+                }
+                SaveSettings(); // Save the migrated settings
             }
         }
         else
         {
             Debug.Log("Settings file not found. Creating a new one with default values.");
-            // Initialize with default settings if the file doesn't exist
-            _settings = new Dictionary<string, object>
-            {
-                { "MasterVolume", 1f },
-                { "MusicVolume", 1.0f },
-                { "SFXVolume", 1.0f },
-                { "PitchProcessingQuality", 2 },
-                { "PitchDetectionQuality", 3 },
-                { "MenuBG", 3 },
-                { "InGameBG", 3 },
-                { "ShowDetectedPitch", true },
-                { "AudioReactivePlayerCircle", true },
-                { "AudioReactiveBGInGame", true },
-                { "VocalProcessingMethod", 1 },
-                { "SpotifySpDc", "" },
-                { "SpotifyApiKey", "" },
-            };
+            InitializeDefaultSettings();
             SaveSettings();
         }
     }
+
+    /// <summary>
+    /// Initializes the settings with default values and categories.
+    /// </summary>
+    private void InitializeDefaultSettings()
+    {
+        _settings = new Dictionary<string, Setting>
+        {
+            // Gameplay
+            { "MasterVolume", new Setting { Value = 1f, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Master Volume" } },
+            { "MusicVolume", new Setting { Value = 1.0f, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Music Volume" } },
+            { "SFXVolume", new Setting { Value = 1.0f, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Dropdown, FormalName = "SFX Volume" } },
+            { "ShowDetectedPitch", new Setting { Value = true, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Show Detected Pitch" } },
+            { "AudioReactivePlayerCircle", new Setting { Value = true, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Player Circle" } },
+
+            // Processing
+            { "PitchProcessingQuality", new Setting { Value = 2, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Pitch Processing Quality" } },
+            { "PitchDetectionQuality", new Setting { Value = 3, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Pitch Detection Quality" } },
+            { "VocalProcessingMethod", new Setting { Value = 1, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Vocal Processing Method" } },
+
+            // Misc
+            { "MenuBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Background" } },
+            { "InGameBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "In-Game Background" } },
+            { "AudioReactiveBGInGame", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Background" } },
+            { "SpotifySpDc", new Setting { Value = "", Category = SettingCategory.Misc, IsHidden = true, UIType = UIType.TextInput, FormalName = "Spotify sp_dc Cookie" } },
+            { "SpotifyApiKey", new Setting { Value = "", Category = SettingCategory.Misc, IsHidden = true, UIType = UIType.TextInput, FormalName = "Spotify API Key" } },
+        };
+    }
+
 
     /// <summary>
     /// Saves the current settings to the settings.json file.
@@ -104,18 +171,13 @@ public class SettingsManager : MonoBehaviour
     /// <summary>
     /// Retrieves a setting value by its key.
     /// </summary>
-    /// <typeparam name="T">The type of the value to retrieve.</typeparam>
-    /// <param name="key">The key of the setting.</param>
-    /// <param name="defaultValue">The default value to return if the key is not found.</param>
-    /// <returns>The setting value, or the default value if not found.</returns>
     public T GetSetting<T>(string key, T defaultValue = default)
     {
-        if (_settings.TryGetValue(key, out object value))
+        if (_settings.TryGetValue(key, out Setting setting))
         {
             try
             {
-                // Convert the object to the desired type
-                return (T)System.Convert.ChangeType(value, typeof(T));
+                return (T)System.Convert.ChangeType(setting.Value, typeof(T));
             }
             catch (System.Exception ex)
             {
@@ -128,19 +190,99 @@ public class SettingsManager : MonoBehaviour
 
     /// <summary>
     /// Sets a setting value by its key and saves the changes.
+    /// If the setting does not exist, it will be added with the 'Misc' category.
     /// </summary>
-    /// <param name="key">The key of the setting.</param>
-    /// <param name="value">The value to set.</param>
     public void SetSetting(string key, object value)
     {
-        if (_settings.ContainsKey(key))
+        if (_settings.TryGetValue(key, out Setting setting))
         {
-            _settings[key] = value;
+            setting.Value = value;
         }
         else
         {
-            _settings.Add(key, value);
+            _settings.Add(key, new Setting { Value = value, Category = SettingCategory.Misc, UIType = UIType.TextInput, FormalName = key });
         }
         SaveSettings();
+    }
+
+    /// <summary>
+    /// Retrieves the category of a specific setting.
+    /// </summary>
+    public SettingCategory? GetSettingCategory(string key)
+    {
+        if (_settings.TryGetValue(key, out Setting setting))
+        {
+            return setting.Category;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Retrieves all settings belonging to a specific category.
+    /// </summary>
+    public Dictionary<string, Setting> GetSettingsByCategory(SettingCategory category, bool includeHidden = false)
+    {
+        return _settings.Where(s => s.Value.Category == category && (includeHidden || !s.Value.IsHidden))
+                        .ToDictionary(s => s.Key, s => s.Value);
+    }
+
+    /// <summary>
+    /// Checks if a setting is marked as hidden.
+    /// </summary>
+    public bool IsSettingHidden(string key)
+    {
+        if (_settings.TryGetValue(key, out Setting setting))
+        {
+            return setting.IsHidden;
+        }
+        return false; // Default to not hidden if key not found
+    }
+
+    /// <summary>
+    /// Sets the visibility of a specific setting.
+    /// </summary>
+    public void SetSettingVisibility(string key, bool isHidden)
+    {
+        if (_settings.TryGetValue(key, out Setting setting))
+        {
+            setting.IsHidden = isHidden;
+            SaveSettings();
+        }
+    }
+
+    /// <summary>
+    /// Retrieves the UI type of a specific setting.
+    /// </summary>
+    public UIType? GetSettingUIType(string key)
+    {
+        if (_settings.TryGetValue(key, out Setting setting))
+        {
+            return setting.UIType;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Retrieves the formal name of a specific setting.
+    /// </summary>
+    public string GetSettingFormalName(string key)
+    {
+        if (_settings.TryGetValue(key, out Setting setting))
+        {
+            return setting.FormalName;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Sets the formal name of a specific setting.
+    /// </summary>
+    public void SetSettingFormalName(string key, string formalName)
+    {
+        if (_settings.TryGetValue(key, out Setting setting))
+        {
+            setting.FormalName = formalName;
+            SaveSettings();
+        }
     }
 }
