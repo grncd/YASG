@@ -35,6 +35,8 @@ public class Setting
     public bool IsHidden { get; set; }
     public UIType UIType { get; set; }
     public string FormalName { get; set; }
+    public string Description { get; set; }
+    public List<string> DropdownOptions { get; set; } = new List<string>();
 }
 
 /// <summary>
@@ -138,23 +140,23 @@ public class SettingsManager : MonoBehaviour
         _settings = new Dictionary<string, Setting>
         {
             // Gameplay
-            { "MasterVolume", new Setting { Value = 1f, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Master Volume" } },
-            { "MusicVolume", new Setting { Value = 1.0f, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Music Volume" } },
-            { "SFXVolume", new Setting { Value = 1.0f, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Dropdown, FormalName = "SFX Volume" } },
-            { "ShowDetectedPitch", new Setting { Value = true, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Show Detected Pitch" } },
-            { "AudioReactivePlayerCircle", new Setting { Value = true, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Player Circle" } },
+            { "MasterVolume", new Setting { Value = 1f, Category = SettingCategory.Gameplay, IsHidden = true, UIType = UIType.Dropdown, FormalName = "Master Volume", Description = "" } },
+            { "MusicVolume", new Setting { Value = 1.0f, Category = SettingCategory.Gameplay, IsHidden = true, UIType = UIType.Dropdown, FormalName = "Music Volume", Description = ""  } },
+            { "SFXVolume", new Setting { Value = 1.0f, Category = SettingCategory.Gameplay, IsHidden = true, UIType = UIType.Dropdown, FormalName = "SFX Volume", Description = ""  } },
+            { "ShowDetectedPitch", new Setting { Value = true, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Show Detected Pitch", Description = "If toggled on, shows the current detected pitch of the song's vocals and the user's microphone."  } },
+            { "AudioReactivePlayerCircle", new Setting { Value = true, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Player Circle", Description = "If toggled on, adds a reactive glow around the judgment circle."  } },
 
             // Processing
-            { "PitchProcessingQuality", new Setting { Value = 2, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Pitch Processing Quality" } },
-            { "PitchDetectionQuality", new Setting { Value = 3, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Pitch Detection Quality" } },
-            { "VocalProcessingMethod", new Setting { Value = 1, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Vocal Processing Method" } },
+            { "PitchProcessingQuality", new Setting { Value = 1, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Pitch Processing Quality", Description = "Defines the quality of the pitch processing of the SONG'S vocals. Higher means more accurate, but the pitch processing stage will take longer.", DropdownOptions = new List<string> { "Low", "Medium", "High" } } },
+            { "PitchDetectionQuality", new Setting { Value = 2, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Pitch Detection Quality", Description = "Defines the quality of the pitch processing of the USER'S vocals. Turn this down if your FPS is dropping when singing in game. It is only recommended to turn this up if you have a very low pitched voice or want precise pitch detection.", DropdownOptions = new List<string> { "Low", "Medium", "High", "Very High" } } },
+            { "VocalProcessingMethod", new Setting { Value = 0, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Vocal Processing Method", Description = "Method used to extract vocals from the song. Only use vocalremover.org if you don't have a (good) GPU. Otherwise, use Demucs.", DropdownOptions = new List<string> { "VocalRemover.org", "Demucs" } } },
 
             // Misc
-            { "MenuBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Background" } },
-            { "InGameBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "In-Game Background" } },
-            { "AudioReactiveBGInGame", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Background" } },
-            { "SpotifySpDc", new Setting { Value = "", Category = SettingCategory.Misc, IsHidden = true, UIType = UIType.TextInput, FormalName = "Spotify sp_dc Cookie" } },
-            { "SpotifyApiKey", new Setting { Value = "", Category = SettingCategory.Misc, IsHidden = true, UIType = UIType.TextInput, FormalName = "Spotify API Key" } },
+            { "MenuBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Background", Description = "Defines the background that will be displayed in the menu.", DropdownOptions = new List<string> { "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
+            { "InGameBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "In-Game Background", Description = "Defines the background that will be displayed in-game.", DropdownOptions = new List<string> { "None", "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
+            { "AudioReactiveBGInGame", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Background", Description = "Defines if the background will be audio-reactive or not. Currently, this only works if you are using the Rainbow Tunnel BG."  } },
+            { "SpotifySpDc", new Setting { Value = "", Category = SettingCategory.Misc, IsHidden = true, UIType = UIType.TextInput, FormalName = "Spotify sp_dc Cookie", Description = "Spotify cookie used to extract lyrics."  } },
+            { "SpotifyApiKey", new Setting { Value = "", Category = SettingCategory.Misc, IsHidden = true, UIType = UIType.TextInput, FormalName = "Spotify API Key", Description = "Spotify API key used to retrieve search results and song information."  } },
         };
     }
 
@@ -282,6 +284,30 @@ public class SettingsManager : MonoBehaviour
         if (_settings.TryGetValue(key, out Setting setting))
         {
             setting.FormalName = formalName;
+            SaveSettings();
+        }
+    }
+
+    /// <summary>
+    /// Retrieves the dropdown options for a specific setting.
+    /// </summary>
+    public List<string> GetSettingDropdownOptions(string key)
+    {
+        if (_settings.TryGetValue(key, out Setting setting) && setting.UIType == UIType.Dropdown)
+        {
+            return setting.DropdownOptions;
+        }
+        return new List<string>();
+    }
+
+    /// <summary>
+    /// Sets the dropdown options for a specific setting.
+    /// </summary>
+    public void SetSettingDropdownOptions(string key, List<string> options)
+    {
+        if (_settings.TryGetValue(key, out Setting setting) && setting.UIType == UIType.Dropdown)
+        {
+            setting.DropdownOptions = options;
             SaveSettings();
         }
     }
