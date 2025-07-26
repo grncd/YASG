@@ -101,6 +101,10 @@ public class AudioClipPitchProcessor : MonoBehaviour
     public float overallSongActivity;
     public bool paused = false;
     public Transform playersParent;
+    public RawImage BG;
+    public List<Material> backgrounds;
+    public List<Color> backgroundDarkens;
+    public Image darken;
 
     // Precomputed values for optimization
     private int minLag;
@@ -130,6 +134,31 @@ public class AudioClipPitchProcessor : MonoBehaviour
                 Destroy(child.gameObject);
             }
         }
+        switch (SettingsManager.Instance.GetSetting<int>("PitchProcessingQuality"))
+        {
+            case 0:
+                analysisWindowSize = 1024;
+                break;
+            case 1:
+                analysisWindowSize = 2048;
+                break;
+            case 2:
+                analysisWindowSize = 4096;
+                break;
+            default:
+                analysisWindowSize = 4096;
+                break;
+        }
+        if(SettingsManager.Instance.GetSetting<int>("InGameBG") == 0)
+        {
+            BG.gameObject.SetActive(false);
+        }
+        else
+        {
+            BG.material = backgrounds[SettingsManager.Instance.GetSetting<int>("InGameBG")-1];
+            darken.color = backgroundDarkens[SettingsManager.Instance.GetSetting<int>("InGameBG") - 1];
+        }
+        
     }
 
     private string GetCacheFilePath(string audioClipPath)

@@ -132,7 +132,25 @@ public class RealTimePitchDetector : MonoBehaviour
 
     private void Start()
     {
-        if(PlayerPrefs.GetInt("multiplayer") == 0)
+        switch (SettingsManager.Instance.GetSetting<int>("PitchDetectionQuality"))
+        {
+            case 0:
+                analysisWindowSize = 1024;
+                break;
+            case 1:
+                analysisWindowSize = 2048;
+                break;
+            case 2:
+                analysisWindowSize = 4096;
+                break;
+            case 3:
+                analysisWindowSize = 8192;
+                break;
+            default:
+                analysisWindowSize = 4096;
+                break;
+        }
+        if (PlayerPrefs.GetInt("multiplayer") == 0)
         {
             Setup();
         }

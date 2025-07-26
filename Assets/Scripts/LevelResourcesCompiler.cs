@@ -752,7 +752,15 @@ public class LevelResourcesCompiler : MonoBehaviour
             PlayerPrefs.SetString("fullLocation", audioFilePath);
             PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(audioFilePath) + " [vocals].mp3"));
 
-            string pythonArgs = $"-u \"main.py\"";
+            string pythonArgs;
+            if(SettingsManager.Instance.GetSetting<int>("VocalProcessingMethod") == 0)
+            {
+                pythonArgs = $"-u \"vr.py\"";
+            }
+            else
+            {
+                pythonArgs = $"-u \"main.py\"";
+            }
             string pythonExe = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
             string workingDir = Path.Combine(dataPath, "vocalremover");
             await RunProcessAsync(pythonExe, pythonArgs, workingDir);

@@ -36,6 +36,10 @@ public class AudioAnalyzer : MonoBehaviour
 
     void Start()
     {
+        if(SettingsManager.Instance.GetSetting<int>("InGameBG") != 3 || !SettingsManager.Instance.GetSetting<bool>("AudioReactiveBGInGame"))
+        {
+            enabled = false;
+        }
         if (audioMaterial == null)
         {
             Debug.LogError("Audio Material is not assigned!");

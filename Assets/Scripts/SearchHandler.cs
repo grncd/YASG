@@ -367,12 +367,18 @@ public class SearchHandler : MonoBehaviour
             else
             {
                 Debug.LogError("Token Error: " + request.error);
+                
             }
         }
     }
 
     IEnumerator GetSpotifyAlbum(string search)
     {
+        if(accessToken == null)
+        {
+            AlertManager.Instance.ShowError("Failed to retrieve access token.", "This likely happened due to connectivity issues. Please check your connection and try again.", "Dismiss");
+            StopCoroutine(GetSpotifyAlbum(search));
+        }
         string url = GenerateSpotifySearchUrl(search);
 
         using (UnityWebRequest request = UnityWebRequest.Get(url))
