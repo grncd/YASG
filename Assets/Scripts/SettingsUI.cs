@@ -31,6 +31,7 @@ public class SettingsUI : MonoBehaviour
     public GameObject multiplayerSet;
     public AudioSource clickFX;
     private bool fromSettings = false;
+    public Transform settingsTabs;
 
     private void Awake()
     {
@@ -46,6 +47,20 @@ public class SettingsUI : MonoBehaviour
         {
             UnityEngine.SceneManagement.SceneManager.LoadScene("Setup");
         }
+    }
+
+    public void SelectTabSettings(int value)
+    {
+        foreach (Transform child in settingsTabs)
+        {
+            child.GetComponent<MPImage>().color = new Color(0.2169811f, 0.2169811f, 0.2169811f);
+            child.GetChild(0).GetComponent<TextMeshProUGUI>().color = Color.white;
+            settingsTabs.parent.GetChild(child.GetSiblingIndex() + 2).gameObject.SetActive(false);
+        }
+
+        settingsTabs.GetChild(value).GetComponent<MPImage>().color = Color.white;
+        settingsTabs.GetChild(value).GetChild(0).GetComponent<TextMeshProUGUI>().color = Color.black;
+        settingsTabs.parent.GetChild(value + 2).gameObject.SetActive(true);
     }
 
 
@@ -69,7 +84,7 @@ public class SettingsUI : MonoBehaviour
                 canClick = false;
                 ProfileDisplay.Instance.hasSettingsBeenOpened = true;
                 onSettings = !onSettings;
-                SelectorOutline.Instance.defaultObject = settingsContainer.transform.GetChild(0).GetChild(0).gameObject;
+                SelectorOutline.Instance.defaultObject = settingsContainer.transform.GetChild(2).GetChild(0).gameObject;
                 settingsContainer.SetActive(true);
                 settingsContainer.GetComponent<Animator>().Play("FadeIn");
                 settingsButton.GetComponent<Animator>().Play("SettingsIn");
