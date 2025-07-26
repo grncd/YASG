@@ -134,7 +134,7 @@ public class SettingsUI : MonoBehaviour
                 backButtonMenu.SetActive(false);
                 ProfileDisplay.Instance.hasSettingsBeenOpened = true;
                 onSettings = !onSettings;
-                SelectorOutline.Instance.defaultObject = settingsContainer.transform.GetChild(0).GetChild(0).gameObject;
+                SelectorOutline.Instance.defaultObject = settingsContainer.transform.GetChild(2).GetChild(0).gameObject;
                 settingsContainer.SetActive(true);
                 settingsContainer.GetComponent<Animator>().Play("FadeIn");
                 menuSettingsButton.GetComponent<Animator>().Play("SettingsIn");
