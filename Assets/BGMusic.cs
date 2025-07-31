@@ -4,6 +4,7 @@ using UnityEngine;
 using System.IO;
 using UnityEngine.Networking;
 using TMPro;
+using UnityEngine.SceneManagement;
 
 public class BGMusic : MonoBehaviour
 {
@@ -11,12 +12,35 @@ public class BGMusic : MonoBehaviour
     private AudioSource audioSource;
     private int lastMenuMusicValue = -1;
     public TextMeshProUGUI songName;
-    public GameObject shuffleButton;
+    private GameObject shuffleButton;
 
     void Start()
     {
+        shuffleButton = GameObject.Find("Shuffle");
+        songName = GameObject.Find("CurrentlyPlayingSong").GetComponent<TextMeshProUGUI>();
         audioSource = GetComponent<AudioSource>();
         StartCoroutine(MusicPlayerCoroutine());
+    }
+
+    private void OnEnable()
+    {
+        SceneManager.activeSceneChanged += OnActiveSceneChanged;
+    }
+
+    private void OnDisable()
+    {
+        SceneManager.activeSceneChanged -= OnActiveSceneChanged;
+    }
+
+    private void OnActiveSceneChanged(Scene preivousScene, Scene newScene)
+    {
+        if(newScene.name == "Menu")
+        {
+            shuffleButton = GameObject.Find("Shuffle");
+            songName = GameObject.Find("CurrentlyPlayingSong").GetComponent<TextMeshProUGUI>();
+            StopAllCoroutines();
+            StartCoroutine(MusicPlayerCoroutine());
+        }
     }
 
     void Update()
@@ -90,10 +114,14 @@ public class BGMusic : MonoBehaviour
                         }
                         else
                         {
-                            shuffleButton.SetActive(false);
-                            audioSource.clip = menuMusicClip;
-                            audioSource.loop = true;
-                            audioSource.Play();
+                            if (!audioSource.isPlaying)
+                            {
+                                shuffleButton.SetActive(false);
+                                audioSource.clip = menuMusicClip;
+                                audioSource.loop = true;
+                                audioSource.Play();
+                                songName.text = "ivvys - unfinished 2";
+                            }
                         }
                     }
                     break;

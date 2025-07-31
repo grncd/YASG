@@ -106,6 +106,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
     public List<Color> backgroundDarkens;
     public Image darken;
     private bool showPitch;
+    public AudioMixerGroup mixerForMusic;
 
     // Precomputed values for optimization
     private int minLag;
@@ -438,6 +439,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
         {
             audioSource = gameObject.AddComponent<AudioSource>();
             audioSource.playOnAwake = false;
+            audioSource.outputAudioMixerGroup = mixerForMusic;
         }
         SetPhaseProgress(0.05f);
 
@@ -685,6 +687,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
         yield return new WaitForSeconds(1);
         countdownText.text = "1";
         if (musicSource != null) musicSource.Stop();
+        musicControl.audioMixer.SetFloat("LowpassCutoff", 20000f);
         yield return new WaitForSeconds(1);
         countdownText.text = "0";
         if (lyricsHandler != null) lyricsHandler.StartLyrics();

@@ -10250,6 +10250,7 @@ MonoBehaviour:
   - {r: 0, g: 0, b: 0, a: 0.7019608}
   - {r: 0, g: 0, b: 0, a: 0.29803923}
   darken: {fileID: 1096625006}
+  mixerForMusic: {fileID: 24300002, guid: 59bbcc131587b4449b6891e7ec84af71, type: 2}
   processingProgress: 0
 --- !u!4 &1198294041
 Transform:
