@@ -10,8 +10,8 @@ using UnityEngine.Networking;
 using System;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-
-
+using System.Text;
+using SFB;
 
 public class EditorManager : MonoBehaviour
 {
@@ -23,6 +23,13 @@ public class EditorManager : MonoBehaviour
     public TMP_InputField plainLyricsInputField;
     public GameObject loadPrompt;
     public TextMeshProUGUI songNameText;
+    [Header("Custom UI")]
+    public TMP_InputField customName;
+    public TMP_InputField customArtist;
+    private string songPath;
+    private string vocalPath;
+    public Toggle automaticallyExtract;
+    private bool isCustom;
 
     // --- EXISTING FIELDS ---
     public GameObject selectorGO;
@@ -131,9 +138,11 @@ public class EditorManager : MonoBehaviour
         audioSource.Stop();
         audioSource.volume = startVolume;
     }
+    
     void OnDisable()
     {
         GameObject.Find("Music").GetComponent<AudioSource>().Play();
+        GameObject.Find("Music").GetComponent<AudioSource>().volume = 0.211f;
         selectorGO.transform.GetChild(0).gameObject.SetActive(true);
         selectorGO.transform.GetChild(1).gameObject.SetActive(false);
         selectorGO.transform.GetChild(1).GetChild(2).gameObject.SetActive(true);
@@ -359,8 +368,16 @@ public class EditorManager : MonoBehaviour
         PlayerPrefs.SetString("currentArtist", artistName);
 
         // --- LOAD AUDIO ---
-        await LevelResourcesCompiler.Instance.DownloadSong(trackUrl, trackName, artistName);
-        await LoadAndSetAudioClip(trackName);
+        if (parts[2] == "false")
+        {
+            await LevelResourcesCompiler.Instance.DownloadSong(trackUrl, trackName, artistName);
+            await LoadAndSetAudioClip(trackName);
+        }
+        else
+        {
+            string pathToAudio = Path.Combine(PlayerPrefs.GetString("dataPath"), "downloads",$"{artistName} - {trackName}.mp3");
+            await LoadAndSetAudioClipWithPath(pathToAudio);
+        }
 
         // --- LOAD SYNCED LYRICS AND POPULATE UI ---
         string syncedLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_synced.txt");
@@ -437,8 +454,23 @@ public class EditorManager : MonoBehaviour
             string workingLyricsPath = Path.Combine(dataPath, "workingLyrics");
             Directory.CreateDirectory(workingLyricsPath);
 
-            string trackId = trackUrl.Split('/').Last();
-            string plainLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_plain.txt");
+            string trackId;
+            if(trackUrl != null)
+            {
+                if (trackUrl.Contains("/"))
+                {
+                    trackId = trackUrl.Split('/').Last();
+                }
+                else
+                {
+                    trackId = trackUrl;
+                }
+            }
+            else
+            {
+                return;
+            }
+            string plainLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_{isCustom}_plain.txt");
             string header = $"{artistName}\n{albumName}\n{duration}\n";
             string currentPlainLyrics = header + plainLyricsInputField.text;
             File.WriteAllText(plainLyricsFilePath, currentPlainLyrics);
@@ -460,7 +492,7 @@ public class EditorManager : MonoBehaviour
             }
             string finalSyncedLyrics = lrcBuilder.ToString();
 
-            string syncedLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_synced.txt");
+            string syncedLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_{isCustom}_synced.txt");
             File.WriteAllText(syncedLyricsFilePath, finalSyncedLyrics);
 
             Debug.Log($"Lyrics saved to {workingLyricsPath}");
@@ -473,6 +505,7 @@ public class EditorManager : MonoBehaviour
         if (string.IsNullOrEmpty(dataPath)) { Debug.LogError("dataPath is not set in PlayerPrefs!"); return; }
 
         string workingLyricsPath = Path.Combine(dataPath, "workingLyrics");
+        string localLyricsPath = Path.Combine(dataPath, "downloads");
         Directory.CreateDirectory(workingLyricsPath);
 
         string trackId = trackUrl.Split('/').Last();
@@ -498,18 +531,25 @@ public class EditorManager : MonoBehaviour
         }
         string finalSyncedLyrics = lrcBuilder.ToString();
 
-        string syncedLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_synced.txt");
-        File.WriteAllText(syncedLyricsFilePath, finalSyncedLyrics);
-
-        Debug.Log($"Lyrics saved to {workingLyricsPath}");
-
-        if (publisher != null)
+        if (isCustom)
         {
-            publisher.PublishWithChallenge(trackName, artistName, albumName, duration, trackUrl);
+            string syncedLyricsFilePath = Path.Combine(localLyricsPath, $"{trackName}.txt");
+            File.WriteAllText(syncedLyricsFilePath, finalSyncedLyrics);
+
+            if (publisher != null)
+            {
+                publisher.PublishWithChallenge(trackName, artistName, albumName, duration, trackUrl);
+            }
+            else
+            {
+                Debug.LogWarning("LrcLibPublisherWithChallenge component not assigned in the inspector.");
+            }
         }
         else
         {
-            Debug.LogWarning("LrcLibPublisherWithChallenge component not assigned in the inspector.");
+            string syncedLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_synced.txt");
+            File.WriteAllText(syncedLyricsFilePath, finalSyncedLyrics);
+            AlertManager.Instance.ShowSuccess("Lyrics successfully created.","You can now play this song by accessing your Downloaded Songs.","Dismiss");
         }
     }
 
@@ -528,6 +568,7 @@ public class EditorManager : MonoBehaviour
         duration = dt / 1000f;
         trackUrl = url;
         songInfo.text = $"{artist} - {track}";
+        isCustom = false;
 
         PlayerPrefs.SetString("currentSong", track);
         PlayerPrefs.SetString("currentArtist", artist);
@@ -535,6 +576,75 @@ public class EditorManager : MonoBehaviour
         await LevelResourcesCompiler.Instance.DownloadSong(url, track, artist);
         await LoadAndSetAudioClip(trackName);
     }
+
+    public string GenerateRandomString(int length)
+    {
+        const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        StringBuilder randomString = new StringBuilder();
+
+        for (int i = 0; i < length; i++)
+        {
+            randomString.Append(chars[UnityEngine.Random.Range(0, chars.Length)]);
+        }
+
+        return randomString.ToString();
+    }
+
+    public void CreateEditCustomButton()
+    {
+        StartEditingCustom(customName.text,customArtist.text,songPath,vocalPath);
+    }
+
+    public void SelectSongPath()
+    {
+        var paths = StandaloneFileBrowser.OpenFilePanel("Select .mp3 file", "", "mp3",false);
+        if (paths.Length > 0)
+        {
+            songPath = paths[0];
+        }
+    }
+
+    public void SelectVocalPath()
+    {
+        var paths = StandaloneFileBrowser.OpenFilePanel("Select .mp3 file", "", "mp3", false);
+        if (paths.Length > 0)
+        {
+            vocalPath = paths[0];
+        }
+    }
+
+    public async void StartEditingCustom(string track, string artist, string songPath, string vocalPath)
+    {
+        selectorGO.SetActive(false);
+        isCustom = true;
+        transform.GetChild(1).GetComponent<CanvasGroup>().alpha = 0f;
+        transform.GetChild(0).GetComponent<CanvasGroup>().blocksRaycasts = true;
+        transform.GetChild(0).GetComponent<CanvasGroup>().alpha = 1f;
+        transform.GetChild(0).GetComponent<CanvasGroup>().blocksRaycasts = true;
+        trackUrl = GenerateRandomString(16);
+        await LoadAndSetAudioClipWithPath(songPath);
+        File.Copy(songPath, Path.Combine(PlayerPrefs.GetString("dataPath"), "downloads", $"{artist} - {track}.mp3"));
+
+        if(string.IsNullOrEmpty(vocalPath))
+        {
+            await LevelResourcesCompiler.Instance.SplitSong(Path.Combine(PlayerPrefs.GetString("dataPath"), "downloads", $"{artist} - {track}.mp3"));
+        }
+        else
+        {
+            File.Copy(vocalPath, Path.Combine(PlayerPrefs.GetString("dataPath"), "output", "htdemucs",Path.GetFileNameWithoutExtension(vocalPath)+" [vocals].mp3"));
+        }
+
+        trackName = track;
+        artistName = artist;
+        albumName = "";
+        duration = player.audioSource.clip.length;
+        
+        songInfo.text = $"{artist} - {track}";
+
+        PlayerPrefs.SetString("currentSong", track);
+        PlayerPrefs.SetString("currentArtist", artist);
+    }
+
     private async Task LoadAndSetAudioClip(string trackKey)
     {
         string dataPath = PlayerPrefs.GetString("dataPath");
@@ -577,6 +687,42 @@ public class EditorManager : MonoBehaviour
         }
         catch (System.Exception ex) { Debug.LogError($"An error occurred while loading the audio clip: {ex.Message}"); }
     }
+
+    private async Task LoadAndSetAudioClipWithPath(string path)
+    {
+        string audioFilePath = path;
+
+        if (!File.Exists(audioFilePath))
+        {
+            Debug.LogError($"Audio file not found at path: {audioFilePath}");
+            return;
+        }
+
+        try
+        {
+            string uri = "file://" + audioFilePath;
+            AudioType audioType = AudioType.MPEG;
+            using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip(uri, audioType))
+            {
+                var asyncOp = www.SendWebRequest();
+                while (!asyncOp.isDone) { await Task.Yield(); }
+                if (www.result == UnityWebRequest.Result.ConnectionError || www.result == UnityWebRequest.Result.ProtocolError)
+                {
+                    Debug.LogError($"Error loading AudioClip from {uri}: {www.error}");
+                }
+                else
+                {
+                    AudioClip loadedClip = DownloadHandlerAudioClip.GetContent(www);
+                    if (loadedClip != null)
+                    {
+                        player.SetClip(loadedClip);
+                    }
+                }
+            }
+        }
+        catch (System.Exception ex) { Debug.LogError($"An error occurred while loading the audio clip: {ex.Message}"); }
+    }
+
     public void ReloadScene()
     {
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);

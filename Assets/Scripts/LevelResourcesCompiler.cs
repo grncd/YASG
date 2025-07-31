@@ -417,6 +417,51 @@ public class LevelResourcesCompiler : MonoBehaviour
         loadingFX.SetActive(false);
     }
 
+    public async Task SplitSong(string filePath)
+    {
+        if (File.Exists(Path.Combine(PlayerPrefs.GetString("dataPath"),"output","htdemucs",Path.GetFileNameWithoutExtension(filePath)+" [vocals].mp3")))
+        {
+            return;
+        }
+
+        loadingCanvas.SetActive(true);
+        loadingSecond.SetActive(true);
+        loadingSecond.transform.GetChild(4).gameObject.SetActive(false);
+        loadingFirst.SetActive(false);
+        BeginLoading();
+        loadingFX.SetActive(true);
+        status.text = "Splitting vocals for use...";
+
+        splittingVocals = true;
+        Color prev = bgDarken.color;
+
+        if (SettingsManager.Instance.GetSetting<int>("VocalProcessingMethod") == 1)
+        {
+            StartCoroutine(FadeImageAlpha(bgDarken, 1f, 1f));
+            await Task.Delay(1010);
+            bgGM.SetActive(false);
+        }
+
+        _originalVSyncCount = QualitySettings.vSyncCount;
+        QualitySettings.vSyncCount = 0;
+        Application.targetFrameRate = 30;
+
+        await RunPythonDirectly(filePath);
+
+        Application.targetFrameRate = -1;
+        QualitySettings.vSyncCount = _originalVSyncCount;
+
+        splittingVocals = false;
+        currentPercentage = 0f;
+
+        bgGM.SetActive(true);
+        bgDarken.color = prev;
+
+        dontSave = false;
+        LoadingDone();
+        loadingFX.SetActive(false);
+    }
+
     private string SanitizeFileName(string name)
     {
         string charactersToRemovePattern = @"[/\\:*?""<>|]";

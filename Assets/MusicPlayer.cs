@@ -20,7 +20,8 @@ public class MusicPlayer : MonoBehaviour
     public string totalTimeFormatted;
 
     // --- Private Fields ---
-    private AudioSource audioSource;
+    [SerializeField]
+    public AudioSource audioSource;
     private const float seekTimeAmount = 10f;
     private bool isScrubbing = false;
     private bool wasPlayingBeforeScrub;
