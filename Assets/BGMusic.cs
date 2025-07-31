@@ -11,6 +11,7 @@ public class BGMusic : MonoBehaviour
     private AudioSource audioSource;
     private int lastMenuMusicValue = -1;
     public TextMeshProUGUI songName;
+    public GameObject shuffleButton;
 
     void Start()
     {
@@ -46,6 +47,7 @@ public class BGMusic : MonoBehaviour
             switch (lastMenuMusicValue)
             {
                 case 0:
+                    shuffleButton.SetActive(false);
                     if (audioSource.isPlaying)
                     {
                         audioSource.Stop();
@@ -53,6 +55,7 @@ public class BGMusic : MonoBehaviour
                     }
                     break;
                 case 1:
+                    shuffleButton.SetActive(false);
                     if (!audioSource.isPlaying || audioSource.clip != menuMusicClip)
                     {
                         audioSource.clip = menuMusicClip;
@@ -62,13 +65,13 @@ public class BGMusic : MonoBehaviour
                     }
                     break;
                 case 2:
-                    
                     string downloadsPath = Path.Combine(PlayerPrefs.GetString("dataPath"), "downloads");
                     if (Directory.Exists(downloadsPath))
                     {
                         string[] musicFiles = Directory.GetFiles(downloadsPath, "*.mp3");
                         if (musicFiles.Length > 0)
                         {
+                            shuffleButton.SetActive(true);
                             string randomFile = musicFiles[Random.Range(0, musicFiles.Length)];
                             using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip("file://" + randomFile, AudioType.MPEG))
                             {
@@ -87,6 +90,7 @@ public class BGMusic : MonoBehaviour
                         }
                         else
                         {
+                            shuffleButton.SetActive(false);
                             audioSource.clip = menuMusicClip;
                             audioSource.loop = true;
                             audioSource.Play();
