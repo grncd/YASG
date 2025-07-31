@@ -50,7 +50,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     public DifficultyHover DIH;
     public DifficultySelector DIH2;
     private float currentPercentage = 0f;
-    public Animator bgDarken;
+    public UnityEngine.UI.Image bgDarken;
     public GameObject bgGM;
     private bool fakeLoading = false;
     private float elapsedFakeLoading = 0f;
@@ -60,6 +60,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     public AudioClip stage3FX;
     public GameObject loadingFX;
     private bool dontSave = false;
+    public bool compiling = false;
 
     private int _originalVSyncCount;
 
@@ -99,6 +100,14 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     void Update()
     {
+        lock (executionQueue)
+        {
+            while (executionQueue.Count > 0)
+            {
+                executionQueue.Dequeue().Invoke();
+            }
+        }
+
         if (lyricsError)
         {
             alertManager.ShowError("This song does not have lyrics.", "The song you've selected either has no lyrics or we couldn't find any synced lyrics for it. If this song has lyrics and you'd like to add them, <b>use the Add Lyrics button</b> located in the menu.", "Dismiss");
@@ -388,12 +397,12 @@ public class LevelResourcesCompiler : MonoBehaviour
 
             string newFileName = $"{sanitizedArtistName} - {sanitizedSongName}.mp3";
             string newFilePath = Path.Combine(dataPath, "downloads", newFileName);
+            
 
             if (File.Exists(newFilePath))
             {
                 File.Delete(newFilePath);
             }
-
             File.Move(mp3Path, newFilePath);
             UnityEngine.Debug.Log($"Renamed and moved downloaded file to: {newFilePath}");
         }
@@ -421,6 +430,8 @@ public class LevelResourcesCompiler : MonoBehaviour
         string fileName = $"{sanitizedArtistName} - {sanitizedSongName}.mp3";
         return Path.Combine(dataPath, "downloads", fileName);
     }
+
+    
 
     public async Task StartCompile(string url, string name, string artist, string length, string cover)
     {
@@ -485,6 +496,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         BeginLoading();
         loadingFX.SetActive(true);
         status.text = "Fetching lyrics...";
+        compiling = true;
 
         GameObject stage1 = loadingSecond.transform.GetChild(4).GetChild(3).GetChild(0).gameObject;
         GameObject stage2 = loadingSecond.transform.GetChild(4).GetChild(3).GetChild(1).gameObject;
@@ -604,6 +616,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             {
                 if (File.Exists(expectedAudioPath)) File.Delete(expectedAudioPath);
                 File.Move(downloadedMp3, expectedAudioPath);
+
                 UnityEngine.Debug.Log($"Moved downloaded file to: {expectedAudioPath}");
             }
         }
@@ -623,9 +636,12 @@ public class LevelResourcesCompiler : MonoBehaviour
         splittingVocals = true;
         stage3.transform.GetChild(1).gameObject.SetActive(true);
 
-        bgDarken.Play("Darken");
-        await Task.Delay(1010);
-        bgGM.SetActive(false);
+        if(SettingsManager.Instance.GetSetting<int>("VocalProcessingMethod") == 1)
+        {
+            StartCoroutine(FadeImageAlpha(bgDarken, 1f, 1f));
+            await Task.Delay(1010);
+            bgGM.SetActive(false);
+        }
 
         _originalVSyncCount = QualitySettings.vSyncCount;
         QualitySettings.vSyncCount = 0;
@@ -721,7 +737,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     private async Task RunPythonDirectly(string audioFilePath)
     {
         dataPath = PlayerPrefs.GetString("dataPath");
-
+        Debug.Log("here");
         if (string.IsNullOrEmpty(audioFilePath) || !File.Exists(audioFilePath))
         {
             UnityEngine.Debug.LogError("Audio file not found or path is invalid!");
@@ -745,6 +761,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
         else
         {
+            Debug.Log("here");
             var inputFolder = Path.Combine(dataPath, "vocalremover", "input");
             var targetPath = Path.Combine(inputFolder, Path.GetFileName(audioFilePath));
             File.Copy(audioFilePath, targetPath, true);
@@ -796,6 +813,20 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
         musicControl.audioMixer.SetFloat("LowpassCutoff", endFreq);
     }
+    private IEnumerator FadeImageAlpha(UnityEngine.UI.Image image, float targetAlpha, float duration)
+    {
+        float time = 0;
+        Color startColor = image.color;
+        while (time < duration)
+        {
+            time += Time.deltaTime;
+            float newAlpha = Mathf.Lerp(startColor.a, targetAlpha, time / duration);
+            image.color = new Color(startColor.r, startColor.g, startColor.b, newAlpha);
+            yield return null;
+        }
+        image.color = new Color(startColor.r, startColor.g, startColor.b, targetAlpha);
+    }
+
     public async void LoadingDone()
     {
         LowpassTransition(false);
@@ -812,6 +843,175 @@ public class LevelResourcesCompiler : MonoBehaviour
         loadingAnim.Play("LoadingIn");
     }
 
+    private Process activeProcess;
+    private bool processIsRunning = false;
+    private readonly static Queue<Action> executionQueue = new Queue<Action>();
+
+    private void QueueForMainThread(Action action)
+    {
+        if (action == null) return;
+        lock (executionQueue)
+        {
+            executionQueue.Enqueue(action);
+        }
+    }
+
+    public void RunFullInstall()
+    {
+        if (processIsRunning)
+        {
+            Debug.LogWarning("A process is already running.");
+            return;
+        }
+
+        status.text = "Starting...";
+        progressBar.value = 0;
+
+        loadingCanvas.SetActive(true);
+        loadingSecond.SetActive(true);
+        loadingSecond.transform.GetChild(4).gameObject.SetActive(true);
+        loadingFirst.SetActive(false);
+        BeginLoading();
+        loadingFX.SetActive(true);
+
+        StartCoroutine(RunFullInstallCoroutine());
+    }
+
+    private IEnumerator RunFullInstallCoroutine()
+    {
+        processIsRunning = true;
+
+        activeProcess = new Process();
+        string dataPath = PlayerPrefs.GetString("dataPath");
+
+        string scriptPath = Path.Combine(dataPath, "setuputilities", "fullinstall.py");
+        if (!File.Exists(scriptPath))
+        {
+            Debug.LogError($"Script not found at: {scriptPath}");
+            QueueForMainThread(() => status.text = "Error: Script not found.");
+            processIsRunning = false;
+            yield break;
+        }
+        activeProcess.StartInfo.FileName = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
+        activeProcess.StartInfo.Arguments = $" -u \"{scriptPath}\" true";
+
+        activeProcess.StartInfo.UseShellExecute = false;
+        activeProcess.StartInfo.CreateNoWindow = true;
+        activeProcess.StartInfo.RedirectStandardOutput = true;
+        activeProcess.StartInfo.RedirectStandardError = true;
+        activeProcess.EnableRaisingEvents = true;
+
+        activeProcess.OutputDataReceived += (sender, args) =>
+        {
+            if (!string.IsNullOrEmpty(args.Data))
+            {
+                QueueForMainThread(() => ParseFinalInstallOutputLine(args.Data));
+            }
+        };
+
+        activeProcess.ErrorDataReceived += (sender, args) =>
+        {
+            if (!string.IsNullOrEmpty(args.Data))
+            {
+                QueueForMainThread(() => ProcessErrorLine(args.Data));
+            }
+        };
+
+        try
+        {
+            activeProcess.Start();
+            activeProcess.BeginOutputReadLine();
+            activeProcess.BeginErrorReadLine();
+            Debug.Log($"Process '{Path.GetFileName(activeProcess.StartInfo.FileName)}' started successfully.");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Failed to start process: {e.Message}");
+            QueueForMainThread(() =>
+            {
+                status.text = "Error: Failed to start.";
+            });
+            processIsRunning = false;
+            yield break;
+        }
+
+        while (!activeProcess.HasExited)
+        {
+            yield return null;
+        }
+
+        Debug.Log($"Process finished with exit code: {activeProcess.ExitCode}.");
+
+        CleanUpProcess();
+    }
+
+    private void ParseFinalInstallOutputLine(string line)
+    {
+        Debug.Log($"[FinalInstall] {line}");
+        Match match = Regex.Match(line, @"^\s*\[\s*(\d{1,3})%\s*\]\s*(.*)");
+
+        if (match.Success)
+        {
+            string percentageStr = match.Groups[1].Value;
+            string message = match.Groups[2].Value.Trim();
+
+            Debug.Log($"[FinalInstall] Matched! Percentage: {percentageStr}, Message: {message}");
+
+            if (status != null && !string.IsNullOrEmpty(message))
+            {
+                status.text = Regex.Replace(message, "-+", "").Trim();
+            }
+            if (progressBar != null && int.TryParse(percentageStr, out int percentage))
+            {
+                progressBar.value = percentage / 100.0f;
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"[FinalInstall] No match for line: {line}");
+        }
+        if (line.Contains("Setup Complete!"))
+        {
+            LoadingDone();
+            loadingFX.SetActive(false);
+            mainPanel.SetActive(true);
+            Debug.Log("Final installation completed successfully.");
+        }
+    }
+
+    private void ProcessErrorLine(string line)
+    {
+        if (line.Contains("WARNING: You are using pip version") || line.Contains("install --upgrade pip") || line.Contains("A new release of pip available"))
+        {
+            Debug.Log($"[Ignored Warning] {line}");
+            return; 
+        }
+
+        Debug.LogError($"[Process Error] {line}");
+        if (status != null)
+        {
+            status.text = "An error occurred. Check console.";
+        }
+    }
+
+    private void CleanUpProcess()
+    {
+        if (activeProcess != null)
+        {
+            activeProcess.Close();
+            activeProcess = null;
+        }
+        processIsRunning = false;
+    }
+
+    void OnApplicationQuit()
+    {
+        if (activeProcess != null && !activeProcess.HasExited)
+        {
+            Debug.Log("Application quitting, killing active process...");
+            activeProcess.Kill();
+        }
+    }
 
     private async Task RunProcessAsync(string exePath, string arguments, string workingDirectory)
     {

@@ -10240,12 +10240,12 @@ MonoBehaviour:
   playersParent: {fileID: 906127650}
   BG: {fileID: 1537373491}
   backgrounds:
-  - {fileID: 0}
+  - {fileID: 2100000, guid: c80fc606b68351242b944cfa59a76254, type: 2}
   - {fileID: 2100000, guid: d5534c525f0671f4391c7642120f278e, type: 2}
   - {fileID: 2100000, guid: b34f40b271be2d5438e40a2f43e23747, type: 2}
   - {fileID: 2100000, guid: 1d3d58bccaf5e4f4fb907947460c18a2, type: 2}
   backgroundDarkens:
-  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0.5686275}
   - {r: 0, g: 0, b: 0, a: 0.30588236}
   - {r: 0, g: 0, b: 0, a: 0.7019608}
   - {r: 0, g: 0, b: 0, a: 0.29803923}
@@ -12803,7 +12803,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1344c3c82d62a2a41a3576d8abb8e3ea, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Material: {fileID: 2100000, guid: 1d3d58bccaf5e4f4fb907947460c18a2, type: 2}
+  m_Material: {fileID: 2100000, guid: c80fc606b68351242b944cfa59a76254, type: 2}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}

@@ -114,6 +114,7 @@ public class RealTimePitchDetector : MonoBehaviour
     public PlayerPerformance PP;
     public RectTransform songDebugLeniency;
     private int diffIndex = 1;
+    private bool showPitch;
 
     private NativeArray<float> nativeAudioBuffer;
     private NativeArray<float> nativeWindowedSamples;
@@ -149,6 +150,11 @@ public class RealTimePitchDetector : MonoBehaviour
             default:
                 analysisWindowSize = 4096;
                 break;
+        }
+        showPitch = SettingsManager.Instance.GetSetting<bool>("ShowDetectedPitch");
+        if (!SettingsManager.Instance.GetSetting<bool>("AudioReactivePlayerCircle"))
+        {
+            micGlowImage.gameObject.SetActive(false);
         }
         if (PlayerPrefs.GetInt("multiplayer") == 0)
         {
@@ -784,7 +790,10 @@ public class RealTimePitchDetector : MonoBehaviour
                 }
             }
 
-            if (vocalArrowP != null && !vocalArrowP.isPlaying) vocalArrowP.Play();
+            if (showPitch)
+            {
+                if (vocalArrowP != null && !vocalArrowP.isPlaying) vocalArrowP.Play();
+            }
             vocalArrowS.value = bestValue;
 
             if (debugMode)

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
 using System.Linq;
+using System;
 
 /// <summary>
 /// Defines the categories for settings.
@@ -65,7 +66,7 @@ public class SettingsManager : MonoBehaviour
     }
 
     private Dictionary<string, Setting> _settings = new Dictionary<string, Setting>();
-    private string _settingsFilePath;
+    public string _settingsFilePath;
 
     private void Awake()
     {
@@ -140,23 +141,31 @@ public class SettingsManager : MonoBehaviour
         _settings = new Dictionary<string, Setting>
         {
             // Gameplay
-            { "MasterVolume", new Setting { Value = 1f, Category = SettingCategory.Gameplay, IsHidden = true, UIType = UIType.Dropdown, FormalName = "Master Volume", Description = "" } },
-            { "MusicVolume", new Setting { Value = 1.0f, Category = SettingCategory.Gameplay, IsHidden = true, UIType = UIType.Dropdown, FormalName = "Music Volume", Description = ""  } },
-            { "SFXVolume", new Setting { Value = 1.0f, Category = SettingCategory.Gameplay, IsHidden = true, UIType = UIType.Dropdown, FormalName = "SFX Volume", Description = ""  } },
+            // DONE
             { "ShowDetectedPitch", new Setting { Value = true, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Show Detected Pitch", Description = "If toggled on, shows the current detected pitch of the song's vocals and the user's microphone."  } },
+            // DONE
             { "AudioReactivePlayerCircle", new Setting { Value = true, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Player Circle", Description = "If toggled on, adds a reactive glow around the judgment circle."  } },
 
             // Processing
+            // DONE
             { "PitchProcessingQuality", new Setting { Value = 2, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Pitch Processing Quality", Description = "Higher means more accurate, but the pitch processing stage will take longer.", DropdownOptions = new List<string> { "Low", "Medium", "High" } } },
+            // DONE
             { "PitchDetectionQuality", new Setting { Value = 2, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Real-Time Pitch Detection Quality", Description = "Turn this down if your FPS is dropping when singing in game. Only recommended to turn this up if you have a very low pitched voice or want precise pitch detection.", DropdownOptions = new List<string> { "Low", "Medium", "High", "Very High" } } },
+            // DONE
             { "VocalProcessingMethod", new Setting { Value = 0, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Vocal Processing Method", Description = "Method used to extract vocals from the song. Only use vocalremover.org if you don't have a (good) GPU. Otherwise, use Demucs.", DropdownOptions = new List<string> { "VocalRemover.org", "Demucs" } } },
 
             // Misc
+
             { "MenuMusic", new Setting { Value = 1, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Music", Description = "Defines the song that will be played in the menu.", DropdownOptions = new List<string> { "None","Default","Random selection from downloaded songs" } } },
+            // DONE
             { "MenuBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Background", Description = "Defines the background that will be displayed in the menu.", DropdownOptions = new List<string> { "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
+            // Done
             { "InGameBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "In-Game Background", Description = "Defines the background that will be displayed in-game.", DropdownOptions = new List<string> { "None", "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
+            // DONE
             { "AudioReactiveBGInGame", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Background", Description = "Defines if the background will be audio-reactive or not. Currently, this only works if you are using the Rainbow Tunnel BG."  } },
+            // DONE
             { "SpotifySpDc", new Setting { Value = "", Category = SettingCategory.Misc, IsHidden = true, UIType = UIType.TextInput, FormalName = "Spotify sp_dc Cookie", Description = "Spotify cookie used to extract lyrics."  } },
+            // DONE
             { "SpotifyApiKey", new Setting { Value = "", Category = SettingCategory.Misc, IsHidden = true, UIType = UIType.TextInput, FormalName = "Spotify API Key", Description = "Spotify API key used to retrieve search results and song information."  } },
         };
     }
@@ -199,6 +208,13 @@ public class SettingsManager : MonoBehaviour
     {
         if (_settings.TryGetValue(key, out Setting setting))
         {
+            if(key == "VocalProcessingMethod")
+            {
+                if(PlayerPrefs.GetInt("demucsInstalled") != 1 && Convert.ToInt32(value) == 1 && PlayerPrefs.GetInt("setupDone") == 1)
+                {
+                    LevelResourcesCompiler.Instance.RunFullInstall();
+                }
+            }
             setting.Value = value;
         }
         else

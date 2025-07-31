@@ -32,6 +32,10 @@ public class SettingsUI : MonoBehaviour
     public AudioSource clickFX;
     private bool fromSettings = false;
     public Transform settingsTabs;
+    public List<Material> backgrounds;
+    public List<Color> backgroundsDarken;
+    public Image darken;
+    public RawImage BG;
 
     private void Awake()
     {
@@ -43,10 +47,7 @@ public class SettingsUI : MonoBehaviour
         {
             Destroy(gameObject);
         }
-        if (PlayerPrefs.GetInt("setupDone") == 0)
-        {
-            UnityEngine.SceneManagement.SceneManager.LoadScene("Setup");
-        }
+        
     }
 
     public void SelectTabSettings(int value)
@@ -221,7 +222,11 @@ public class SettingsUI : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.F11))
         {
             Screen.fullScreen = !Screen.fullScreen;
-
+        }
+        if (!LevelResourcesCompiler.Instance.compiling)
+        {
+            BG.material = backgrounds[SettingsManager.Instance.GetSetting<int>("MenuBG")];
+            darken.color = backgroundsDarken[SettingsManager.Instance.GetSetting<int>("MenuBG")];
         }
     }
 

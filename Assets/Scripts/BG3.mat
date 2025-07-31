@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: BG2
-  m_Shader: {fileID: 4800000, guid: f1f5b70a415c8284a9807f8f492de68f, type: 3}
+  m_Name: BG3
+  m_Shader: {fileID: 4800000, guid: 789ce22046127de4eaef9168d52ba550, type: 3}
   m_ValidKeywords: []
   m_InvalidKeywords: []
   m_LightmapFlags: 4
@@ -59,24 +59,43 @@ Material:
     m_Ints: []
     m_Floats:
     - _BumpScale: 1
+    - _ColorFalloff: 0.5
+    - _ColorFalloffPower: 2
+    - _ColorIntensity: 0.5
+    - _ColorOffset1: 0
+    - _ColorOffset2: 4
+    - _ColorOffset3: 3
+    - _ColorOffset4: 6
     - _Cutoff: 0.5
+    - _CylinderRadius: 0.125
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
     - _GlowRadius: 1
-    - _HighIntensity: 0.18
-    - _LowIntensity: 0.18001403
+    - _HighIntensity: 0.18000007
+    - _LightingIntensity: 1
+    - _LowIntensity: 0.18001415
+    - _MaxIterations: 52.2
     - _Metallic: 0
-    - _MidIntensity: 0.18
+    - _MidIntensity: 0.18000007
     - _Mode: 0
+    - _NoiseIntensity: 1
     - _OcclusionStrength: 1
     - _Parallax: 0.02
+    - _PlaneOffset: 0.001
+    - _RotationSpeed1: 1
+    - _RotationSpeed2: 1
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
     - _SrcBlend: 1
+    - _StepSize: 1.4
+    - _SurfaceOffset: 0.001
     - _TimeMult: 1
+    - _TimeScale: 0.1
+    - _TimeSpeed: 0.54
+    - _ToneMappingScale: 20000
     - _UVSec: 0
     - _ZWrite: 1
     m_Colors:

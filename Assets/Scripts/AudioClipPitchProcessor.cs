@@ -105,6 +105,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
     public List<Material> backgrounds;
     public List<Color> backgroundDarkens;
     public Image darken;
+    private bool showPitch;
 
     // Precomputed values for optimization
     private int minLag;
@@ -158,7 +159,8 @@ public class AudioClipPitchProcessor : MonoBehaviour
             BG.material = backgrounds[SettingsManager.Instance.GetSetting<int>("InGameBG")-1];
             darken.color = backgroundDarkens[SettingsManager.Instance.GetSetting<int>("InGameBG") - 1];
         }
-        
+        showPitch = SettingsManager.Instance.GetSetting<bool>("ShowDetectedPitch");
+
     }
 
     private string GetCacheFilePath(string audioClipPath)
@@ -1030,7 +1032,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
             int index = Mathf.FloorToInt((adjustedTime / audioClip.length) * pitchOverTime.Count);
             index = Mathf.Clamp(index, 0, pitchOverTime.Count - 1);
 
-            if (true)
+            if (showPitch)
             {
                 float pitch = pitchOverTime[index];
                 bool isSinging = pitch >= 32f;

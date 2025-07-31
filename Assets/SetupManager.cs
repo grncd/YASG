@@ -89,6 +89,14 @@ public class SetupManager : MonoBehaviour
         Application.Quit();
     }
 
+    private void Awake()
+    {
+        if (PlayerPrefs.GetInt("setupDone") == 1)
+        {
+            UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
+        }
+    }
+
     public void StartPreinstall()
     {
         if (processIsRunning)
@@ -142,10 +150,11 @@ public class SetupManager : MonoBehaviour
         yield return StartCoroutine(DownloadFile(pyUrl, pyPath));
         yield return StartCoroutine(DownloadFile(py2Url, py2Path));
         yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/getlyrics.bat", Path.Combine(dataPath, "getlyrics.bat")));
-        yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/downloadsong.bat", Path.Combine(dataPath, "getlyrics.bat")));
+        yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/downloadsong.bat", Path.Combine(dataPath, "downloadsong.bat")));
+        Directory.CreateDirectory(Path.Combine(dataPath, "vocalremover", "input"));
         yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/main.py", Path.Combine(dataPath,"vocalremover", "main.py")));
         yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/vr.py", Path.Combine(dataPath,"vocalremover", "vr.py")));
-        Directory.CreateDirectory(Path.Combine(dataPath, "vocalremover", "input"));
+        
         StartCoroutine(RunProcessCoroutine());
     }
 
@@ -240,6 +249,15 @@ public class SetupManager : MonoBehaviour
             }
             activeProcess.StartInfo.FileName = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
             activeProcess.StartInfo.Arguments = $" -u \"{scriptPath}\" {(method == "demucs" ? "true" : "false")}";
+            if(method == "demucs")
+            {
+                PlayerPrefs.SetInt("demucsInstalled", 1);
+                SettingsManager.Instance.SetSetting("VocalProcessingMethod", 1);
+            }
+            else
+            {
+                SettingsManager.Instance.SetSetting("VocalProcessingMethod", 0);
+            }
         }
 
         // Common process settings
@@ -374,7 +392,7 @@ public class SetupManager : MonoBehaviour
                 "    \"create_folder\": true,\n" +
                 "    \"album_folder_name\": \"{name} - {artists}\",\n" +
                 "    \"play_folder_name\": \"{name} - {owner}\",\n" +
-                "    \"file_name\": \"{track_number}. {name}\",\n" +
+                "    \"file_name\": \"{name}\",\n" +
                 "    \"synced_lyrics\": true,\n" +
                 "    \"force_download\": false\n" +
                 "}";
@@ -428,24 +446,24 @@ public class SetupManager : MonoBehaviour
             if (finalInstallProgress != null && int.TryParse(percentageStr, out int percentage))
             {
                 finalInstallProgress.value = percentage / 100.0f;
-                if (percentage / 100.0f == 100f)
-                {
-                    finalInstallPage.NextPage();
-                    completeFX.Play();
-                    UnityEngine.Debug.Log("Final installation completed successfully.");
-                }
             }
         }
         else
         {
             UnityEngine.Debug.LogWarning($"[FinalInstall] No match for line: {line}");
         }
+        if(line.Contains("Setup Complete!"))
+        {
+            finalInstallPage.NextPage();
+            completeFX.Play();
+            UnityEngine.Debug.Log("Final installation completed successfully.");
+        }
     }
 
     private void ProcessErrorLine(string line)
     {
         // Filter for the multi-line pip warning.
-        if (line.Contains("WARNING: You are using pip version") || line.Contains("install --upgrade pip"))
+        if (line.Contains("WARNING: You are using pip version") || line.Contains("install --upgrade pip") || line.Contains("A new release of pip available"))
         {
             UnityEngine.Debug.Log($"[Ignored Warning] {line}");
             return; // Exit without showing error on UI
