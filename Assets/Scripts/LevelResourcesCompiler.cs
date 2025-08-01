@@ -76,27 +76,11 @@ public class LevelResourcesCompiler : MonoBehaviour
         dataPath = PlayerPrefs.GetString("dataPath");
         Application.targetFrameRate = -1;
         progressBar.gameObject.SetActive(false);
-        if (processLocally)
-        {
-            System.IO.Directory.Delete(Path.Combine(dataPath, "Mel-Band-Roformer-Vocal-Model-main", "input"), true);
-            System.IO.Directory.CreateDirectory(Path.Combine(dataPath, "Mel-Band-Roformer-Vocal-Model-main", "input"));
-            InitVocalSplit();
-        }
-        else
-        {
-            initLoadingDone = true;
-        }
+        initLoadingDone = true;
     }
 
 
 
-    private async void InitVocalSplit()
-    {
-        string pythonArgs = $"-u \"inference.py\" --config_path big_beta5e.yaml --model_path big_beta5e.ckpt --input_folder input --store_dir output";
-        string pythonExe = "python"; // or full path to python if needed
-        string workingDir = Path.Combine(dataPath, "Mel-Band-Roformer-Vocal-Model-main");
-        RunProcessAsync(pythonExe, pythonArgs, workingDir);
-    }
 
     void Update()
     {
