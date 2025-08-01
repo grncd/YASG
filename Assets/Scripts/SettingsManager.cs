@@ -155,7 +155,7 @@ public class SettingsManager : MonoBehaviour
             { "VocalProcessingMethod", new Setting { Value = 0, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Vocal Processing Method", Description = "Method used to extract vocals from the song. Only use vocalremover.org if you don't have a (good) GPU. Otherwise, use Demucs.", DropdownOptions = new List<string> { "VocalRemover.org", "Demucs" } } },
 
             // Misc
-
+            // DONE
             { "MenuMusic", new Setting { Value = 1, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Music", Description = "Defines the song that will be played in the menu.", DropdownOptions = new List<string> { "None","Default","Random selection from downloaded songs" } } },
             // DONE
             { "MenuBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Background", Description = "Defines the background that will be displayed in the menu.", DropdownOptions = new List<string> { "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
@@ -163,8 +163,6 @@ public class SettingsManager : MonoBehaviour
             { "InGameBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "In-Game Background", Description = "Defines the background that will be displayed in-game.", DropdownOptions = new List<string> { "None", "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
             // DONE
             { "AudioReactiveBGInGame", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Background", Description = "Defines if the background will be audio-reactive or not. Currently, this only works if you are using the Rainbow Tunnel BG."  } },
-            // DONE
-            { "SpotifySpDc", new Setting { Value = "", Category = SettingCategory.Misc, IsHidden = true, UIType = UIType.TextInput, FormalName = "Spotify sp_dc Cookie", Description = "Spotify cookie used to extract lyrics."  } },
             // DONE
             { "SpotifyApiKey", new Setting { Value = "", Category = SettingCategory.Misc, IsHidden = true, UIType = UIType.TextInput, FormalName = "Spotify API Key", Description = "Spotify API key used to retrieve search results and song information."  } },
         };

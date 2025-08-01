@@ -11,8 +11,8 @@ using UnityEngine.UIElements;
 
 public class SearchHandler : MonoBehaviour
 {
-    private string clientId = "7683f59dde814c16998d8f9c281b1e4f";
-    private string clientSecret = "6224484d5f584c80b6b13b28b153af99";
+    private string clientId;
+    private string clientSecret;
     private string accessToken;
     public GameObject trackGUI;
     public Transform trackParent;
@@ -22,6 +22,8 @@ public class SearchHandler : MonoBehaviour
 
     void Start()
     {
+        clientId = PlayerPrefs.GetString("CLIENTID");
+        clientSecret = PlayerPrefs.GetString("APIKEY");
         StartCoroutine(TokenAndRequestRoutine());
     }
 

@@ -17,7 +17,8 @@ public class SetupManager : MonoBehaviour
 {
     [Header("Retrieved Credentials")]
     public string spdc;
-    public string apikey;
+    private string apikey;
+    private string clientID;
     private string method;
     public Animator transitionAnim;
 
@@ -421,6 +422,7 @@ public class SetupManager : MonoBehaviour
             }
         }
         else if (line.StartsWith("Client Secret:")) { apikey = line.Split(new[] { ':' }, 2)[1].Trim(); statusTextLogin.text = "API Key retrieved!"; PlayerPrefs.SetString("APIKEY", apikey); }
+        else if (line.StartsWith("Client ID:")) { clientID = line.Split(new[] { ':' }, 2)[1].Trim(); statusTextLogin.text = "Client ID retrieved!"; PlayerPrefs.SetString("CLIENTID", clientID); }
         else if (line.Contains("Attempting to create a new app...")) { loginProgress.value = 0.25f; }
         else if (line.Contains("Filling out app creation form...")) { loginProgress.value = 0.5f; }
         else if (line.Contains("Submitting form...")) { loginProgress.value = 0.75f; }

@@ -565,7 +565,7 @@ public class EditorManager : MonoBehaviour
         }
         string finalSyncedLyrics = lrcBuilder.ToString();
 
-        if (isCustom)
+        if (!isCustom)
         {
             string syncedLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_synced.txt");
             File.WriteAllText(syncedLyricsFilePath, finalSyncedLyrics);
@@ -584,6 +584,23 @@ public class EditorManager : MonoBehaviour
         {
             string syncedLyricsFilePath = Path.Combine(localLyricsPath, $"{trackName}.txt");
             File.WriteAllText(syncedLyricsFilePath, finalSyncedLyrics);
+
+            string[] syncedLines = File.ReadAllLines(syncedLyricsFilePath);
+            for (int i = 0; i < syncedLines.Length; i++)
+            {
+                if (syncedLines[i].Contains("]"))
+                {
+                    syncedLines[i] = syncedLines[i].Replace("]", "] ");
+                }
+                if (syncedLines[i].Contains("["))
+                {
+                    syncedLines[i] = syncedLines[i].Replace("[", "[0");
+                }
+            }
+            string formattedSyncedLyrics = string.Join("\n", syncedLines);
+            File.Delete(syncedLyricsFilePath);
+            File.WriteAllText(syncedLyricsFilePath, formattedSyncedLyrics);
+
             AlertManager.Instance.ShowSuccess("Lyrics successfully created.","You can now play this song by accessing your Downloaded Songs.","Dismiss");
             FavoritesManager.AddDownload(trackName,artistName,FormatTime(duration),"",GenerateRandomString(16));
         }

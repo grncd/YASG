@@ -94,8 +94,8 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
         string dataPath = PlayerPrefs.GetString("dataPath");
         string workingLyricsPath = Path.Combine(dataPath, "workingLyrics");
         string trackId = trackUrl.Split('/').Last();
-        string plainLyricsPath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_plain.txt");
-        string syncedLyricsPath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_synced.txt");
+        string plainLyricsPath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_False_plain.txt");
+        string syncedLyricsPath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_False_synced.txt");
 
         if (!File.Exists(plainLyricsPath) || !File.Exists(syncedLyricsPath))
         {
