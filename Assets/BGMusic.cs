@@ -16,8 +16,8 @@ public class BGMusic : MonoBehaviour
 
     void Start()
     {
-        shuffleButton = GameObject.Find("Shuffle");
         songName = GameObject.Find("CurrentlyPlayingSong").GetComponent<TextMeshProUGUI>();
+        shuffleButton = songName.transform.parent.GetChild(4).gameObject;
         audioSource = GetComponent<AudioSource>();
         StartCoroutine(MusicPlayerCoroutine());
     }
@@ -36,8 +36,8 @@ public class BGMusic : MonoBehaviour
     {
         if(newScene.name == "Menu")
         {
-            shuffleButton = GameObject.Find("Shuffle");
             songName = GameObject.Find("CurrentlyPlayingSong").GetComponent<TextMeshProUGUI>();
+            shuffleButton = songName.transform.parent.GetChild(4).gameObject;
             StopAllCoroutines();
             StartCoroutine(MusicPlayerCoroutine());
         }
@@ -71,15 +71,15 @@ public class BGMusic : MonoBehaviour
             switch (lastMenuMusicValue)
             {
                 case 0:
-                    shuffleButton.SetActive(false);
-                    if (audioSource.isPlaying)
+                    if(shuffleButton != null) shuffleButton.SetActive(false);
+                    if (audioSource.isPlaying) 
                     {
                         audioSource.Stop();
                         songName.text = "None";
                     }
                     break;
                 case 1:
-                    shuffleButton.SetActive(false);
+                    if (shuffleButton != null) shuffleButton.SetActive(false);
                     if (!audioSource.isPlaying || audioSource.clip != menuMusicClip)
                     {
                         audioSource.clip = menuMusicClip;
@@ -116,7 +116,7 @@ public class BGMusic : MonoBehaviour
                         {
                             if (!audioSource.isPlaying)
                             {
-                                shuffleButton.SetActive(false);
+                                if (shuffleButton != null) shuffleButton.SetActive(false);
                                 audioSource.clip = menuMusicClip;
                                 audioSource.loop = true;
                                 audioSource.Play();

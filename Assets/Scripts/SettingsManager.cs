@@ -146,6 +146,13 @@ public class SettingsManager : MonoBehaviour
             // DONE
             { "AudioReactivePlayerCircle", new Setting { Value = true, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Player Circle", Description = "If toggled on, adds a reactive glow around the judgment circle."  } },
 
+            { "DynamicVolumeThreshold", new Setting { Value = "-1.2", Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.TextInput, FormalName = "Dynamic Volume Threshold", Description = "Impacts scoring heavily. Lower means you will need to sing quieter parts of the vocal track and higher means the opposite. Ranges between -10dB and 10dB. Default is -1.2dB. Only change this if you know what you're doing."  } },
+
+            { "LyricDisplayOffset", new Setting { Value = "1", Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.TextInput, FormalName = "Lyric Display Offset", Description = "Offset (in seconds) used to DISPLAY the lyrics, is only visual and does not affect scoring. Turn this up if you need more time to process the upcoming lyrics. Default is 1s."  } },
+
+            { "SongOffset", new Setting { Value = "0.2", Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.TextInput, FormalName = "Song Offset", Description = "Offset (in seconds) used when playing the song. Can't be a negative value. Default is 0.2s. Only change if you know what you're doing."  } },
+
+
             // Processing
             // DONE
             { "PitchProcessingQuality", new Setting { Value = 2, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Pitch Processing Quality", Description = "Higher means more accurate, but the pitch processing stage will take longer.", DropdownOptions = new List<string> { "Low", "Medium", "High" } } },
@@ -162,9 +169,7 @@ public class SettingsManager : MonoBehaviour
             // Done
             { "InGameBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "In-Game Background", Description = "Defines the background that will be displayed in-game.", DropdownOptions = new List<string> { "None", "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
             // DONE
-            { "AudioReactiveBGInGame", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Background", Description = "Defines if the background will be audio-reactive or not. Currently, this only works if you are using the Rainbow Tunnel BG."  } },
-            // DONE
-            { "SpotifyApiKey", new Setting { Value = "", Category = SettingCategory.Misc, IsHidden = true, UIType = UIType.TextInput, FormalName = "Spotify API Key", Description = "Spotify API key used to retrieve search results and song information."  } },
+            { "AudioReactiveBGInGame", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Background", Description = "Defines if the background will be audio-reactive or not. Currently, this only works if you are using the Rainbow Tunnel BG."  } }
         };
     }
 

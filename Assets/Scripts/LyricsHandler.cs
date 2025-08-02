@@ -20,6 +20,7 @@ public class LyricsHandler : MonoBehaviour
     public Animator lyricsAnimator;
     private int prevIndex = -1;
     public GameObject pausePanel;
+    private float lyricsDelay = 1f;
 
     public List<(float time, string line)> parsedLyrics = new List<(float, string)>();
     private List<float> lineDurations = new List<float>();
@@ -54,7 +55,7 @@ public class LyricsHandler : MonoBehaviour
 
     void Start()
     {
-
+        lyricsDelay = Mathf.Clamp(float.Parse(SettingsManager.Instance.GetSetting<string>("LyricDisplayOffset")), 0f, 5f);
         string charactersToRemovePattern = @"[/\\:*?""<>|]";
         string currentSong = PlayerPrefs.GetString("currentSong");
         currentSong = Regex.Replace(currentSong, charactersToRemovePattern, string.Empty);
@@ -302,7 +303,7 @@ public class LyricsHandler : MonoBehaviour
     {
         for (int i = parsedLyrics.Count - 1; i >= 0; i--)
         {
-            if (elapsedTime+1f >= parsedLyrics[i].time)
+            if (elapsedTime+lyricsDelay >= parsedLyrics[i].time)
             {
                 if (prevIndex != i)
                 {

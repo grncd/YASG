@@ -45831,6 +45831,7 @@ MonoBehaviour:
   customName: {fileID: 2045761434}
   customArtist: {fileID: 2020390657}
   automaticallyExtract: {fileID: 1587721308}
+  vocalPathButton: {fileID: 1809092076}
   selectorGO: {fileID: 1608440518}
   songInfo: {fileID: 575757400}
   lyricsScroller: {fileID: 1035203608}
@@ -66825,7 +66826,7 @@ MonoBehaviour:
     m_Left: 0
     m_Right: 0
     m_Top: 29
-    m_Bottom: 0
+    m_Bottom: 35
   m_ChildAlignment: 4
   m_StartCorner: 0
   m_StartAxis: 0
@@ -73455,7 +73456,7 @@ MonoBehaviour:
     m_Left: 0
     m_Right: 0
     m_Top: 29
-    m_Bottom: 0
+    m_Bottom: 35
   m_ChildAlignment: 4
   m_StartCorner: 0
   m_StartAxis: 0

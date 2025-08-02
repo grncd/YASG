@@ -29,6 +29,7 @@ public class EditorManager : MonoBehaviour
     private string songPath;
     private string vocalPath;
     public Toggle automaticallyExtract;
+    public Button vocalPathButton;
     private bool isCustom;
     private int saveIndex = 0;
 
@@ -85,6 +86,8 @@ public class EditorManager : MonoBehaviour
             LocalSaveLyrics();
             saveTimer = 0f;
         }
+
+        vocalPathButton.interactable = !automaticallyExtract.isOn;
 
         if (transform.GetChild(2).gameObject.activeInHierarchy)
         {

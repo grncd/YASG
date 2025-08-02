@@ -273,6 +273,8 @@ public class AudioClipPitchProcessor : MonoBehaviour
     private void Start()
     {
         Application.targetFrameRate = -1;
+        dynamicVolumeThresholdDbBoost = Mathf.Clamp(float.Parse(SettingsManager.Instance.GetSetting<string>("DynamicVolumeThreshold")), -10f, 10f);
+        AUDIO_TRIM_TIME = Mathf.Clamp(float.Parse(SettingsManager.Instance.GetSetting<string>("SongOffset")), 0f, 1.5f);
 
         float temp;
         musicControl.audioMixer.GetFloat("LowpassCutoff", out temp);
