@@ -386,7 +386,7 @@ public class ResultsScreen : MonoBehaviour
         else
         {
             // This is the original single-player logic.
-            SceneManager.LoadScene("Menu");
+            SceneManager.LoadScene("Menu", LoadSceneMode.Single);
         }
     }
 }

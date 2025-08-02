@@ -1082,8 +1082,6 @@ public class LevelResourcesCompiler : MonoBehaviour
                 Process.GetCurrentProcess().PriorityClass = ProcessPriorityClass.Idle;
                 process.PriorityClass = ProcessPriorityClass.RealTime;
             }
-            if (args.Data.Contains("Model is ready.") && exePath == "python" && processLocally) initLoadingDone = true;
-            if (args.Data.Contains("Processing finished.") && exePath == "python" && processLocally) done = true;
             if (args.Data.Contains("Progress:"))
             {
                 string progressStr = Regex.Match(args.Data, @"\d+").Value;
