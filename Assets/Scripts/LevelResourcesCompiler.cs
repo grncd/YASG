@@ -61,6 +61,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     public GameObject loadingFX;
     private bool dontSave = false;
     public bool compiling = false;
+    public Button startCompileButton;
 
     private int _originalVSyncCount;
 
@@ -127,6 +128,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             if (!processLocally)
             {
+                UnityEngine.Debug.Log("Extracted file name: " + extractedFileName);
                 extractedFileName = Path.GetFileNameWithoutExtension(extractedFileName);
             }
             string vocalLocation = Path.Combine(dataPath, "output", extractedFileName + " [vocals].mp3");
@@ -464,6 +466,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     public async Task StartCompile(string url, string name, string artist, string length, string cover)
     {
+        startCompileButton.interactable = false; 
         dataPath = PlayerPrefs.GetString("dataPath");
         UnityEngine.Debug.Log($"CALLED: {url}, {name}, {artist}, {length}, {cover}");
         PlayerPrefs.SetString("currentSongURL", url);
@@ -491,7 +494,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         PlayerPrefs.SetString("currentSong", name);
         PlayerPrefs.SetString("currentArtist", artist);
-
+        startCompileButton.interactable = true; 
         if (CheckFile(sanitizedName + ".txt"))
         {
             status.text = "Already downloaded. Loading main scene...";
@@ -1190,7 +1193,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     {
         string dataPath = PlayerPrefs.GetString("dataPath");
         string pythonExe = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
-        string scriptPath = Path.Combine(dataPath, "setuputilities", "updatecheck.py");
+        string scriptPath = Path.Combine(dataPath, "setuputilities", "updatechecker.py");
         if (!File.Exists(pythonExe) || !File.Exists(scriptPath))
         {
             // Optionally log missing files, but do nothing else
