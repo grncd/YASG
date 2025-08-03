@@ -1007,6 +1007,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             LoadingDone();
             loadingFX.SetActive(false);
             mainPanel.SetActive(true);
+            PlayerPrefs.SetInt("demucsInstalled", 1);
             Debug.Log("Final installation completed successfully.");
         }
     }
