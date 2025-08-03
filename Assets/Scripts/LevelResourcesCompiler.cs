@@ -77,8 +77,8 @@ public class LevelResourcesCompiler : MonoBehaviour
         Application.targetFrameRate = -1;
         progressBar.gameObject.SetActive(false);
         initLoadingDone = true;
+        RunUpdateCheckSilently(); // Run update check in background
     }
-
 
 
 
@@ -1184,6 +1184,43 @@ public class LevelResourcesCompiler : MonoBehaviour
     public class LrcLibResponse
     {
         public string syncedLyrics;
-        // You can add other fields from the response if needed, e.g., plainLyrics, instrumental
+    }
+
+    private async void RunUpdateCheckSilently()
+    {
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        string pythonExe = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
+        string scriptPath = Path.Combine(dataPath, "setuputilities", "updatecheck.py");
+        if (!File.Exists(pythonExe) || !File.Exists(scriptPath))
+        {
+            // Optionally log missing files, but do nothing else
+            Debug.LogWarning("Update check: Python or script not found.");
+            return;
+        }
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = pythonExe,
+            Arguments = $" -u \"{scriptPath}\"",
+            WorkingDirectory = Path.GetDirectoryName(scriptPath),
+            CreateNoWindow = true,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            WindowStyle = ProcessWindowStyle.Hidden
+        };
+
+        try
+        {
+            using (var process = new Process { StartInfo = psi })
+            {
+                process.Start();
+                await Task.Run(() => process.WaitForExit());
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"Update check failed: {e.Message}");
+        }
     }
 }

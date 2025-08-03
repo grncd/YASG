@@ -143,13 +143,16 @@ public class SetupManager : MonoBehaviour
         string batUrl = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/pyinstall.bat";
         string pyUrl = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/spotifydc.py";
         string py2Url = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/fullinstall.py";
+        string py3Url = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/updatechecker.py";
         string batPath = Path.Combine(setupUtilitiesPath, "pyinstall.bat");
         string pyPath = Path.Combine(setupUtilitiesPath, "spotifydc.py");
         string py2Path = Path.Combine(setupUtilitiesPath, "fullinstall.py");
+        string py3Path = Path.Combine(setupUtilitiesPath, "updatechecker.py");
         statusTextPreinstall.text = "Downloading setup files...";
         yield return StartCoroutine(DownloadFile(batUrl, batPath));
         yield return StartCoroutine(DownloadFile(pyUrl, pyPath));
         yield return StartCoroutine(DownloadFile(py2Url, py2Path));
+        yield return StartCoroutine(DownloadFile(py3Url, py3Path));
         yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/getlyrics.bat", Path.Combine(dataPath, "getlyrics.bat")));
         yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/downloadsong.bat", Path.Combine(dataPath, "downloadsong.bat")));
         Directory.CreateDirectory(Path.Combine(dataPath, "vocalremover", "input"));
