@@ -60037,7 +60037,7 @@ MonoBehaviour:
   stage3FX: {fileID: 8300000, guid: 5e24849bd39d2764298374c5b98abdf9, type: 3}
   loadingFX: {fileID: 2034392104}
   compiling: 0
-  startCompileButton: {fileID: 0}
+  startCompileButton: {fileID: 158726058}
 --- !u!4 &1667038467
 Transform:
   m_ObjectHideFlags: 0
