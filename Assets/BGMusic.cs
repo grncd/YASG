@@ -52,11 +52,24 @@ public class BGMusic : MonoBehaviour
 
     void Update()
     {
-        int currentMenuMusicValue = SettingsManager.Instance.GetSetting<int>("MenuMusic");
-        if (currentMenuMusicValue != lastMenuMusicValue)
+        if (PlayerPrefs.GetInt("editing") == 1)
         {
             StopAllCoroutines();
-            StartCoroutine(MusicPlayerCoroutine());
+            killSwitch = true;
+        }
+        else
+        {
+            killSwitch = false;
+        }
+
+        if (!killSwitch)
+        {
+            int currentMenuMusicValue = SettingsManager.Instance.GetSetting<int>("MenuMusic");
+            if (currentMenuMusicValue != lastMenuMusicValue)
+            {
+                StopAllCoroutines();
+                StartCoroutine(MusicPlayerCoroutine());
+            }
         }
     }
 

@@ -36,6 +36,7 @@ public class SettingsUI : MonoBehaviour
     public List<Color> backgroundsDarken;
     public Image darken;
     public RawImage BG;
+    public GameObject songAdvisor;
 
     private void Awake()
     {
@@ -47,7 +48,7 @@ public class SettingsUI : MonoBehaviour
         {
             Destroy(gameObject);
         }
-        
+
     }
 
     public void SelectTabSettings(int value)

@@ -53,7 +53,7 @@ public class ResultsScreen : MonoBehaviour
         {
             Debug.LogError("Could not find 'currentSongURL' in PlayerPrefs. Highscores will not be saved.");
         }
-
+        PlayerPrefs.SetInt("firstPlay", 1);
         if (PlayerPrefs.GetInt("multiplayer") == 1)
         {
             StartMultiplayerResults();
