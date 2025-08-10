@@ -18,7 +18,7 @@ public class MenuTransition : MonoBehaviour
     public async void PlayTransition()
     {
         GetComponent<Animator>().Play("MenuIn");
-        await Task.Delay(550);
+        await Task.Delay(600);
         GetComponent<AudioSource>().Play();
     }
 }
