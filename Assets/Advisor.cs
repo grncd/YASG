@@ -7,12 +7,13 @@ public class Advisor : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        
+        if (PlayerPrefs.GetInt("firstPlay") == 1)
+        {
+            PlayerPrefs.SetInt("firstPlay", 2);
+        }
+        else
+        {
+            this.gameObject.SetActive(false);
+        }
     }
 }
