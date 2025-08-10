@@ -218,8 +218,9 @@ public class ResultsScreen : MonoBehaviour
         {
             // --- Phase 1: Animate from current progress to 100% ---
             float elapsed = 0f;
-            // Duration is proportional to how much of the bar we need to fill
-            float firstPhaseDuration = fullBarAnimationDuration * (1f - fromProgress);
+            float firstPhaseDuration = fullBarAnimationDuration / 2;
+
+            if (levelUpFX != null) levelUpFX.Play(); // Play one-shot sound effect
 
             if (firstPhaseDuration > 0)
             {
@@ -238,14 +239,11 @@ public class ResultsScreen : MonoBehaviour
             panel.progressBar.fillAmount = 0f; // Reset bar for the new level
             panel.levelText.text = finalLevel.ToString();
             if (panel.levelUpParticles != null) panel.levelUpParticles.Play(); // Play one-shot particle effect
-            if (levelUpFX != null) levelUpFX.Play(); // Play one-shot sound effect
-
-            yield return new WaitForSeconds(0.1f); // Small dramatic pause
 
             // --- Phase 2: Animate from 0% to the new progress ---
             elapsed = 0f;
             // Duration is proportional to the final progress
-            float secondPhaseDuration = fullBarAnimationDuration * toProgress;
+            float secondPhaseDuration = fullBarAnimationDuration / 2;
 
             if (secondPhaseDuration > 0)
             {
