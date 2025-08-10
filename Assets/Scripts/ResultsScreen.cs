@@ -6,6 +6,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using MPUIKIT;
+using System.Threading.Tasks;
 
 public class ResultsScreen : MonoBehaviour
 {
@@ -30,11 +31,14 @@ public class ResultsScreen : MonoBehaviour
     public List<PlayerResultPanel> resultPanels;
     public GameObject starPrefab;
     public TextMeshProUGUI btmLabel;
+    public Animator resultsOutAnimator;
+    public AudioSource resultsOutFX;
 
     [Header("Audio")]
     public AudioSource levelFX;
     public AudioSource levelUpFX;
     public AudioSource starFX;
+    public AudioSource backgroundMusic;
     private string currentSongUrl;
 
     // We define the color gradients here for easy access.
@@ -152,7 +156,7 @@ public class ResultsScreen : MonoBehaviour
                 string profileName = PlayerPrefs.GetString("Player" + playerId + "Name");
                 int achievedScore = PlayerPrefs.GetInt("Player" + playerId + "Score");
                 int placement = PlayerPrefs.GetInt("Player" + playerId + "Placement") + 1;
-                int stars = PlayerPrefs.GetInt("Player" + playerId + "Stars"); 
+                int stars = PlayerPrefs.GetInt("Player" + playerId + "Stars");
 
                 if (!string.IsNullOrEmpty(currentSongUrl))
                 {
@@ -363,8 +367,11 @@ public class ResultsScreen : MonoBehaviour
         return -(Mathf.Cos(Mathf.PI * x) - 1) / 2;
     }
 
-    public void BackToMenu()
+    public async void BackToMenu()
     {
+        GetComponent<Animator>().Play("ResultsOut");
+        StartCoroutine(ChangeVolumeRoutine(backgroundMusic, 0f, 0.6f));
+        await Task.Delay(700);
         PlayerPrefs.SetInt("fromMP", 1);
         // Check if we are in a multiplayer session.
         if (PlayerPrefs.GetInt("multiplayer") == 1)
@@ -386,5 +393,20 @@ public class ResultsScreen : MonoBehaviour
             // This is the original single-player logic.
             SceneManager.LoadScene("Menu", LoadSceneMode.Single);
         }
+    }
+    
+    private IEnumerator ChangeVolumeRoutine(AudioSource audioSource, float targetVolume, float duration)
+    {
+        float startVolume = audioSource.volume;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            audioSource.volume = Mathf.Lerp(startVolume, targetVolume, elapsed / duration);
+            yield return null;
+        }
+
+        audioSource.volume = targetVolume; // Ensure exact final value
     }
 }
