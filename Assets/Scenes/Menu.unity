@@ -12929,7 +12929,7 @@ MonoBehaviour:
     m_GradientType: 0
     m_Gradient:
       serializedVersion: 2
-      key0: {r: 1, g: 1, b: 1, a: 0.17254902}
+      key0: {r: 1, g: 1, b: 1, a: 0.38039216}
       key1: {r: 1, g: 1, b: 1, a: 0}
       key2: {r: 0, g: 0, b: 0, a: 0}
       key3: {r: 0, g: 0, b: 0, a: 0}
@@ -15164,8 +15164,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -1.3812292, y: -300.32}
-  m_SizeDelta: {x: 1200.8, y: 176.33}
+  m_AnchoredPosition: {x: -1.3812292, y: -345.85}
+  m_SizeDelta: {x: 1200.8, y: 85.28}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &466990943
 MonoBehaviour:
@@ -77722,8 +77722,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 956301311
-  m_fontColor: {r: 1, g: 1, b: 1, a: 0.21960784}
+    rgba: 1526726655
+  m_fontColor: {r: 1, g: 1, b: 1, a: 0.3529412}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:

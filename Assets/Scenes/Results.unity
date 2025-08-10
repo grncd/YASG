@@ -971,7 +971,7 @@ AudioSource:
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 24300002, guid: bdb8f3dff423f3143bf13ff318516a30, type: 2}
   m_audioClip: {fileID: 8300000, guid: be9b1ffe397ee71488b63e42fdbab303, type: 3}
-  m_PlayOnAwake: 1
+  m_PlayOnAwake: 0
   m_Volume: 1
   m_Pitch: 1
   Loop: 0
@@ -1836,6 +1836,7 @@ MonoBehaviour:
   levelFX: {fileID: 586227641}
   levelUpFX: {fileID: 1665444451}
   starFX: {fileID: 5305347916371626853}
+  backgroundMusic: {fileID: 992856649}
 --- !u!1 &453194925
 GameObject:
   m_ObjectHideFlags: 0
@@ -2653,7 +2654,7 @@ AudioSource:
   m_GameObject: {fileID: 992856648}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
+  OutputAudioMixerGroup: {fileID: 24300002, guid: 59bbcc131587b4449b6891e7ec84af71, type: 2}
   m_audioClip: {fileID: 8300000, guid: 09b9b1b2245996c42a622d7410fe9346, type: 3}
   m_PlayOnAwake: 1
   m_Volume: 0.824

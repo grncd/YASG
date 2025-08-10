@@ -369,7 +369,8 @@ public class ResultsScreen : MonoBehaviour
 
     public async void BackToMenu()
     {
-        GetComponent<Animator>().Play("ResultsOut");
+        resultsOutAnimator.Play("ResultsOut");
+        resultsOutFX.Play();
         StartCoroutine(ChangeVolumeRoutine(backgroundMusic, 0f, 0.6f));
         await Task.Delay(700);
         PlayerPrefs.SetInt("fromMP", 1);
@@ -391,7 +392,7 @@ public class ResultsScreen : MonoBehaviour
         else
         {
             // This is the original single-player logic.
-            SceneManager.LoadScene("Menu", LoadSceneMode.Single);
+            SceneManager.LoadSceneAsync("Menu", LoadSceneMode.Single);
         }
     }
     
