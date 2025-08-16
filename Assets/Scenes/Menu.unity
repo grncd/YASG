@@ -3788,8 +3788,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: badd3eff283545343b737aa3a737ec4c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  clientId: 
-  clientSecret: 
 --- !u!1001 &129468199
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -49356,6 +49354,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   menuMusicClip: {fileID: 8300000, guid: 08c521bf1f12614469cac5e28e9efe6e, type: 3}
+  previewAudioMixerGroup: {fileID: 24300002, guid: 59bbcc131587b4449b6891e7ec84af71, type: 2}
   songName: {fileID: 1990605519}
 --- !u!1 &1202363887
 GameObject:

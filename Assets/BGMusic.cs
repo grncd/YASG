@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -9,11 +10,30 @@ using UnityEngine.SceneManagement;
 public class BGMusic : MonoBehaviour
 {
     public AudioClip menuMusicClip;
+    public UnityEngine.Audio.AudioMixerGroup previewAudioMixerGroup;
     private AudioSource audioSource;
     private int lastMenuMusicValue = -1;
     public TextMeshProUGUI songName;
     private GameObject shuffleButton;
     private bool killSwitch = false;
+
+    private AudioSource previewAudioSource;
+    private string tempPreviewFilePath;
+    private Coroutine previewSongCoroutine;
+
+    public static BGMusic Instance { get; private set; }
+
+    void Awake()
+    {
+        Instance = this;
+        previewAudioSource = gameObject.AddComponent<AudioSource>();
+        previewAudioSource.loop = false;
+        previewAudioSource.playOnAwake = false;
+        if (previewAudioMixerGroup != null)
+        {
+            previewAudioSource.outputAudioMixerGroup = previewAudioMixerGroup;
+        }
+    }
 
     void Start()
     {
@@ -118,7 +138,7 @@ public class BGMusic : MonoBehaviour
                             if (musicFiles.Length > 0)
                             {
                                 shuffleButton.SetActive(true);
-                                string randomFile = musicFiles[Random.Range(0, musicFiles.Length)];
+                                string randomFile = musicFiles[UnityEngine.Random.Range(0, musicFiles.Length)];
                                 using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip("file://" + randomFile, AudioType.MPEG))
                                 {
                                     yield return www.SendWebRequest();
@@ -152,5 +172,143 @@ public class BGMusic : MonoBehaviour
             }
         }
     }
-}
 
+    public void PreviewSong(string trackIdOrUrl)
+    {
+        string trackId = trackIdOrUrl;
+        if (trackId.Contains("spotify.com/track/"))
+        {
+            int trackIndex = trackId.LastIndexOf('/') + 1;
+            trackId = trackId.Substring(trackIndex);
+            
+            int queryIndex = trackId.IndexOf('?');
+            if (queryIndex != -1)
+            {
+                trackId = trackId.Substring(0, queryIndex);
+            }
+        }
+
+        if (previewSongCoroutine != null)
+        {
+            StopCoroutine(previewSongCoroutine);
+        }
+        previewSongCoroutine = StartCoroutine(PreviewSongCoroutine(trackId));
+    }
+
+    public void StopPreview()
+    {
+        if (previewSongCoroutine != null)
+        {
+            StopCoroutine(previewSongCoroutine);
+            previewSongCoroutine = null;
+            StartCoroutine(StopPreviewCoroutine());
+        }
+    }
+
+    IEnumerator PreviewSongCoroutine(string trackId)
+    {
+        // 1. Get URL from SpotifyFetcher.
+        // This assumes you have a SpotifyFetcher component in your scene
+        // and a GetPreviewUrl method that takes a callback.
+        string previewUrl = null;
+        var spotifyFetcher = FindObjectOfType<SpotifyFetcher>();
+        if (spotifyFetcher == null)
+        {
+            Debug.LogError("SpotifyFetcher not found in scene.");
+            yield break;
+        }
+        yield return spotifyFetcher.GetPreviewUrl(trackId, url => previewUrl = url);
+
+        if (string.IsNullOrEmpty(previewUrl))
+        {
+            Debug.LogError("Could not retrieve song preview URL.");
+            yield break;
+        }
+
+        // 2. Download the content as a temporary .mp3 file.
+        tempPreviewFilePath = Path.Combine(Application.temporaryCachePath, "song_preview.mp3");
+        using (UnityWebRequest www = UnityWebRequest.Get(previewUrl))
+        {
+            yield return www.SendWebRequest();
+
+            if (www.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"Failed to download preview song: {www.error}");
+                yield break;
+            }
+            File.WriteAllBytes(tempPreviewFilePath, www.downloadHandler.data);
+        }
+
+        AudioClip previewClip;
+        using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip("file://" + tempPreviewFilePath, AudioType.MPEG))
+        {
+            yield return www.SendWebRequest();
+
+            if (www.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"Failed to load preview audio clip: {www.error}");
+                yield break;
+            }
+            previewClip = DownloadHandlerAudioClip.GetContent(www);
+        }
+
+        // 3. Fade out BGMusic and play the preview simultaneously.
+        StartCoroutine(FadeAudio(audioSource, 0.5f, 0f));
+
+        previewAudioSource.clip = previewClip;
+        previewAudioSource.volume = 0f;
+        previewAudioSource.Play();
+        yield return StartCoroutine(FadeAudio(previewAudioSource, 0.5f, 0.211f));
+
+        // Loop with fade
+        while (true)
+        {
+            float timeToWait = previewAudioSource.clip.length - 0.5f;
+            if (timeToWait > 0)
+            {
+                yield return new WaitForSeconds(timeToWait);
+            }
+
+            yield return StartCoroutine(FadeAudio(previewAudioSource, 0.5f, 0f));
+            
+            previewAudioSource.time = 0f;
+            previewAudioSource.Play();
+            
+            yield return StartCoroutine(FadeAudio(previewAudioSource, 0.5f, 0.211f));
+        }
+    }
+
+    IEnumerator StopPreviewCoroutine()
+    {
+        // Fade out the preview song and fade in the BG music simultaneously
+        Coroutine fadeOutPreview = StartCoroutine(FadeAudio(previewAudioSource, 0.5f, 0f));
+        StartCoroutine(FadeAudio(audioSource, 0.5f, 0.211f));
+
+        // Wait for the preview to finish fading out before we stop it and delete the file
+        yield return fadeOutPreview;
+
+        previewAudioSource.Stop();
+        previewAudioSource.clip = null;
+
+        // Delete the temporary file
+        if (!string.IsNullOrEmpty(tempPreviewFilePath) && File.Exists(tempPreviewFilePath))
+        {
+            File.Delete(tempPreviewFilePath);
+            tempPreviewFilePath = null;
+        }
+    }
+
+    IEnumerator FadeAudio(AudioSource source, float duration, float targetVolume)
+    {
+        float currentTime = 0;
+        float startVolume = source.volume;
+
+        while (currentTime < duration)
+        {
+            currentTime += Time.deltaTime;
+            source.volume = Mathf.Lerp(startVolume, targetVolume, currentTime / duration);
+            yield return null;
+        }
+        source.volume = targetVolume;
+    }
+}
