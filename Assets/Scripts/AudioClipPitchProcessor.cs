@@ -944,21 +944,32 @@ public class AudioClipPitchProcessor : MonoBehaviour
                 OutputPitches_Native[frameIndex] = 0f; return;
             }
             NativeSlice<float> frameSamplesSlice = AudioSamples_Native.Slice(offset, AnalysisWindowSize);
-            OutputPitches_Native[frameIndex] = DetectPitch_YIN_Burst(
-                frameSamplesSlice, HannWindow_Native, SampleRate, VolumeThreshold, MinLag, MaxLag, 0.2f
+
+            float clarity;
+            OutputPitches_Native[frameIndex] = DetectPitch_MPM_Burst(
+                frameSamplesSlice, HannWindow_Native, SampleRate, VolumeThreshold, MinLag, MaxLag,
+                out clarity, // <-- MOVED: Pass the out parameter first
+                0.7f         // <-- MOVED: Pass the optional parameter last
             );
         }
     }
 
     [BurstCompile]
-    public static float DetectPitch_YIN_Burst(NativeSlice<float> samples, NativeArray<float> hannWindow,
-                                            int sampleRate, float volumeThreshold,
-                                            int minLag, int maxLag, float yinThreshold = 0.2f) // Note: Default threshold increased slightly
+    public static float DetectPitch_MPM_Burst(
+        NativeSlice<float> samples, 
+        NativeArray<float> hannWindow,
+        int sampleRate, 
+        float volumeThreshold,
+        int minLag, 
+        int maxLag, 
+        out float clarity,                 // <-- MOVED: Required parameter now comes first
+        float clarityThreshold = 0.8f)   // <-- MOVED: Optional parameter is now last
     {
+        clarity = 0f; // Default clarity
         int size = samples.Length;
         if (size == 0 || size != hannWindow.Length) return 0f;
 
-        // Step 1: Volume check (same as before)
+        // --- Step 1: Volume Check ---
         float sumSquared = 0f;
         for (int i = 0; i < size; i++) sumSquared += samples[i] * samples[i];
         float rms = math.sqrt(sumSquared / size);
@@ -968,83 +979,85 @@ public class AudioClipPitchProcessor : MonoBehaviour
         Span<float> windowedSamples = stackalloc float[size];
         for (int i = 0; i < size; i++) windowedSamples[i] = samples[i] * hannWindow[i];
 
-        // --- YIN Algorithm Implementation ---
-        Span<float> yinBuffer = stackalloc float[maxLag + 1];
-
-        // Step 2: Difference function (same as before)
+        // --- Step 2: Autocorrelation (used by NSDF) ---
+        Span<float> acf = stackalloc float[maxLag + 1];
         for (int lag = 0; lag <= maxLag; lag++)
         {
-            float difference = 0;
+            float sum = 0;
             for (int i = 0; i < size - lag; i++)
             {
-                float delta = windowedSamples[i] - windowedSamples[i + lag];
-                difference += delta * delta;
+                sum += windowedSamples[i] * windowedSamples[i + lag];
             }
-            yinBuffer[lag] = difference;
+            acf[lag] = sum;
         }
 
-        // Step 3: Cumulative Mean Normalized Difference Function (CMNDF) (same as before)
-        yinBuffer[0] = 1;
-        float runningSum = 0;
-        for (int lag = 1; lag <= maxLag; lag++)
+        // --- Step 3: Normalized Square Difference Function (NSDF) ---
+        Span<float> nsdf = stackalloc float[maxLag + 1];
+        float m0 = acf[0]; // Energy of the signal
+        for (int lag = 0; lag <= maxLag; lag++)
         {
-            runningSum += yinBuffer[lag];
-            if (runningSum < 1e-9f) {
-                yinBuffer[lag] = 1;
+            float m_lag = 0;
+            for (int i = 0; i < size - lag; i++)
+            {
+                m_lag += windowedSamples[i + lag] * windowedSamples[i + lag];
+            }
+            
+            float denominator = m0 + m_lag;
+            if (denominator > 1e-9f) {
+                nsdf[lag] = 2 * acf[lag] / denominator;
             } else {
-                yinBuffer[lag] = yinBuffer[lag] * lag / runningSum;
+                nsdf[lag] = 0;
             }
         }
 
-        // --- NEW Step 4: More robust dip finding with fallback ---
-        int period = 0; // Use 0 to indicate not found yet
+        // --- Step 4: Peak Picking ---
+        int period = 0;
+        float maxVal = 0f;
 
-        // First, try to find the first local minimum that's below the threshold.
-        // A "local minimum" is a point that is lower than its immediate neighbors.
         for (int lag = minLag + 1; lag < maxLag; lag++)
         {
-            if (yinBuffer[lag] < yinThreshold && 
-                yinBuffer[lag] < yinBuffer[lag - 1] && 
-                yinBuffer[lag] < yinBuffer[lag + 1])
+            if (nsdf[lag] > nsdf[lag - 1] && nsdf[lag] > nsdf[lag + 1])
             {
-                period = lag;
-                break; // Found a good candidate, stop searching.
-            }
-        }
-
-        // **FALLBACK LOGIC**
-        // If we didn't find a clear dip below the threshold, don't give up.
-        // Instead, find the absolute lowest point in the valid range.
-        if (period == 0)
-        {
-            float minVal = float.MaxValue;
-            for (int lag = minLag; lag <= maxLag; lag++)
-            {
-                if (yinBuffer[lag] < minVal)
+                if (period == 0)
                 {
-                    minVal = yinBuffer[lag];
+                    if (nsdf[lag] > 0.1f) 
+                    {
+                        period = lag;
+                        maxVal = nsdf[lag];
+                    }
+                }
+                else if (nsdf[lag] > maxVal)
+                {
                     period = lag;
+                    maxVal = nsdf[lag];
                 }
             }
         }
+        
+        clarity = maxVal;
 
-        // If we still somehow have no period, return 0.
+        // --- Step 5: Sibilance/Noise Rejection using Clarity ---
+        if (clarity < clarityThreshold)
+        {
+            return 0f;
+        }
+
         if (period == 0) return 0f;
 
-        // --- Step 5: Parabolic Interpolation (same as before) ---
+        // --- Step 6: Parabolic Interpolation for Accuracy ---
         float finalLag;
         if (period > 1 && period < maxLag)
         {
-            float y1 = yinBuffer[period - 1];
-            float y2 = yinBuffer[period];
-            float y3 = yinBuffer[period + 1];
+            float y1 = nsdf[period - 1];
+            float y2 = nsdf[period];
+            float y3 = nsdf[period + 1];
             float denom = y1 - 2 * y2 + y3;
             float shift = 0;
             if (math.abs(denom) > 1e-6f)
             {
                 shift = 0.5f * (y1 - y3) / denom;
             }
-            finalLag = period + shift;
+            finalLag = period - shift;
         }
         else
         {
