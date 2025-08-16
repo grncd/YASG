@@ -25,7 +25,10 @@ public class BGMusic : MonoBehaviour
 
     void Awake()
     {
-        Instance = this;
+        if (Instance == null)
+        {
+            Instance = this;
+        }
         previewAudioSource = gameObject.AddComponent<AudioSource>();
         previewAudioSource.loop = false;
         previewAudioSource.playOnAwake = false;
