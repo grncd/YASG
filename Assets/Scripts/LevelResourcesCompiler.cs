@@ -525,6 +525,8 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             transitionAnim.Play("TransitionSaved");
             await Task.Delay(1450);
+            Dismiss();
+            await Task.Delay(600);
         }
 
         PlayerPrefs.SetString("currentSong", name);

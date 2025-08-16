@@ -1124,13 +1124,13 @@ public class AudioClipPitchProcessor : MonoBehaviour
                     if (ps.gameObject.name == "Particle System")
                     {
                         // This particle system should use the current singing state
-                        if (isSinging && !ps.isPlaying) ps.Play();
+                        if (isSinging && !ps.isPlaying && !Timeout.Instance.waiting) ps.Play();
                         else if (!isSinging && ps.isPlaying) ps.Stop();
                     }
                     if (ps.gameObject.name == "Particle System Main")
                     {
                         // Use future singing state for note particles
-                        if (futureIsSinging && !ps.isEmitting) ps.Play();
+                        if (futureIsSinging && !ps.isEmitting && !Timeout.Instance.waiting) ps.Play();
                         else if (!futureIsSinging && ps.isEmitting) ps.Stop();
                         var shape = ps.shape;
                         // Use future pitch for positioning note particles
@@ -1138,6 +1138,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
                         
                     }
                 }
+                UnityEngine.Debug.Log(Timeout.Instance.waiting);
 
 
                 foreach (Slider slider in FindObjectsOfType<Slider>())

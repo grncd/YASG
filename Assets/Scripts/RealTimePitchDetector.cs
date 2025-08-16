@@ -350,7 +350,7 @@ public class RealTimePitchDetector : MonoBehaviour
         Debug.Log("Recording coroutine called");
         if (PlayerPrefs.GetInt("multiplayer") == 0)
         {
-            diffIndex = PlayerPrefs.GetInt(gameObject.name + "Difficulty");
+            diffIndex = ProfileManager.Instance.GetProfileByName(PlayerPrefs.GetString(gameObject.name + "Name")).difficulty;
         }
         else
         {
@@ -590,39 +590,17 @@ public class RealTimePitchDetector : MonoBehaviour
 
         currentLeniencyCoefficient = leniencyCoefficient;
 
-        // Check for grace period
-        if (AudioClipPitchProcessor.Instance.currentPitch != 0f)
-        {
-            gracePeriodElapsed += Time.fixedDeltaTime; // Use fixedDeltaTime in FixedUpdate
-            if (gracePeriodElapsed < gracePeriod)
-            {
-                // Apply the grace period bonus
-                currentLeniencyCoefficient *= 3.5f;
-            }
-        }
-        else
-        {
-            gracePeriodElapsed = 0f;
-        }
-
-        // Now, apply the difficulty modifier to the result.
         if (diffIndex == 0) // easy
         {
-            currentLeniencyCoefficient *= 1.67f;
+            currentLeniencyCoefficient *= 1.4f;
         }
+        else if (diffIndex == 1) // normal
+        {
+            currentLeniencyCoefficient *= 1.25f;
+        } 
         else if (diffIndex == 2)
         {
-            currentLeniencyCoefficient *= 0.8f;
-        }
-        //Debug.Log("[GRACE] " + currentLeniencyCoefficient);
-
-        if (diffIndex == 0) // easy
-        {
-            currentLeniencyCoefficient *= 1.2f;
-        }
-        else if (diffIndex == 2)
-        {
-            currentLeniencyCoefficient *= 0.8f;
+            currentLeniencyCoefficient *= 1.0f;
         }
         bool ppJudge = (PP != null && PP.judgeInt);
         bool canAttemptScore = vocalArrowS != null && vocalArrow != 30f && AudioClipPitchProcessor.Instance.currentPitch != 0f && ppJudge;
@@ -852,7 +830,7 @@ public class RealTimePitchDetector : MonoBehaviour
                     string scoreText;
                     if (PlayerPrefs.GetInt("multiplayer") == 0)
                     {
-                        if(score != 0)
+                        if (score != 0)
                         {
                             scoreText = Mathf.RoundToInt(score).ToString("#,#");
                         }
@@ -888,6 +866,11 @@ public class RealTimePitchDetector : MonoBehaviour
             {
                 //Debug.Log($"[RealTimePitchDetector] NO SCORE. BestDiff: {bestDifference:F1}, Threshold: {leniencyThreshold:F1}, PPJudge: {ppJudge}, SongNotOver: {songNotOver}, ScoreInc: {scoreIncrement}");
             }
+            Debug.Log($"Target: {AudioClipPitchProcessor.Instance.currentPitch:F1} | " +
+                  $"Detected: {bestValue:F1} | " +
+                  $"Diff: {bestDifference:F1} | " +
+                  $"Threshold: {leniencyThreshold:F1} | " +
+                  $"LeniencyCoeff: {currentLeniencyCoefficient:F2}");
         }
         else
         {
