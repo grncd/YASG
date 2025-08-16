@@ -18,7 +18,7 @@ using MPUIKIT;
 using static SearchHandler;
 using UnityEngine.Networking;
 using System.Text.RegularExpressions;
-using Debug = UnityEngine.Debug; // Explicitly use UnityEngine.Debug to avoid ambiguity with System.Diagnostics.Debug
+using Debug = UnityEngine.Debug;
 
 public class LevelResourcesCompiler : MonoBehaviour
 {
@@ -361,7 +361,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         bool success = await AttemptDownload(url);
         fakeLoading = false;
 
-        if (!success)
+        if (!success || !File.Exists(expectedAudioPath))
         {
             alertManager.ShowError("An error occured downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
             LoadingDone();
@@ -634,7 +634,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             fakeLoading = true;
             bool success = await AttemptDownload(url);
             fakeLoading = false;
-            if (!success)
+            if (!success || !File.Exists(expectedAudioPath))
             {
                 alertManager.ShowError("An error occured downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
                 LoadingDone();
