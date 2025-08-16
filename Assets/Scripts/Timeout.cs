@@ -6,11 +6,19 @@ using UnityEngine;
 public class Timeout : MonoBehaviour
 {
     private float elapsedTime = 0f;
-    private bool waiting = false;
+    [SerializeField] public bool waiting = false;
     private float targetTime = 0f;
     private MPImage progressImg;
     private bool hasStartedFade = false;
     public CanvasGroup pitchTrackCanvasGroup;
+
+    public static Timeout Instance { get; private set; }
+
+    private void Awake()
+    {
+        Instance = this;
+    }
+
     void Start()
     {
         if (LyricsHandler.Instance != null)
@@ -23,16 +31,19 @@ public class Timeout : MonoBehaviour
 
     public void CallTimeout(float seconds)
     {
-        progressImg.fillAmount = 0f;
-        targetTime = seconds;
-        elapsedTime = 0f;
-        waiting = true;
-        GetComponent<CanvasGroup>().alpha = 1f;
-        // Fade pitchTrackCanvasGroup from 1f to 0.5f
-        if (pitchTrackCanvasGroup != null)
+        if (seconds > 0f)
         {
-            StopCoroutine("FadePitchTrackCanvasGroupUp"); // Stop any ongoing fade up
-            StartCoroutine(FadePitchTrackCanvasGroupDown());
+            progressImg.fillAmount = 0f;
+            targetTime = seconds;
+            elapsedTime = 0f;
+            waiting = true;
+            GetComponent<CanvasGroup>().alpha = 1f;
+            // Fade pitchTrackCanvasGroup from 1f to 0.5f
+            if (pitchTrackCanvasGroup != null)
+            {
+                StopCoroutine("FadePitchTrackCanvasGroupUp"); // Stop any ongoing fade up
+                StartCoroutine(FadePitchTrackCanvasGroupDown());
+            }
         }
     }
 
