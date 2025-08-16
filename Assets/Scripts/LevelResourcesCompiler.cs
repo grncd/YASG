@@ -361,7 +361,15 @@ public class LevelResourcesCompiler : MonoBehaviour
         bool success = await AttemptDownload(url);
         fakeLoading = false;
 
-        if (!success || !File.Exists(expectedAudioPath))
+        var downloadedMp3 = Directory.GetFiles(PlayerPrefs.GetString("dataPath"), "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
+
+        DateTime creationTime = File.GetCreationTime(downloadedMp3);
+        if (!((DateTime.Now - creationTime).TotalSeconds < 50))
+        {
+            success = false;
+        }
+        
+        if (!success)
         {
             alertManager.ShowError("An error occured downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
             LoadingDone();
@@ -634,22 +642,27 @@ public class LevelResourcesCompiler : MonoBehaviour
             fakeLoading = true;
             bool success = await AttemptDownload(url);
             fakeLoading = false;
-            if (!success || !File.Exists(expectedAudioPath))
+
+            var downloadedMp3 = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
+
+            DateTime creationTime = File.GetCreationTime(downloadedMp3);
+            if (!((DateTime.Now - creationTime).TotalSeconds < 50))
+            {
+                success = false;
+            }
+
+            if (File.Exists(expectedAudioPath)) File.Delete(expectedAudioPath);
+            File.Move(downloadedMp3, expectedAudioPath);
+
+            UnityEngine.Debug.Log($"Moved downloaded file to: {expectedAudioPath}");
+            
+            if (!success)
             {
                 alertManager.ShowError("An error occured downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
                 LoadingDone();
                 loadingFX.SetActive(false);
                 mainPanel.SetActive(true);
                 return;
-            }
-
-            var downloadedMp3 = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
-            if (downloadedMp3 != null)
-            {
-                if (File.Exists(expectedAudioPath)) File.Delete(expectedAudioPath);
-                File.Move(downloadedMp3, expectedAudioPath);
-
-                UnityEngine.Debug.Log($"Moved downloaded file to: {expectedAudioPath}");
             }
         }
 
