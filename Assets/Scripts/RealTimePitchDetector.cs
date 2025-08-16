@@ -866,11 +866,6 @@ public class RealTimePitchDetector : MonoBehaviour
             {
                 //Debug.Log($"[RealTimePitchDetector] NO SCORE. BestDiff: {bestDifference:F1}, Threshold: {leniencyThreshold:F1}, PPJudge: {ppJudge}, SongNotOver: {songNotOver}, ScoreInc: {scoreIncrement}");
             }
-            Debug.Log($"Target: {AudioClipPitchProcessor.Instance.currentPitch:F1} | " +
-                  $"Detected: {bestValue:F1} | " +
-                  $"Diff: {bestDifference:F1} | " +
-                  $"Threshold: {leniencyThreshold:F1} | " +
-                  $"LeniencyCoeff: {currentLeniencyCoefficient:F2}");
         }
         else
         {

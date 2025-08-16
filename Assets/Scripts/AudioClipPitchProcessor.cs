@@ -612,7 +612,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
 
         if (singingFrames > 0)
         {
-            scoreIncrement = (1000000f / singingFrames) * 1.85f;
+            scoreIncrement = (1000000f / singingFrames) * 1.95f;
         }
         else scoreIncrement = 0f;
 
@@ -1138,7 +1138,6 @@ public class AudioClipPitchProcessor : MonoBehaviour
                         
                     }
                 }
-                UnityEngine.Debug.Log(Timeout.Instance.waiting);
 
 
                 foreach (Slider slider in FindObjectsOfType<Slider>())
