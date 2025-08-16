@@ -1,4 +1,3 @@
-
 using MPUIKIT;
 using System.Collections;
 using System.Collections.Generic;
@@ -11,6 +10,7 @@ public class Timeout : MonoBehaviour
     private float targetTime = 0f;
     private MPImage progressImg;
     private bool hasStartedFade = false;
+    public CanvasGroup pitchTrackCanvasGroup;
     void Start()
     {
         if (LyricsHandler.Instance != null)
@@ -28,6 +28,12 @@ public class Timeout : MonoBehaviour
         elapsedTime = 0f;
         waiting = true;
         GetComponent<CanvasGroup>().alpha = 1f;
+        // Fade pitchTrackCanvasGroup from 1f to 0.5f
+        if (pitchTrackCanvasGroup != null)
+        {
+            StopCoroutine("FadePitchTrackCanvasGroupUp"); // Stop any ongoing fade up
+            StartCoroutine(FadePitchTrackCanvasGroupDown());
+        }
     }
 
     private void Update()
@@ -48,6 +54,12 @@ public class Timeout : MonoBehaviour
                 waiting = false;
                 hasStartedFade = false;
                 GetComponent<CanvasGroup>().alpha = 0f;
+                // Fade pitchTrackCanvasGroup from 0.5f to 1f
+                if (pitchTrackCanvasGroup != null)
+                {
+                    StopCoroutine("FadePitchTrackCanvasGroupDown"); // Stop any ongoing fade down
+                    StartCoroutine(FadePitchTrackCanvasGroupUp());
+                }
             }
         }
     }
@@ -80,5 +92,41 @@ public class Timeout : MonoBehaviour
         }
 
         canvasGroup.alpha = endAlpha;
+    }
+
+    private IEnumerator FadePitchTrackCanvasGroupDown()
+    {
+        float duration = 0.7f;
+        float startAlpha = 1f;
+        float endAlpha = 0.5f;
+        float time = 0f;
+        pitchTrackCanvasGroup.alpha = startAlpha;
+
+        while (time < duration)
+        {
+            time += Time.deltaTime;
+            pitchTrackCanvasGroup.alpha = Mathf.Lerp(startAlpha, endAlpha, time / duration);
+            yield return null;
+        }
+
+        pitchTrackCanvasGroup.alpha = endAlpha;
+    }
+
+    private IEnumerator FadePitchTrackCanvasGroupUp()
+    {
+        float duration = 0.7f;
+        float startAlpha = 0.5f;
+        float endAlpha = 1f;
+        float time = 0f;
+        pitchTrackCanvasGroup.alpha = startAlpha;
+
+        while (time < duration)
+        {
+            time += Time.deltaTime;
+            pitchTrackCanvasGroup.alpha = Mathf.Lerp(startAlpha, endAlpha, time / duration);
+            yield return null;
+        }
+
+        pitchTrackCanvasGroup.alpha = endAlpha;
     }
 }

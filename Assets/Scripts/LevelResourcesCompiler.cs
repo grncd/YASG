@@ -273,10 +273,12 @@ public class LevelResourcesCompiler : MonoBehaviour
         SetAlbumCoverFromTrack(track, songInfo.transform.GetChild(4).GetChild(0).GetComponent<MPImage>(), songInfo.transform.GetChild(4).GetChild(0).GetChild(2).GetComponent<MPImage>());
 
         Transform highscorePanel = songInfo.transform.GetChild(4).GetChild(0).GetChild(7);
+        Transform placeholderPanel = songInfo.transform.GetChild(4).GetChild(0).GetChild(8);
         HighscoreEntry highscore = HighscoreManager.Instance.GetHighscore(url);
 
         if (highscore != null)
         {
+            placeholderPanel.gameObject.SetActive(false);
             highscorePanel.gameObject.SetActive(true);
 
             highscorePanel.GetChild(0).GetComponent<TextMeshProUGUI>().text = highscore.score.ToString("#,#");
@@ -300,6 +302,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         else
         {
             highscorePanel.gameObject.SetActive(false);
+            placeholderPanel.gameObject.SetActive(true);
         }
     }
 

@@ -11625,6 +11625,7 @@ GameObject:
   - component: {fileID: 851624385}
   - component: {fileID: 851624387}
   - component: {fileID: 851624386}
+  - component: {fileID: 851624388}
   m_Layer: 5
   m_Name: Visualizer
   m_TagString: Untagged
@@ -11767,6 +11768,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 851624384}
   m_CullTransparentMesh: 1
+--- !u!225 &851624388
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 851624384}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 0
+  m_BlocksRaycasts: 0
+  m_IgnoreParentGroups: 0
 --- !u!1 &852704954
 GameObject:
   m_ObjectHideFlags: 0
@@ -14316,6 +14329,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cc4ab381fd5319e4abbfb03790f60c4c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  pitchTrackCanvasGroup: {fileID: 851624388}
 --- !u!114 &1061650308
 MonoBehaviour:
   m_ObjectHideFlags: 0
