@@ -944,65 +944,128 @@ public class AudioClipPitchProcessor : MonoBehaviour
                 OutputPitches_Native[frameIndex] = 0f; return;
             }
             NativeSlice<float> frameSamplesSlice = AudioSamples_Native.Slice(offset, AnalysisWindowSize);
-            OutputPitches_Native[frameIndex] = DetectPitch_Burst(
-                frameSamplesSlice, HannWindow_Native, SampleRate, VolumeThreshold, MinLag, MaxLag
+
+            float clarity;
+            OutputPitches_Native[frameIndex] = DetectPitch_MPM_Burst(
+                frameSamplesSlice, HannWindow_Native, SampleRate, VolumeThreshold, MinLag, MaxLag,
+                out clarity, // <-- MOVED: Pass the out parameter first
+                0.7f         // <-- MOVED: Pass the optional parameter last
             );
         }
     }
 
     [BurstCompile]
-    public static float DetectPitch_Burst(NativeSlice<float> samples, NativeArray<float> hannWindow,
-                                          int sampleRate, float volumeThreshold,
-                                          int minLag, int maxLag)
+    public static float DetectPitch_MPM_Burst(
+        NativeSlice<float> samples, 
+        NativeArray<float> hannWindow,
+        int sampleRate, 
+        float volumeThreshold,
+        int minLag, 
+        int maxLag, 
+        out float clarity,                 // <-- MOVED: Required parameter now comes first
+        float clarityThreshold = 0.8f)   // <-- MOVED: Optional parameter is now last
     {
+        clarity = 0f; // Default clarity
         int size = samples.Length;
         if (size == 0 || size != hannWindow.Length) return 0f;
 
+        // --- Step 1: Volume Check ---
         float sumSquared = 0f;
         for (int i = 0; i < size; i++) sumSquared += samples[i] * samples[i];
         float rms = math.sqrt(sumSquared / size);
         if (rms < volumeThreshold) return 0f;
 
+        // Apply Hann Window
         Span<float> windowedSamples = stackalloc float[size];
         for (int i = 0; i < size; i++) windowedSamples[i] = samples[i] * hannWindow[i];
 
-        Span<float> autocorrelation = stackalloc float[maxLag + 1];
-        float energy = 0f;
-        for (int i = 0; i < size; i++) energy += windowedSamples[i] * windowedSamples[i];
-        if (energy < 1e-9f) return 0f;
-        autocorrelation[0] = energy;
-
-        for (int lag = 1; lag <= maxLag; lag++)
+        // --- Step 2: Autocorrelation (used by NSDF) ---
+        Span<float> acf = stackalloc float[maxLag + 1];
+        for (int lag = 0; lag <= maxLag; lag++)
         {
-            float sum = 0f;
-            for (int i = 0; i < size - lag; i++) sum += windowedSamples[i] * windowedSamples[i + lag];
-            autocorrelation[lag] = sum;
+            float sum = 0;
+            for (int i = 0; i < size - lag; i++)
+            {
+                sum += windowedSamples[i] * windowedSamples[i + lag];
+            }
+            acf[lag] = sum;
         }
 
-        float normFactor = autocorrelation[0];
-        for (int i = minLag; i <= maxLag; i++) autocorrelation[i] /= normFactor;
-
-        int bestLag = -1; float bestCorrelation = 0.2f;
-        for (int lag = math.max(1, minLag); lag <= maxLag - 1; lag++)
+        // --- Step 3: Normalized Square Difference Function (NSDF) ---
+        Span<float> nsdf = stackalloc float[maxLag + 1];
+        float m0 = acf[0]; // Energy of the signal
+        for (int lag = 0; lag <= maxLag; lag++)
         {
-            if (autocorrelation[lag] > autocorrelation[lag - 1] &&
-                autocorrelation[lag] > autocorrelation[lag + 1] &&
-                autocorrelation[lag] > bestCorrelation)
+            float m_lag = 0;
+            for (int i = 0; i < size - lag; i++)
             {
-                bestCorrelation = autocorrelation[lag]; bestLag = lag;
+                m_lag += windowedSamples[i + lag] * windowedSamples[i + lag];
+            }
+            
+            float denominator = m0 + m_lag;
+            if (denominator > 1e-9f) {
+                nsdf[lag] = 2 * acf[lag] / denominator;
+            } else {
+                nsdf[lag] = 0;
             }
         }
 
-        if (bestLag == -1) return 0f;
-        if (bestLag >= 1 && bestLag < maxLag)
+        // --- Step 4: Peak Picking ---
+        int period = 0;
+        float maxVal = 0f;
+
+        for (int lag = minLag + 1; lag < maxLag; lag++)
         {
-            float alpha = autocorrelation[bestLag - 1]; float beta = autocorrelation[bestLag]; float gamma = autocorrelation[bestLag + 1];
-            float denom = (alpha - 2f * beta + gamma);
-            if (math.abs(denom) > 1e-6f) bestLag += (int)math.round(0.5f * (alpha - gamma) / denom);
+            if (nsdf[lag] > nsdf[lag - 1] && nsdf[lag] > nsdf[lag + 1])
+            {
+                if (period == 0)
+                {
+                    if (nsdf[lag] > 0.1f) 
+                    {
+                        period = lag;
+                        maxVal = nsdf[lag];
+                    }
+                }
+                else if (nsdf[lag] > maxVal)
+                {
+                    period = lag;
+                    maxVal = nsdf[lag];
+                }
+            }
+        }
+        
+        clarity = maxVal;
+
+        // --- Step 5: Sibilance/Noise Rejection using Clarity ---
+        if (clarity < clarityThreshold)
+        {
+            return 0f;
         }
 
-        if (bestLag <= 0) return 0f;
-        return (float)sampleRate / bestLag;
+        if (period == 0) return 0f;
+
+        // --- Step 6: Parabolic Interpolation for Accuracy ---
+        float finalLag;
+        if (period > 1 && period < maxLag)
+        {
+            float y1 = nsdf[period - 1];
+            float y2 = nsdf[period];
+            float y3 = nsdf[period + 1];
+            float denom = y1 - 2 * y2 + y3;
+            float shift = 0;
+            if (math.abs(denom) > 1e-6f)
+            {
+                shift = 0.5f * (y1 - y3) / denom;
+            }
+            finalLag = period - shift;
+        }
+        else
+        {
+            finalLag = period;
+        }
+
+        if (finalLag <= 0) return 0f;
+        return (float)sampleRate / finalLag;
     }
 
 
