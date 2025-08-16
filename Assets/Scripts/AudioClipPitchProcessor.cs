@@ -945,7 +945,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
             }
             NativeSlice<float> frameSamplesSlice = AudioSamples_Native.Slice(offset, AnalysisWindowSize);
             OutputPitches_Native[frameIndex] = DetectPitch_YIN_Burst(
-                frameSamplesSlice, HannWindow_Native, SampleRate, VolumeThreshold, MinLag, MaxLag, 0.15f // You can tune this 0.15f
+                frameSamplesSlice, HannWindow_Native, SampleRate, VolumeThreshold, MinLag, MaxLag, 0.2f
             );
         }
     }
@@ -953,7 +953,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
     [BurstCompile]
     public static float DetectPitch_YIN_Burst(NativeSlice<float> samples, NativeArray<float> hannWindow,
                                             int sampleRate, float volumeThreshold,
-                                            int minLag, int maxLag, float yinThreshold = 0.15f) // Added YIN threshold
+                                            int minLag, int maxLag, float yinThreshold = 0.2f) // Note: Default threshold increased slightly
     {
         int size = samples.Length;
         if (size == 0 || size != hannWindow.Length) return 0f;
@@ -971,7 +971,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
         // --- YIN Algorithm Implementation ---
         Span<float> yinBuffer = stackalloc float[maxLag + 1];
 
-        // Step 2: Difference function
+        // Step 2: Difference function (same as before)
         for (int lag = 0; lag <= maxLag; lag++)
         {
             float difference = 0;
@@ -983,38 +983,55 @@ public class AudioClipPitchProcessor : MonoBehaviour
             yinBuffer[lag] = difference;
         }
 
-        // Step 3: Cumulative Mean Normalized Difference Function (CMNDF)
+        // Step 3: Cumulative Mean Normalized Difference Function (CMNDF) (same as before)
         yinBuffer[0] = 1;
         float runningSum = 0;
         for (int lag = 1; lag <= maxLag; lag++)
         {
             runningSum += yinBuffer[lag];
-            if (runningSum < 1e-9f) { // Avoid division by zero
+            if (runningSum < 1e-9f) {
                 yinBuffer[lag] = 1;
             } else {
                 yinBuffer[lag] = yinBuffer[lag] * lag / runningSum;
             }
         }
 
-        // Step 4: Find the first lag that drops below the threshold
-        int period = -1;
-        for (int lag = minLag; lag <= maxLag; lag++)
+        // --- NEW Step 4: More robust dip finding with fallback ---
+        int period = 0; // Use 0 to indicate not found yet
+
+        // First, try to find the first local minimum that's below the threshold.
+        // A "local minimum" is a point that is lower than its immediate neighbors.
+        for (int lag = minLag + 1; lag < maxLag; lag++)
         {
-            if (yinBuffer[lag] < yinThreshold)
+            if (yinBuffer[lag] < yinThreshold && 
+                yinBuffer[lag] < yinBuffer[lag - 1] && 
+                yinBuffer[lag] < yinBuffer[lag + 1])
             {
-                // Find the absolute minimum in this dip
-                while (lag + 1 <= maxLag && yinBuffer[lag + 1] < yinBuffer[lag])
-                {
-                    lag++;
-                }
                 period = lag;
-                break;
+                break; // Found a good candidate, stop searching.
             }
         }
 
-        if (period == -1) return 0f;
+        // **FALLBACK LOGIC**
+        // If we didn't find a clear dip below the threshold, don't give up.
+        // Instead, find the absolute lowest point in the valid range.
+        if (period == 0)
+        {
+            float minVal = float.MaxValue;
+            for (int lag = minLag; lag <= maxLag; lag++)
+            {
+                if (yinBuffer[lag] < minVal)
+                {
+                    minVal = yinBuffer[lag];
+                    period = lag;
+                }
+            }
+        }
 
-        // Step 5: Parabolic Interpolation for better accuracy (on the dip)
+        // If we still somehow have no period, return 0.
+        if (period == 0) return 0f;
+
+        // --- Step 5: Parabolic Interpolation (same as before) ---
         float finalLag;
         if (period > 1 && period < maxLag)
         {
