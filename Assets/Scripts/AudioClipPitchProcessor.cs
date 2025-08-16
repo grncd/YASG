@@ -107,6 +107,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
     public Image darken;
     private bool showPitch;
     public AudioMixerGroup mixerForMusic;
+    public TextMeshProUGUI tempDebugText;
 
     // Precomputed values for optimization
     private int minLag;
@@ -611,7 +612,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
 
         if (singingFrames > 0)
         {
-            scoreIncrement = (1000000f / singingFrames) * 2.319f;
+            scoreIncrement = (1000000f / singingFrames) * 1.9f;
         }
         else scoreIncrement = 0f;
 
@@ -1049,6 +1050,15 @@ public class AudioClipPitchProcessor : MonoBehaviour
                     {
                         if (isSinging && !ps.isPlaying) ps.Play();
                         else if (!isSinging && ps.isPlaying) ps.Stop();
+                    }
+                    if (ps.gameObject.name == "Particle System Main")
+                    {
+                        if (isSinging && !ps.isEmitting) ps.Play();
+                        else if (!isSinging && ps.isEmitting) ps.Stop();
+                        var shape = ps.shape;
+                        shape.position = new Vector3(0f, Mathf.Clamp(currentPitch, minFrequency, maxFrequency) * 0.0032f, 0f);
+                        tempDebugText.text = ps.isEmitting.ToString();
+                        
                     }
                 }
 

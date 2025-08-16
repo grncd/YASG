@@ -33,7 +33,7 @@ public class VolumeController : MonoBehaviour
 
     // Default "maxed out" volume levels in decibels (dB).
     private const float MAX_MUSIC_DB = 0f;
-    private const float MAX_FX_DB = -14f;
+    private const float MAX_FX_DB = -12f;
     private const float MAX_FXRESULTS_DB = -2f;
     private const float MIN_DB = -80f;
 

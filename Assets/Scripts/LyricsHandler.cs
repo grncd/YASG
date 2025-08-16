@@ -21,6 +21,7 @@ public class LyricsHandler : MonoBehaviour
     private int prevIndex = -1;
     public GameObject pausePanel;
     private float lyricsDelay = 1f;
+    public bool pauseOnUnfocus = true;
 
     public List<(float time, string line)> parsedLyrics = new List<(float, string)>();
     private List<float> lineDurations = new List<float>();
@@ -111,7 +112,7 @@ public class LyricsHandler : MonoBehaviour
 
     private void OnApplicationFocus(bool focus)
     {
-        if (!focus)
+        if (!focus && !paused && pauseOnUnfocus)
         {
             Pause();
         }
