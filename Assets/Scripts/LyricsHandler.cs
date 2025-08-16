@@ -44,6 +44,7 @@ public class LyricsHandler : MonoBehaviour
     public AudioSource pauseFX;
     public AudioSource unpauseFX;
     public GameObject stagesGO;
+    public GameObject pitchTrack;
 
     private int currentLineIndex = 0;
 
@@ -57,6 +58,9 @@ public class LyricsHandler : MonoBehaviour
     void Start()
     {
         lyricsDelay = Mathf.Clamp(float.Parse(SettingsManager.Instance.GetSetting<string>("LyricDisplayOffset")), 0f, 5f);
+
+        pitchTrack.SetActive(SettingsManager.Instance.GetSetting<bool>("ShowPitchTrack"));
+
         string charactersToRemovePattern = @"[/\\:*?""<>|]";
         string currentSong = PlayerPrefs.GetString("currentSong");
         currentSong = Regex.Replace(currentSong, charactersToRemovePattern, string.Empty);

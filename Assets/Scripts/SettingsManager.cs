@@ -142,6 +142,8 @@ public class SettingsManager : MonoBehaviour
         {
             // Gameplay
             // DONE
+            { "ShowPitchTrack", new Setting { Value = true, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Show Pitch Track", Description = "If toggled on, shows the upcoming notes in a track above the lyrics."  } },
+            // DONE
             { "ShowDetectedPitch", new Setting { Value = true, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Show Detected Pitch", Description = "If toggled on, shows the current detected pitch of the song's vocals and the user's microphone."  } },
             // DONE
             { "AudioReactivePlayerCircle", new Setting { Value = true, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Player Circle", Description = "If toggled on, adds a reactive glow around the judgment circle."  } },

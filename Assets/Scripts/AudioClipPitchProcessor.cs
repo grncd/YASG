@@ -1034,30 +1034,44 @@ public class AudioClipPitchProcessor : MonoBehaviour
         {
             if (audioClip == null || audioClip.length == 0f) return;
 
+            // --- CURRENT TIME LOGIC (for scoring, etc.) ---
             float adjustedTime = audioSource.time + AUDIO_LATENCY_COMPENSATION;
             int index = Mathf.FloorToInt((adjustedTime / audioClip.length) * pitchOverTime.Count);
             index = Mathf.Clamp(index, 0, pitchOverTime.Count - 1);
 
+            // --- VISUALIZER LOOKAHEAD LOGIC ---
+            float visualizerTime = adjustedTime + 0.9f; // Look ahead 0.9 seconds
+            int visualizerIndex = Mathf.FloorToInt((visualizerTime / audioClip.length) * pitchOverTime.Count);
+            visualizerIndex = Mathf.Clamp(visualizerIndex, 0, pitchOverTime.Count - 1);
+
             if (showPitch)
             {
+                // Update current pitch for scoring or other real-time logic
                 float pitch = pitchOverTime[index];
                 bool isSinging = pitch >= 32f;
                 currentPitch = isSinging ? pitch : 0f;
+
+                // Get future values for the visualizer to give the user time to react
+                float futurePitchValue = pitchOverTime[visualizerIndex];
+                bool futureIsSinging = futurePitchValue >= 32f;
+                float futurePitchForVisuals = futureIsSinging ? futurePitchValue : 0f;
 
                 foreach (ParticleSystem ps in FindObjectsOfType<ParticleSystem>())
                 {
                     if (ps.gameObject.name == "Particle System")
                     {
+                        // This particle system should use the current singing state
                         if (isSinging && !ps.isPlaying) ps.Play();
                         else if (!isSinging && ps.isPlaying) ps.Stop();
                     }
                     if (ps.gameObject.name == "Particle System Main")
                     {
-                        if (isSinging && !ps.isEmitting) ps.Play();
-                        else if (!isSinging && ps.isEmitting) ps.Stop();
+                        // Use future singing state for note particles
+                        if (futureIsSinging && !ps.isEmitting) ps.Play();
+                        else if (!futureIsSinging && ps.isEmitting) ps.Stop();
                         var shape = ps.shape;
-                        shape.position = new Vector3(0f, Mathf.Clamp(currentPitch, minFrequency, maxFrequency) * 0.0032f, 0f);
-                        tempDebugText.text = ps.isEmitting.ToString();
+                        // Use future pitch for positioning note particles
+                        shape.position = new Vector3(0f, Mathf.Clamp(futurePitchForVisuals, minFrequency, maxFrequency) * 0.0032f, 0f);
                         
                     }
                 }
@@ -1075,6 +1089,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
                 //if (pitchSlider2 != null) pitchSlider2.value = Mathf.Clamp(currentPitch, minFrequency, maxFrequency);
                 //if (pitchSlider3 != null) pitchSlider3.value = Mathf.Clamp(currentPitch, minFrequency, maxFrequency);
                 //if (pitchSlider4 != null) pitchSlider4.value = Mathf.Clamp(currentPitch, minFrequency, maxFrequency);
+                // Debug slider still shows the current pitch for scoring verification
                 if (debugMode && pitchSliderDBG != null) pitchSliderDBG.value = Mathf.Clamp(currentPitch, minFrequency, maxFrequency);
             }
         }
