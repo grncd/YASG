@@ -612,7 +612,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
 
         if (singingFrames > 0)
         {
-            scoreIncrement = (1000000f / singingFrames) * 1.9f;
+            scoreIncrement = (1000000f / singingFrames) * 1.85f;
         }
         else scoreIncrement = 0f;
 

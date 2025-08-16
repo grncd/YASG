@@ -258,12 +258,13 @@ public class BGMusic : MonoBehaviour
         previewAudioSource.clip = previewClip;
         previewAudioSource.volume = 0f;
         previewAudioSource.Play();
-        yield return StartCoroutine(FadeAudio(previewAudioSource, 0.5f, 0.211f));
+        LevelResourcesCompiler.Instance.RemoveLoadingTint();
+        yield return StartCoroutine(FadeAudio(previewAudioSource, 0.5f, 0.26f));
 
         // Loop with fade
         while (true)
         {
-            float timeToWait = previewAudioSource.clip.length - 0.5f;
+            float timeToWait = previewAudioSource.clip.length - 1f;
             if (timeToWait > 0)
             {
                 yield return new WaitForSeconds(timeToWait);
@@ -274,7 +275,7 @@ public class BGMusic : MonoBehaviour
             previewAudioSource.time = 0f;
             previewAudioSource.Play();
             
-            yield return StartCoroutine(FadeAudio(previewAudioSource, 0.5f, 0.211f));
+            yield return StartCoroutine(FadeAudio(previewAudioSource, 0.5f, 0.26f));
         }
     }
 

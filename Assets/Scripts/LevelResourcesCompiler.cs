@@ -214,6 +214,25 @@ public class LevelResourcesCompiler : MonoBehaviour
         selectedTrack = track;
     }
 
+    public void RemoveLoadingTint()
+    {
+        var loadingTint = songInfo.transform.GetChild(4).GetChild(0).GetChild(2).GetChild(0).GetComponent<CanvasGroup>();
+        StartCoroutine(FadeCanvasGroupAlpha(loadingTint, 0.5f));
+    }
+
+    private IEnumerator FadeCanvasGroupAlpha(CanvasGroup canvasGroup, float duration)
+    {
+        float startAlpha = canvasGroup.alpha;
+        float time = 0f;
+        while (time < duration)
+        {
+            time += Time.deltaTime;
+            canvasGroup.alpha = Mathf.Lerp(startAlpha, 0f, time / duration);
+            yield return null;
+        }
+        canvasGroup.alpha = 0f;
+    }
+
     public void PreCompile(string url, string name, string artist, string length, Track track)
     {
         if (ProfileManager.Instance.GetActiveProfiles().Count == 0)
@@ -232,6 +251,8 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
 
         BGMusic.Instance.PreviewSong(url);
+        var loadingTint = songInfo.transform.GetChild(4).GetChild(0).GetChild(2).GetChild(0).GetComponent<CanvasGroup>();
+        loadingTint.alpha = 1f;
 
         bool isFavorite = FavoritesManager.IsFavorite(url);
         string cover = GetURLCoverFromTrack(track);
