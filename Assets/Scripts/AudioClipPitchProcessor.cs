@@ -944,65 +944,98 @@ public class AudioClipPitchProcessor : MonoBehaviour
                 OutputPitches_Native[frameIndex] = 0f; return;
             }
             NativeSlice<float> frameSamplesSlice = AudioSamples_Native.Slice(offset, AnalysisWindowSize);
-            OutputPitches_Native[frameIndex] = DetectPitch_Burst(
-                frameSamplesSlice, HannWindow_Native, SampleRate, VolumeThreshold, MinLag, MaxLag
+            OutputPitches_Native[frameIndex] = DetectPitch_YIN_Burst(
+                frameSamplesSlice, HannWindow_Native, SampleRate, VolumeThreshold, MinLag, MaxLag, 0.15f // You can tune this 0.15f
             );
         }
     }
 
     [BurstCompile]
-    public static float DetectPitch_Burst(NativeSlice<float> samples, NativeArray<float> hannWindow,
-                                          int sampleRate, float volumeThreshold,
-                                          int minLag, int maxLag)
+    public static float DetectPitch_YIN_Burst(NativeSlice<float> samples, NativeArray<float> hannWindow,
+                                            int sampleRate, float volumeThreshold,
+                                            int minLag, int maxLag, float yinThreshold = 0.15f) // Added YIN threshold
     {
         int size = samples.Length;
         if (size == 0 || size != hannWindow.Length) return 0f;
 
+        // Step 1: Volume check (same as before)
         float sumSquared = 0f;
         for (int i = 0; i < size; i++) sumSquared += samples[i] * samples[i];
         float rms = math.sqrt(sumSquared / size);
         if (rms < volumeThreshold) return 0f;
 
+        // Apply Hann Window
         Span<float> windowedSamples = stackalloc float[size];
         for (int i = 0; i < size; i++) windowedSamples[i] = samples[i] * hannWindow[i];
 
-        Span<float> autocorrelation = stackalloc float[maxLag + 1];
-        float energy = 0f;
-        for (int i = 0; i < size; i++) energy += windowedSamples[i] * windowedSamples[i];
-        if (energy < 1e-9f) return 0f;
-        autocorrelation[0] = energy;
+        // --- YIN Algorithm Implementation ---
+        Span<float> yinBuffer = stackalloc float[maxLag + 1];
 
-        for (int lag = 1; lag <= maxLag; lag++)
+        // Step 2: Difference function
+        for (int lag = 0; lag <= maxLag; lag++)
         {
-            float sum = 0f;
-            for (int i = 0; i < size - lag; i++) sum += windowedSamples[i] * windowedSamples[i + lag];
-            autocorrelation[lag] = sum;
+            float difference = 0;
+            for (int i = 0; i < size - lag; i++)
+            {
+                float delta = windowedSamples[i] - windowedSamples[i + lag];
+                difference += delta * delta;
+            }
+            yinBuffer[lag] = difference;
         }
 
-        float normFactor = autocorrelation[0];
-        for (int i = minLag; i <= maxLag; i++) autocorrelation[i] /= normFactor;
-
-        int bestLag = -1; float bestCorrelation = 0.2f;
-        for (int lag = math.max(1, minLag); lag <= maxLag - 1; lag++)
+        // Step 3: Cumulative Mean Normalized Difference Function (CMNDF)
+        yinBuffer[0] = 1;
+        float runningSum = 0;
+        for (int lag = 1; lag <= maxLag; lag++)
         {
-            if (autocorrelation[lag] > autocorrelation[lag - 1] &&
-                autocorrelation[lag] > autocorrelation[lag + 1] &&
-                autocorrelation[lag] > bestCorrelation)
-            {
-                bestCorrelation = autocorrelation[lag]; bestLag = lag;
+            runningSum += yinBuffer[lag];
+            if (runningSum < 1e-9f) { // Avoid division by zero
+                yinBuffer[lag] = 1;
+            } else {
+                yinBuffer[lag] = yinBuffer[lag] * lag / runningSum;
             }
         }
 
-        if (bestLag == -1) return 0f;
-        if (bestLag >= 1 && bestLag < maxLag)
+        // Step 4: Find the first lag that drops below the threshold
+        int period = -1;
+        for (int lag = minLag; lag <= maxLag; lag++)
         {
-            float alpha = autocorrelation[bestLag - 1]; float beta = autocorrelation[bestLag]; float gamma = autocorrelation[bestLag + 1];
-            float denom = (alpha - 2f * beta + gamma);
-            if (math.abs(denom) > 1e-6f) bestLag += (int)math.round(0.5f * (alpha - gamma) / denom);
+            if (yinBuffer[lag] < yinThreshold)
+            {
+                // Find the absolute minimum in this dip
+                while (lag + 1 <= maxLag && yinBuffer[lag + 1] < yinBuffer[lag])
+                {
+                    lag++;
+                }
+                period = lag;
+                break;
+            }
         }
 
-        if (bestLag <= 0) return 0f;
-        return (float)sampleRate / bestLag;
+        if (period == -1) return 0f;
+
+        // Step 5: Parabolic Interpolation for better accuracy (on the dip)
+        float finalLag;
+        if (period > 1 && period < maxLag)
+        {
+            float y1 = yinBuffer[period - 1];
+            float y2 = yinBuffer[period];
+            float y3 = yinBuffer[period + 1];
+            float denom = y1 - 2 * y2 + y3;
+            float shift = 0;
+            if (math.abs(denom) > 1e-6f)
+            {
+                shift = 0.5f * (y1 - y3) / denom;
+            }
+            finalLag = period + shift;
+        }
+        else
+        {
+            finalLag = period;
+        }
+
+        if (finalLag <= 0) return 0f;
+        return (float)sampleRate / finalLag;
     }
 
 
