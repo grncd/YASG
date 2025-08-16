@@ -231,6 +231,8 @@ public class LevelResourcesCompiler : MonoBehaviour
             }
         }
 
+        BGMusic.Instance.PreviewSong(url);
+
         bool isFavorite = FavoritesManager.IsFavorite(url);
         string cover = GetURLCoverFromTrack(track);
 
@@ -320,6 +322,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     public async void Dismiss()
     {
+        BGMusic.Instance.StopPreview();
         DIH.Close();
         DIH2.Close();
         songInfo.GetComponent<Animator>().Play("SongInfoOut");

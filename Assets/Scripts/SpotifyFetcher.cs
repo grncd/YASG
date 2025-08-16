@@ -62,8 +62,4 @@ public class SpotifyFetcher : MonoBehaviour
             }
         }
     }
-
-    private void Start() {
-        StartCoroutine(GetPreviewUrl("4uLU6hMCjMI75M1A2tKUQC", url => Debug.Log("Preview: " + url)));
-    }
 }
