@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: BG3
-  m_Shader: {fileID: 4800000, guid: 789ce22046127de4eaef9168d52ba550, type: 3}
+  m_Shader: {fileID: 4800000, guid: 91deef50c69dcb8448de79b207de0dcf, type: 3}
   m_ValidKeywords: []
   m_InvalidKeywords: []
   m_LightmapFlags: 4
@@ -78,6 +78,7 @@ Material:
     - _LightingIntensity: 1
     - _LowIntensity: 0.18001415
     - _MaxIterations: 52.2
+    - _MaxSteps: 50
     - _Metallic: 0
     - _MidIntensity: 0.18000007
     - _Mode: 0
