@@ -80,6 +80,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         public List<bool> playerMicToggle;
         public BackgroundTrack track;
         public bool processed = false;
+        public string requestedByUserId;
     }
 
     private bool isProcessing = false;
@@ -620,9 +621,23 @@ public class LevelResourcesCompiler : MonoBehaviour
     private async void ProcessFirstOnQueue()
     {
         isProcessing = true;
-        await BackgroundCompile(compileExecutionQueue[0].url, compileExecutionQueue[0].name, compileExecutionQueue[0].artist, compileExecutionQueue[0].length, compileExecutionQueue[0].cover);
+        var currentTrack = compileExecutionQueue[0];
+        await BackgroundCompile(currentTrack.url, currentTrack.name, currentTrack.artist, currentTrack.length, currentTrack.cover);
         compileExecutionQueue.RemoveAt(0);
-        mainQueue.Find(mainQueue => mainQueue.track.url == compileExecutionQueue[0].url).processed = true;
+        
+        // Mark the corresponding queue item as processed
+        var queueItem = mainQueue.Find(q => q.track.url == currentTrack.url);
+        if (queueItem != null)
+        {
+            queueItem.processed = true;
+            
+            // Notify web server to clean up user session
+            if (webServerManager != null)
+            {
+                webServerManager.OnSongCompleted(queueItem.requestedByUserId);
+            }
+        }
+        
         isProcessing = false;
     }
 

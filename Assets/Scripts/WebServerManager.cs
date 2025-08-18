@@ -9,6 +9,7 @@ using UnityEngine;
 using System.Diagnostics;
 using UnityEngine.UI;
 using System.Text.RegularExpressions;
+using UnityEngine.Networking;
 
 public class WebServerManager : MonoBehaviour
 {
@@ -25,6 +26,12 @@ public class WebServerManager : MonoBehaviour
     private Process ngrokProcess;
     private string publicUrl = "";
     private LevelResourcesCompiler levelCompiler;
+    
+    // Spotify API
+    private string spotifyClientId;
+    private string spotifyClientSecret;
+    private string spotifyAccessToken;
+    private System.DateTime tokenExpiryTime;
     
     [System.Serializable]
     public class SongRequest
@@ -76,6 +83,80 @@ public class WebServerManager : MonoBehaviour
     {
         public List<NgrokTunnel> tunnels;
     }
+    
+    // Spotify API Classes
+    [System.Serializable]
+    public class SpotifyTokenResponse
+    {
+        public string access_token;
+        public string token_type;
+        public int expires_in;
+    }
+    
+    [System.Serializable]
+    public class SpotifySearchResponse
+    {
+        public SpotifyTracksPage tracks;
+    }
+    
+    [System.Serializable]
+    public class SpotifyTracksPage
+    {
+        public List<SpotifyTrack> items;
+        public int total;
+    }
+    
+    [System.Serializable]
+    public class SpotifyTrack
+    {
+        public string id;
+        public string name;
+        public List<SpotifyArtist> artists;
+        public SpotifyAlbum album;
+        public int duration_ms;
+        public SpotifyExternalUrls external_urls;
+    }
+    
+    [System.Serializable]
+    public class SpotifyArtist
+    {
+        public string name;
+        public string id;
+    }
+    
+    [System.Serializable]
+    public class SpotifyAlbum
+    {
+        public string name;
+        public List<SpotifyImage> images;
+    }
+    
+    [System.Serializable]
+    public class SpotifyImage
+    {
+        public string url;
+        public int width;
+        public int height;
+    }
+    
+    [System.Serializable]
+    public class SpotifyExternalUrls
+    {
+        public string spotify;
+    }
+    
+    // User tracking
+    [System.Serializable]
+    public class UserSession
+    {
+        public string userId;
+        public string queuedSongId;
+        public int queuePosition;
+        public bool hasPendingRequest;
+        public System.DateTime requestTime;
+    }
+    
+    private Dictionary<string, UserSession> userSessions = new Dictionary<string, UserSession>();
 
     private void Start()
     {
@@ -85,6 +166,56 @@ public class WebServerManager : MonoBehaviour
         if (string.IsNullOrEmpty(ngrokPath))
         {
             ngrokPath = Path.Combine(PlayerPrefs.GetString("dataPath"), "ngrok.exe");
+        }
+        
+        // Initialize Spotify credentials
+        spotifyClientId = PlayerPrefs.GetString("CLIENTID");
+        spotifyClientSecret = PlayerPrefs.GetString("APIKEY");
+        
+        // Start Spotify token refresh routine
+        StartCoroutine(SpotifyTokenRefreshRoutine());
+    }
+    
+    private IEnumerator SpotifyTokenRefreshRoutine()
+    {
+        while (true)
+        {
+            yield return StartCoroutine(GetSpotifyAccessToken());
+            yield return new WaitForSeconds(3300); // Refresh every 55 minutes (tokens expire in 1 hour)
+        }
+    }
+    
+    private IEnumerator GetSpotifyAccessToken()
+    {
+        if (string.IsNullOrEmpty(spotifyClientId) || string.IsNullOrEmpty(spotifyClientSecret))
+        {
+            UnityEngine.Debug.LogError("Spotify credentials not found in PlayerPrefs");
+            yield break;
+        }
+        
+        string url = "https://accounts.spotify.com/api/token";
+        
+        WWWForm form = new WWWForm();
+        form.AddField("grant_type", "client_credentials");
+        form.AddField("client_id", spotifyClientId);
+        form.AddField("client_secret", spotifyClientSecret);
+        
+        using (UnityWebRequest request = UnityWebRequest.Post(url, form))
+        {
+            request.SetRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+            yield return request.SendWebRequest();
+            
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                SpotifyTokenResponse tokenResponse = JsonUtility.FromJson<SpotifyTokenResponse>(request.downloadHandler.text);
+                spotifyAccessToken = tokenResponse.access_token;
+                tokenExpiryTime = System.DateTime.Now.AddSeconds(tokenResponse.expires_in);
+                UnityEngine.Debug.Log("Spotify access token obtained successfully");
+            }
+            else
+            {
+                UnityEngine.Debug.LogError($"Failed to get Spotify access token: {request.error}");
+            }
         }
     }
 
@@ -354,64 +485,114 @@ tunnels:
                 if (contextTask.IsCompleted && !contextTask.IsFaulted)
                 {
                     HttpListenerContext context = contextTask.Result;
-                    ProcessRequest(context);
+                    StartCoroutine(ProcessRequestCoroutine(context));
                 }
             }
             yield return null;
         }
     }
 
-    private void ProcessRequest(HttpListenerContext context)
+    private IEnumerator ProcessRequestCoroutine(HttpListenerContext context)
+    {
+        yield return StartCoroutine(ProcessRequestAsync(context));
+    }
+    
+    private IEnumerator ProcessRequestAsync(HttpListenerContext context)
     {
         HttpListenerRequest request = context.Request;
         HttpListenerResponse response = context.Response;
         
+        string responseString = "";
+        bool isError = false;
+        
+        // Handle search endpoint separately due to async nature
+        if (request.Url.AbsolutePath == "/api/search" && request.HttpMethod == "GET")
+        {
+            string query = request.QueryString["q"];
+            yield return StartCoroutine(ProcessSpotifySearchCoroutine(query, result => responseString = result));
+            response.ContentType = "application/json";
+        }
+        else
+        {
+            try
+            {
+                if (request.Url.AbsolutePath == "/" && request.HttpMethod == "GET")
+                {
+                    responseString = GetWebPageHTML();
+                    response.ContentType = "text/html";
+                }
+                else if (request.Url.AbsolutePath == "/api/queue" && request.HttpMethod == "GET")
+                {
+                    responseString = GetQueueJSON();
+                    response.ContentType = "application/json";
+                }
+                else if (request.Url.AbsolutePath == "/api/add-song" && request.HttpMethod == "POST")
+                {
+                    string postData = "";
+                    using (StreamReader reader = new StreamReader(request.InputStream, request.ContentEncoding))
+                    {
+                        postData = reader.ReadToEnd();
+                    }
+                    
+                    string userId = GetOrCreateUserId(request);
+                    responseString = ProcessSongRequest(postData, userId);
+                    response.ContentType = "application/json";
+                }
+                else if (request.Url.AbsolutePath == "/api/user-status" && request.HttpMethod == "GET")
+                {
+                    string userId = GetOrCreateUserId(request);
+                    responseString = GetUserStatus(userId);
+                    response.ContentType = "application/json";
+                }
+                else if (request.Url.AbsolutePath == "/api/queue-position" && request.HttpMethod == "GET")
+                {
+                    string userId = GetOrCreateUserId(request);
+                    responseString = GetQueuePosition(userId);
+                    response.ContentType = "application/json";
+                }
+                else if (request.Url.AbsolutePath.StartsWith("/static/"))
+                {
+                    // Handle static files (CSS, JS, etc.)
+                    string filePath = request.Url.AbsolutePath.Substring(8); // Remove "/static/"
+                    responseString = GetStaticFile(filePath);
+                    
+                    if (filePath.EndsWith(".css"))
+                        response.ContentType = "text/css";
+                    else if (filePath.EndsWith(".js"))
+                        response.ContentType = "application/javascript";
+                }
+                else
+                {
+                    response.StatusCode = 404;
+                    responseString = "404 - Not Found";
+                }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"Error processing request: {e.Message}");
+                response.StatusCode = 500;
+                responseString = "Internal Server Error";
+                isError = true;
+            }
+        }
+        
+        // Send response
         try
         {
-            string responseString = "";
-            
-            if (request.Url.AbsolutePath == "/" && request.HttpMethod == "GET")
+            if (!isError)
             {
-                responseString = GetWebPageHTML();
-                response.ContentType = "text/html";
-            }
-            else if (request.Url.AbsolutePath == "/api/queue" && request.HttpMethod == "GET")
-            {
-                responseString = GetQueueJSON();
-                response.ContentType = "application/json";
-            }
-            else if (request.Url.AbsolutePath == "/api/add-song" && request.HttpMethod == "POST")
-            {
-                string postData = "";
-                using (StreamReader reader = new StreamReader(request.InputStream, request.ContentEncoding))
+                // Enable CORS
+                response.Headers.Add("Access-Control-Allow-Origin", "*");
+                response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+                response.Headers.Add("Access-Control-Allow-Headers", "Content-Type");
+                
+                // Set user ID cookie if needed
+                if (request.Url.AbsolutePath.StartsWith("/api/"))
                 {
-                    postData = reader.ReadToEnd();
+                    string userId = GetOrCreateUserId(request);
+                    response.Headers.Add("Set-Cookie", $"yasg_user_id={userId}; Path=/; Max-Age=86400"); // 24 hours
                 }
-                
-                responseString = ProcessSongRequest(postData);
-                response.ContentType = "application/json";
             }
-            else if (request.Url.AbsolutePath.StartsWith("/static/"))
-            {
-                // Handle static files (CSS, JS, etc.)
-                string filePath = request.Url.AbsolutePath.Substring(8); // Remove "/static/"
-                responseString = GetStaticFile(filePath);
-                
-                if (filePath.EndsWith(".css"))
-                    response.ContentType = "text/css";
-                else if (filePath.EndsWith(".js"))
-                    response.ContentType = "application/javascript";
-            }
-            else
-            {
-                response.StatusCode = 404;
-                responseString = "404 - Not Found";
-            }
-            
-            // Enable CORS
-            response.Headers.Add("Access-Control-Allow-Origin", "*");
-            response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-            response.Headers.Add("Access-Control-Allow-Headers", "Content-Type");
             
             byte[] buffer = Encoding.UTF8.GetBytes(responseString);
             response.ContentLength64 = buffer.Length;
@@ -420,9 +601,12 @@ tunnels:
         }
         catch (Exception e)
         {
-            UnityEngine.Debug.LogError($"Error processing request: {e.Message}");
-            response.StatusCode = 500;
-            response.Close();
+            UnityEngine.Debug.LogError($"Error sending response: {e.Message}");
+            try
+            {
+                response.Close();
+            }
+            catch { }
         }
     }
 
@@ -458,10 +642,16 @@ tunnels:
         return JsonUtility.ToJson(queueResponse);
     }
 
-    private string ProcessSongRequest(string postData)
+    private string ProcessSongRequest(string postData, string userId)
     {
         try
         {
+            // Check if user already has a pending request
+            if (userSessions.ContainsKey(userId) && userSessions[userId].hasPendingRequest)
+            {
+                return "{\"success\":false,\"message\":\"You already have a song in the queue. Please wait until it's played before adding another.\"}";
+            }
+            
             SongRequest songRequest = JsonUtility.FromJson<SongRequest>(postData);
             
             if (levelCompiler != null && songRequest.players != null && songRequest.players.Count > 0)
@@ -496,11 +686,22 @@ tunnels:
                 // Add to queue
                 levelCompiler.mainQueue.Add(newQueueObject);
                 
+                // Update user session
+                if (userSessions.ContainsKey(userId))
+                {
+                    userSessions[userId].hasPendingRequest = true;
+                    userSessions[userId].queuedSongId = songRequest.url;
+                    userSessions[userId].requestTime = System.DateTime.Now;
+                }
+                
+                // Store the user ID in the queue object for position tracking
+                newQueueObject.requestedByUserId = userId;
+                
                 // Update party mode UI
                 levelCompiler.UpdatePartyModeUI();
                 
                 string playerNames = string.Join(", ", newQueueObject.players);
-                UnityEngine.Debug.Log($"Song added to queue: {songRequest.name} by {songRequest.artist} with players: {playerNames}");
+                UnityEngine.Debug.Log($"Song added to queue by user {userId}: {songRequest.name} by {songRequest.artist} with players: {playerNames}");
             }
             else
             {
@@ -565,41 +766,47 @@ tunnels:
     <div class='container'>
         <header>
             <h1>🎤 YASG Party Mode</h1>
-            <p>Add songs to the karaoke queue!</p>
+            <p>Search and add songs to the karaoke queue!</p>
         </header>
         
-        <div class='add-song-form'>
-            <h2>Add a Song</h2>
-            <form id='songForm'>
-                <div class='song-info-section'>
-                    <h3>Song Information</h3>
-                    <div class='form-group'>
-                        <label for='songUrl'>Spotify Song URL:</label>
-                        <input type='url' id='songUrl' name='songUrl' placeholder='https://open.spotify.com/track/...' required>
-                    </div>
-                    
-                    <div class='form-group'>
-                        <label for='songName'>Song Name:</label>
-                        <input type='text' id='songName' name='songName' required>
-                    </div>
-                    
-                    <div class='form-group'>
-                        <label for='artistName'>Artist:</label>
-                        <input type='text' id='artistName' name='artistName' required>
-                    </div>
-                    
-                    <div class='form-group'>
-                        <label for='songLength'>Duration (mm:ss):</label>
-                        <input type='text' id='songLength' name='songLength' placeholder='3:45' required>
-                    </div>
-                    
-                    <div class='form-group'>
-                        <label for='albumCover'>Album Cover URL (optional):</label>
-                        <input type='url' id='albumCover' name='albumCover' placeholder='https://...'>
-                    </div>
+        <!-- Progress indicator -->
+        <div class='progress-container'>
+            <div class='progress-step active' data-step='1'>
+                <div class='step-number'>1</div>
+                <div class='step-label'>Search Song</div>
+            </div>
+            <div class='progress-step' data-step='2'>
+                <div class='step-number'>2</div>
+                <div class='step-label'>Select Players</div>
+            </div>
+            <div class='progress-step' data-step='3'>
+                <div class='step-number'>3</div>
+                <div class='step-label'>Complete</div>
+            </div>
+        </div>
+        
+        <!-- Step 1: Search -->
+        <div id='step1' class='step-container active'>
+            <div class='search-section'>
+                <h2>Search for a Song</h2>
+                <div class='search-box'>
+                    <input type='text' id='searchInput' placeholder='Search for a song or artist...' />
+                    <button id='searchBtn' class='search-button'>🔍</button>
+                </div>
+                <div id='searchResults' class='search-results'></div>
+                <div id='searchLoading' class='loading hidden'>Searching...</div>
+            </div>
+        </div>
+        
+        <!-- Step 2: Players -->
+        <div id='step2' class='step-container'>
+            <div class='players-section'>
+                <h2>Configure Players</h2>
+                <div class='selected-song-info'>
+                    <div id='selectedSongCard' class='song-card'></div>
                 </div>
                 
-                <div class='players-section'>
+                <div class='players-config'>
                     <h3>Players (1-4)</h3>
                     <div id='playersContainer'>
                         <div class='player-entry' data-player='1'>
@@ -630,14 +837,55 @@ tunnels:
                     </div>
                 </div>
                 
-                <button type='submit'>Add to Queue</button>
-            </form>
+                <div class='step-navigation'>
+                    <button id='backToSearch' class='nav-button secondary'>← Back to Search</button>
+                    <button id='proceedToComplete' class='nav-button primary'>Add to Queue →</button>
+                </div>
+            </div>
         </div>
         
-        <div class='queue-section'>
-            <h2>Current Queue</h2>
-            <div id='currentSong' class='current-song'></div>
-            <div id='queueList' class='queue-list'></div>
+        <!-- Step 3: Complete -->
+        <div id='step3' class='step-container'>
+            <div class='completion-section'>
+                <h2>Song Added Successfully!</h2>
+                <div id='completionSongCard' class='song-card'></div>
+                
+                <div class='queue-status'>
+                    <h3>Your Queue Status</h3>
+                    <div id='queuePosition' class='position-indicator'>
+                        <div class='position-circle'>
+                            <span id='positionNumber'>-</span>
+                        </div>
+                        <div class='position-text'>
+                            <div>Position in Queue</div>
+                            <div id='queueTotal' class='total'>of 0 songs</div>
+                        </div>
+                    </div>
+                    
+                    <div id='waitMessage' class='wait-message'>
+                        Please wait for your turn. Your song will be played soon!
+                    </div>
+                </div>
+                
+                <div class='completion-actions'>
+                    <button id='viewQueue' class='nav-button secondary'>View Full Queue</button>
+                    <button id='startOver' class='nav-button primary'>Add Another Song</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Queue viewer -->
+        <div id='queueModal' class='modal hidden'>
+            <div class='modal-content'>
+                <div class='modal-header'>
+                    <h3>Current Queue</h3>
+                    <button id='closeModal' class='close-button'>×</button>
+                </div>
+                <div class='modal-body'>
+                    <div id='currentSong' class='current-song'></div>
+                    <div id='queueList' class='queue-list'></div>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -670,20 +918,21 @@ tunnels:
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: #fff;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    color: #e8eaed;
     min-height: 100vh;
+    overflow-x: hidden;
 }
 
 .container {
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
     padding: 20px;
 }
 
 header {
     text-align: center;
-    margin-bottom: 40px;
+    margin-bottom: 30px;
 }
 
 header h1 {
@@ -697,86 +946,324 @@ header p {
     opacity: 0.9;
 }
 
-.add-song-form {
-    background: rgba(255,255,255,0.1);
-    backdrop-filter: blur(10px);
-    border-radius: 20px;
-    padding: 30px;
+/* Progress Indicator */
+.progress-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
     margin-bottom: 40px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    gap: 40px;
 }
 
-.add-song-form h2 {
-    margin-bottom: 25px;
+.progress-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    opacity: 0.5;
+    transition: all 0.3s ease;
+}
+
+.progress-step.active {
+    opacity: 1;
+}
+
+.progress-step.completed {
+    opacity: 1;
+}
+
+.step-number {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(56, 189, 248, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 1.2em;
+    margin-bottom: 10px;
+    transition: all 0.3s ease;
+    border: 2px solid rgba(56, 189, 248, 0.3);
+}
+
+.progress-step.active .step-number {
+    background: linear-gradient(45deg, #3b82f6, #06b6d4);
+    transform: scale(1.1);
+    border-color: #3b82f6;
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+}
+
+.progress-step.completed .step-number {
+    background: linear-gradient(45deg, #10b981, #059669);
+    border-color: #10b981;
+}
+
+.progress-step.completed .step-number::after {
+    content: '✓';
+    font-size: 1.5em;
+}
+
+.step-label {
+    font-size: 0.9em;
+    font-weight: 500;
+}
+
+/* Step Containers */
+.step-container {
+    display: none;
+    animation: fadeIn 0.5s ease-in;
+}
+
+.step-container.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Search Section */
+.search-section {
+    background: rgba(30, 41, 59, 0.4);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    padding: 32px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.search-section h2 {
     text-align: center;
-}
-
-.song-info-section,
-.players-section {
     margin-bottom: 30px;
-    padding: 20px;
-    background: rgba(255,255,255,0.05);
-    border-radius: 15px;
+    color: #06b6d4;
+    text-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
 }
 
-.song-info-section h3,
-.players-section h3 {
+.search-box {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+}
+
+.search-box input {
+    flex: 1;
+    padding: 16px 20px;
+    border: 2px solid rgba(71, 85, 105, 0.4);
+    border-radius: 16px;
+    background: rgba(15, 23, 42, 0.6);
+    color: #e2e8f0;
+    font-size: 16px;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    background: rgba(15, 23, 42, 0.8);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.search-box input::placeholder {
+    color: rgba(148, 163, 184, 0.7);
+}
+
+.search-button {
+    width: 60px;
+    padding: 15px;
+    border: none;
+    border-radius: 16px;
+    background: linear-gradient(45deg, #3b82f6, #06b6d4);
+    color: #fff;
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3);
+}
+
+.search-button:hover {
+    transform: scale(1.05);
+    background: linear-gradient(45deg, #2563eb, #0891b2);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.search-results {
+    max-height: 500px;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+.search-results::-webkit-scrollbar {
+    width: 8px;
+}
+
+.search-results::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.1);
+    border-radius: 10px;
+}
+
+.search-results::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.3);
+    border-radius: 10px;
+}
+
+/* Song Cards */
+.song-card {
+    background: rgba(30, 41, 59, 0.6);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(71, 85, 105, 0.3);
+}
+
+.song-card:hover {
+    background: rgba(51, 65, 85, 0.7);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+.song-card.selected {
+    background: linear-gradient(45deg, rgba(59, 130, 246, 0.2), rgba(6, 182, 212, 0.2));
+    border: 2px solid #06b6d4;
+    box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
+}
+
+.song-artwork {
+    width: 80px;
+    height: 80px;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 2px solid rgba(71, 85, 105, 0.4);
+}
+
+.song-artwork img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 10px;
+}
+
+.song-artwork .placeholder {
+    font-size: 2em;
+    opacity: 0.5;
+}
+
+.song-details {
+    flex: 1;
+}
+
+.song-title {
+    font-size: 1.3em;
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #fff;
+}
+
+.song-artist {
+    font-size: 1.1em;
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 8px;
+}
+
+.song-album {
+    font-size: 0.9em;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 5px;
+}
+
+.song-duration {
+    font-size: 0.9em;
+    color: #06b6d4;
+    font-weight: 500;
+}
+
+/* Players Section */
+.players-section {
+    background: rgba(30, 41, 59, 0.4);
+    backdrop-filter: blur(20px);
+    border-radius: 24px;
+    padding: 32px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.players-section h2 {
+    text-align: center;
+    margin-bottom: 30px;
+    color: #06b6d4;
+    text-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
+}
+
+.selected-song-info {
+    margin-bottom: 30px;
+}
+
+.players-config h3 {
     margin-bottom: 20px;
     text-align: center;
-    color: #feca57;
+    color: #8b5cf6;
 }
 
 .player-entry {
-    background: rgba(255,255,255,0.1);
-    padding: 15px;
-    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.6);
+    padding: 20px;
+    border-radius: 16px;
     margin-bottom: 15px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(71, 85, 105, 0.3);
 }
 
 .player-entry h4 {
     margin-bottom: 15px;
-    color: #ff6b6b;
+    color: #06b6d4;
     text-align: center;
-}
-
-.player-controls {
-    text-align: center;
-    margin-top: 20px;
-}
-
-.add-player-btn,
-.remove-player-btn {
-    width: auto;
-    padding: 10px 20px;
-    margin: 0 10px;
-    font-size: 14px;
-    background: rgba(255,255,255,0.2);
-}
-
-.add-player-btn:hover,
-.remove-player-btn:hover {
-    background: rgba(255,255,255,0.3);
+    font-size: 1.1em;
 }
 
 .form-group {
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 
 .form-group label {
     display: block;
     margin-bottom: 8px;
     font-weight: 600;
+    color: rgba(255,255,255,0.9);
 }
 
 .form-group input,
 .form-group select {
     width: 100%;
-    padding: 12px;
-    border: none;
-    border-radius: 10px;
-    background: rgba(255,255,255,0.2);
-    color: #fff;
-    font-size: 16px;
+    padding: 12px 15px;
+    border: 2px solid rgba(71, 85, 105, 0.4);
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.6);
+    color: #e2e8f0;
+    font-size: 14px;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    background: rgba(15, 23, 42, 0.8);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .form-group input::placeholder {
@@ -786,55 +1273,302 @@ header p {
 .form-group input[type='checkbox'] {
     width: auto;
     margin-right: 10px;
+    transform: scale(1.2);
 }
 
-button {
+.player-controls {
+    text-align: center;
+    margin: 20px 0;
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.add-player-btn {
+    width: auto;
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: 600;
+    background: linear-gradient(45deg, #10b981, #06b6d4);
+    color: #ffffff;
+    border: 2px solid rgba(16, 185, 129, 0.4);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.add-player-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
     width: 100%;
-    padding: 15px;
-    border: none;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.5s;
+}
+
+.add-player-btn:hover::before {
+    left: 100%;
+}
+
+.add-player-btn:hover {
+    background: linear-gradient(45deg, #059669, #0891b2);
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 6px 24px rgba(16, 185, 129, 0.4);
+}
+
+.remove-player-btn {
+    width: auto;
+    padding: 10px 20px;
+    font-size: 14px;
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    backdrop-filter: blur(10px);
     border-radius: 10px;
-    background: linear-gradient(45deg, #ff6b6b, #feca57);
-    color: #fff;
-    font-size: 18px;
+    transition: all 0.3s ease;
+}
+
+.remove-player-btn:hover {
+    background: rgba(239, 68, 68, 0.3);
+    transform: translateY(-2px);
+    color: #ffffff;
+}
+
+/* Navigation */
+.step-navigation {
+    display: flex;
+    gap: 20px;
+    justify-content: space-between;
+    margin-top: 30px;
+}
+
+.nav-button {
+    padding: 15px 30px;
+    border: none;
+    border-radius: 15px;
+    font-size: 16px;
     font-weight: 600;
     cursor: pointer;
-    transition: transform 0.2s;
+    transition: all 0.3s ease;
+    min-width: 150px;
 }
 
-button:hover {
+.nav-button.primary {
+    background: linear-gradient(45deg, #3b82f6, #06b6d4);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3);
+}
+
+.nav-button.secondary {
+    background: rgba(71, 85, 105, 0.4);
+    color: #e2e8f0;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.nav-button:hover {
     transform: translateY(-2px);
 }
 
-.queue-section {
-    background: rgba(255,255,255,0.1);
+.nav-button.primary:hover {
+    background: linear-gradient(45deg, #1e40af, #0891b2);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.nav-button.secondary:hover {
+    background: rgba(100, 116, 139, 0.6);
+    border-color: rgba(148, 163, 184, 0.5);
+}
+
+/* Completion Section */
+.completion-section {
+    background: rgba(26, 26, 46, 0.9);
+    border: 1px solid rgba(59, 130, 246, 0.3);
     backdrop-filter: blur(10px);
-    border-radius: 20px;
+    border-radius: 16px;
     padding: 30px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    text-align: center;
 }
 
-.queue-section h2 {
-    text-align: center;
-    margin-bottom: 25px;
-}
-
-.current-song {
-    background: rgba(255,255,255,0.2);
-    padding: 15px;
-    border-radius: 10px;
-    margin-bottom: 20px;
-    text-align: center;
+.completion-section h2 {
+    margin-bottom: 30px;
+    color: #3b82f6;
+    font-size: 2.5em;
     font-weight: 600;
 }
 
-.queue-item {
-    background: rgba(255,255,255,0.1);
+.queue-status {
+    margin: 30px 0;
+}
+
+.queue-status h3 {
+    margin-bottom: 20px;
+    color: #06b6d4;
+    font-weight: 500;
+}
+
+.position-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.position-circle {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, #3b82f6, #06b6d4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2em;
+    font-weight: 600;
+    color: #ffffff;
+    animation: pulse 2s infinite;
+    box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.position-text {
+    text-align: left;
+}
+
+.position-text > div:first-child {
+    font-size: 1.2em;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.total {
+    color: rgba(226, 232, 240, 0.7);
+}
+
+.wait-message {
+    background: rgba(59, 130, 246, 0.2);
+    border: 1px solid rgba(59, 130, 246, 0.3);
     padding: 15px;
-    border-radius: 10px;
+    border-radius: 12px;
+    color: rgba(226, 232, 240, 0.9);
+    font-style: italic;
+}
+
+.completion-actions {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 30px;
+}
+
+/* Modal */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(8px);
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-content {
+    background: rgba(26, 26, 46, 0.95);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    backdrop-filter: blur(20px);
+    border-radius: 16px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(22, 33, 62, 0.5);
+}
+
+.modal-header h3 {
+    color: #3b82f6;
+    font-size: 1.5em;
+    font-weight: 600;
+}
+
+.close-button {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(59, 130, 246, 0.2);
+    color: #e2e8f0;
+    font-size: 1.5em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.close-button:hover {
+    background: rgba(59, 130, 246, 0.4);
+    transform: scale(1.1);
+    color: #ffffff;
+}
+
+.modal-body {
+    padding: 20px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+/* Queue Items */
+.current-song {
+    background: rgba(59, 130, 246, 0.2);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    text-align: center;
+    font-weight: 600;
+    color: #3b82f6;
+}
+
+.queue-item {
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(71, 85, 105, 0.3);
+    padding: 15px;
+    border-radius: 12px;
     margin-bottom: 10px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    transition: all 0.3s ease;
+}
+
+.queue-item:hover {
+    background: rgba(30, 41, 59, 0.8);
+    border-color: rgba(71, 85, 105, 0.5);
 }
 
 .queue-item.processed {
@@ -860,18 +1594,86 @@ button:hover {
     opacity: 0.9;
 }
 
-@media (max-width: 600px) {
+/* Loading States */
+.loading {
+    text-align: center;
+    padding: 20px;
+    color: rgba(255,255,255,0.7);
+    font-style: italic;
+}
+
+.hidden {
+    display: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
     .container {
         padding: 10px;
     }
     
     header h1 {
+        font-size: 2.5em;
+    }
+    
+    .progress-container {
+        gap: 20px;
+    }
+    
+    .progress-step {
+        font-size: 0.9em;
+    }
+    
+    .step-number {
+        width: 40px;
+        height: 40px;
+        font-size: 1em;
+    }
+    
+    .song-card {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .song-artwork {
+        margin-bottom: 15px;
+    }
+    
+    .step-navigation {
+        flex-direction: column;
+    }
+    
+    .position-indicator {
+        flex-direction: column;
+    }
+    
+    .completion-actions {
+        flex-direction: column;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    header h1 {
         font-size: 2em;
     }
     
-    .add-song-form,
-    .queue-section {
+    .search-section,
+    .players-section,
+    .completion-section {
         padding: 20px;
+    }
+    
+    .progress-container {
+        gap: 15px;
+    }
+    
+    .step-label {
+        font-size: 0.8em;
     }
 }";
     }
@@ -880,32 +1682,315 @@ button:hover {
     {
         return @"
 document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('songForm');
-    const queueList = document.getElementById('queueList');
-    const currentSong = document.getElementById('currentSong');
+    // Global state
+    let currentStep = 1;
+    let selectedSong = null;
+    let playerCount = 1;
+    let searchTimeout = null;
+    let userCanRequest = true;
+    
+    // Element references
+    const progressSteps = document.querySelectorAll('.progress-step');
+    const stepContainers = document.querySelectorAll('.step-container');
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const searchResults = document.getElementById('searchResults');
+    const searchLoading = document.getElementById('searchLoading');
+    const selectedSongCard = document.getElementById('selectedSongCard');
+    const playersContainer = document.getElementById('playersContainer');
     const addPlayerBtn = document.getElementById('addPlayer');
     const removePlayerBtn = document.getElementById('removePlayer');
-    const playersContainer = document.getElementById('playersContainer');
+    const backToSearchBtn = document.getElementById('backToSearch');
+    const proceedToCompleteBtn = document.getElementById('proceedToComplete');
+    const completionSongCard = document.getElementById('completionSongCard');
+    const positionNumber = document.getElementById('positionNumber');
+    const queueTotal = document.getElementById('queueTotal');
+    const viewQueueBtn = document.getElementById('viewQueue');
+    const startOverBtn = document.getElementById('startOver');
+    const queueModal = document.getElementById('queueModal');
+    const closeModalBtn = document.getElementById('closeModal');
+    const currentSong = document.getElementById('currentSong');
+    const queueList = document.getElementById('queueList');
     
-    let playerCount = 1;
+    // Initialize
+    init();
     
-    // Load queue on page load
-    loadQueue();
+    function init() {
+        checkUserStatus();
+        setupEventListeners();
+        updateStepDisplay();
+    }
     
-    // Refresh queue every 5 seconds
-    setInterval(loadQueue, 5000);
+    async function checkUserStatus() {
+        try {
+            const response = await fetch('/api/user-status');
+            const status = await response.json();
+            userCanRequest = status.canRequest;
+            
+            if (!userCanRequest) {
+                // User already has a pending request, jump to step 3
+                currentStep = 3;
+                updateStepDisplay();
+                updateQueuePosition();
+                startQueuePositionPolling();
+            }
+        } catch (error) {
+            console.error('Error checking user status:', error);
+        }
+    }
     
-    // Add player functionality
-    addPlayerBtn.addEventListener('click', function() {
+    function setupEventListeners() {
+        // Search functionality
+        searchInput.addEventListener('input', handleSearchInput);
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+        searchBtn.addEventListener('click', performSearch);
+        
+        // Player management
+        addPlayerBtn.addEventListener('click', addPlayer);
+        removePlayerBtn.addEventListener('click', removePlayer);
+        
+        // Navigation
+        backToSearchBtn.addEventListener('click', () => goToStep(1));
+        proceedToCompleteBtn.addEventListener('click', submitSong);
+        startOverBtn.addEventListener('click', startOver);
+        
+        // Modal
+        viewQueueBtn.addEventListener('click', openQueueModal);
+        closeModalBtn.addEventListener('click', closeQueueModal);
+        queueModal.addEventListener('click', function(e) {
+            if (e.target === queueModal) {
+                closeQueueModal();
+            }
+        });
+    }
+    
+    function handleSearchInput() {
+        const query = searchInput.value.trim();
+        
+        // Only auto-search on desktop, not on mobile
+        if (isMobile()) {
+            // On mobile, just clear results if query is too short
+            if (query.length < 2) {
+                searchResults.innerHTML = '';
+            }
+            return;
+        }
+        
+        // Desktop auto-search behavior
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+        }
+        
+        if (query.length >= 2) {
+            searchTimeout = setTimeout(() => {
+                performSearch(query);
+            }, 500); // Debounce search
+        } else {
+            searchResults.innerHTML = '';
+        }
+    }
+    
+    function isMobile() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+               (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+    }
+    
+    async function performSearch(query = null) {
+        const searchQuery = query || searchInput.value.trim();
+        
+        if (searchQuery.length < 2) {
+            return;
+        }
+        
+        searchLoading.classList.remove('hidden');
+        searchResults.innerHTML = '';
+        
+        try {
+            const response = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`);
+            const data = await response.json();
+            
+            searchLoading.classList.add('hidden');
+            
+            if (data.error) {
+                searchResults.innerHTML = `<div class='error'>Error: ${data.error}</div>`;
+                return;
+            }
+            
+            displaySearchResults(data);
+        } catch (error) {
+            searchLoading.classList.add('hidden');
+            searchResults.innerHTML = `<div class='error'>Search failed: ${error.message}</div>`;
+        }
+    }
+    
+    function displaySearchResults(data) {
+        if (!data.tracks || !data.tracks.items || data.tracks.items.length === 0) {
+            searchResults.innerHTML = '<div class=""no-results"">No songs found. Try a different search term.</div>';
+            return;
+        }
+        
+        searchResults.innerHTML = '';
+        
+        data.tracks.items.forEach(track => {
+            const songCard = createSongCard(track);
+            searchResults.appendChild(songCard);
+        });
+    }
+    
+    function createSongCard(track) {
+        const card = document.createElement('div');
+        card.className = 'song-card';
+        card.onclick = () => selectSong(track, card);
+        
+        // Get album art
+        const artworkUrl = track.album.images && track.album.images.length > 0 
+            ? track.album.images[0].url 
+            : '';
+        
+        // Convert duration
+        const duration = convertDuration(track.duration_ms);
+        
+        // Get first artist
+        const artist = track.artists && track.artists.length > 0 
+            ? track.artists[0].name 
+            : 'Unknown Artist';
+        
+        card.innerHTML = `
+            <div class='song-artwork'>
+                ${artworkUrl ? `<img src='${artworkUrl}' alt='Album Art' />` : '<div class=""placeholder"">🎵</div>'}
+            </div>
+            <div class='song-details'>
+                <div class='song-title'>${escapeHtml(track.name)}</div>
+                <div class='song-artist'>${escapeHtml(artist)}</div>
+                <div class='song-album'>${escapeHtml(track.album.name)}</div>
+                <div class='song-duration'>${duration}</div>
+            </div>
+        `;
+        
+        return card;
+    }
+    
+    function selectSong(track, cardElement) {
+        // Remove previous selection
+        document.querySelectorAll('.song-card.selected').forEach(card => {
+            card.classList.remove('selected');
+        });
+        
+        // Select new song
+        cardElement.classList.add('selected');
+        selectedSong = track;
+        
+        // Move to step 2
+        setTimeout(() => {
+            goToStep(2);
+        }, 300);
+    }
+    
+    function goToStep(step) {
+        if (step === 2 && !selectedSong) {
+            alert('Please select a song first.');
+            return;
+        }
+        
+        if (step === 3 && !userCanRequest) {
+            // User already has a pending request
+            updateQueuePosition();
+            startQueuePositionPolling();
+        }
+        
+        currentStep = step;
+        updateStepDisplay();
+        
+        if (step === 2) {
+            displaySelectedSong();
+        } else if (step === 3) {
+            displayCompletionSong();
+        }
+    }
+    
+    function updateStepDisplay() {
+        // Update progress indicator
+        progressSteps.forEach((step, index) => {
+            const stepNum = index + 1;
+            step.classList.remove('active', 'completed');
+            
+            if (stepNum < currentStep) {
+                step.classList.add('completed');
+            } else if (stepNum === currentStep) {
+                step.classList.add('active');
+            }
+        });
+        
+        // Update step containers
+        stepContainers.forEach((container, index) => {
+            const stepNum = index + 1;
+            container.classList.toggle('active', stepNum === currentStep);
+        });
+    }
+    
+    function displaySelectedSong() {
+        if (!selectedSong) return;
+        
+        const artworkUrl = selectedSong.album.images && selectedSong.album.images.length > 0 
+            ? selectedSong.album.images[0].url 
+            : '';
+        
+        const duration = convertDuration(selectedSong.duration_ms);
+        const artist = selectedSong.artists && selectedSong.artists.length > 0 
+            ? selectedSong.artists[0].name 
+            : 'Unknown Artist';
+        
+        selectedSongCard.innerHTML = `
+            <div class='song-artwork'>
+                ${artworkUrl ? `<img src='${artworkUrl}' alt='Album Art' />` : '<div class=""placeholder"">🎵</div>'}
+            </div>
+            <div class='song-details'>
+                <div class='song-title'>${escapeHtml(selectedSong.name)}</div>
+                <div class='song-artist'>${escapeHtml(artist)}</div>
+                <div class='song-album'>${escapeHtml(selectedSong.album.name)}</div>
+                <div class='song-duration'>${duration}</div>
+            </div>
+        `;
+    }
+    
+    function displayCompletionSong() {
+        if (!selectedSong) return;
+        
+        const artworkUrl = selectedSong.album.images && selectedSong.album.images.length > 0 
+            ? selectedSong.album.images[0].url 
+            : '';
+        
+        const duration = convertDuration(selectedSong.duration_ms);
+        const artist = selectedSong.artists && selectedSong.artists.length > 0 
+            ? selectedSong.artists[0].name 
+            : 'Unknown Artist';
+        
+        completionSongCard.innerHTML = `
+            <div class='song-artwork'>
+                ${artworkUrl ? `<img src='${artworkUrl}' alt='Album Art' />` : '<div class=""placeholder"">🎵</div>'}
+            </div>
+            <div class='song-details'>
+                <div class='song-title'>${escapeHtml(selectedSong.name)}</div>
+                <div class='song-artist'>${escapeHtml(artist)}</div>
+                <div class='song-album'>${escapeHtml(selectedSong.album.name)}</div>
+                <div class='song-duration'>${duration}</div>
+            </div>
+        `;
+    }
+    
+    function addPlayer() {
         if (playerCount < 4) {
             playerCount++;
             addPlayerEntry(playerCount);
             updatePlayerButtons();
         }
-    });
+    }
     
-    // Remove player functionality
-    removePlayerBtn.addEventListener('click', function() {
+    function removePlayer() {
         if (playerCount > 1) {
             const lastPlayer = document.querySelector(`[data-player='${playerCount}']`);
             if (lastPlayer) {
@@ -914,7 +1999,7 @@ document.addEventListener('DOMContentLoaded', function() {
             playerCount--;
             updatePlayerButtons();
         }
-    });
+    }
     
     function addPlayerEntry(playerNum) {
         const playerEntry = document.createElement('div');
@@ -950,10 +2035,11 @@ document.addEventListener('DOMContentLoaded', function() {
         removePlayerBtn.style.display = playerCount <= 1 ? 'none' : 'inline-block';
     }
     
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const formData = new FormData(form);
+    async function submitSong() {
+        if (!selectedSong) {
+            alert('No song selected');
+            return;
+        }
         
         // Collect player data
         const players = [];
@@ -961,29 +2047,45 @@ document.addEventListener('DOMContentLoaded', function() {
         const micToggles = [];
         
         for (let i = 1; i <= playerCount; i++) {
-            const playerName = formData.get(`playerName${i}`);
-            const difficulty = parseInt(formData.get(`difficulty${i}`));
-            const micToggle = formData.get(`micToggle${i}`) === 'on';
+            const nameInput = document.querySelector(`input[name='playerName${i}']`);
+            const difficultySelect = document.querySelector(`select[name='difficulty${i}']`);
+            const micToggleInput = document.querySelector(`input[name='micToggle${i}']`);
             
-            if (playerName) {
-                players.push(playerName);
-                difficulties.push(difficulty);
-                micToggles.push(micToggle);
+            if (nameInput && nameInput.value.trim()) {
+                players.push(nameInput.value.trim());
+                difficulties.push(parseInt(difficultySelect.value));
+                micToggles.push(micToggleInput.checked);
             }
         }
         
+        if (players.length === 0) {
+            alert('Please add at least one player name');
+            return;
+        }
+        
+        const duration = convertDuration(selectedSong.duration_ms);
+        const artist = selectedSong.artists && selectedSong.artists.length > 0 
+            ? selectedSong.artists[0].name 
+            : 'Unknown Artist';
+        const artworkUrl = selectedSong.album.images && selectedSong.album.images.length > 0 
+            ? selectedSong.album.images[0].url 
+            : '';
+        
         const songData = {
-            url: formData.get('songUrl'),
-            name: formData.get('songName'),
-            artist: formData.get('artistName'),
-            length: formData.get('songLength'),
-            cover: formData.get('albumCover') || '',
+            url: selectedSong.external_urls.spotify,
+            name: selectedSong.name,
+            artist: artist,
+            length: duration,
+            cover: artworkUrl,
             players: players,
             difficulties: difficulties,
             micToggles: micToggles
         };
         
         try {
+            proceedToCompleteBtn.disabled = true;
+            proceedToCompleteBtn.textContent = 'Adding to Queue...';
+            
             const response = await fetch('/api/add-song', {
                 method: 'POST',
                 headers: {
@@ -995,25 +2097,89 @@ document.addEventListener('DOMContentLoaded', function() {
             const result = await response.json();
             
             if (result.success) {
-                alert('Song added to queue successfully!');
-                form.reset();
-                // Reset to 1 player
-                while (playerCount > 1) {
-                    const lastPlayer = document.querySelector(`[data-player='${playerCount}']`);
-                    if (lastPlayer) {
-                        lastPlayer.remove();
-                    }
-                    playerCount--;
-                }
-                updatePlayerButtons();
-                loadQueue();
+                userCanRequest = false;
+                goToStep(3);
+                updateQueuePosition();
+                startQueuePositionPolling();
             } else {
                 alert('Failed to add song: ' + result.message);
+                proceedToCompleteBtn.disabled = false;
+                proceedToCompleteBtn.textContent = 'Add to Queue →';
             }
         } catch (error) {
             alert('Error adding song: ' + error.message);
+            proceedToCompleteBtn.disabled = false;
+            proceedToCompleteBtn.textContent = 'Add to Queue →';
         }
-    });
+    }
+    
+    async function updateQueuePosition() {
+        try {
+            const response = await fetch('/api/queue-position');
+            const data = await response.json();
+            
+            positionNumber.textContent = data.position > 0 ? data.position : '-';
+            queueTotal.textContent = `of ${data.total} songs`;
+            
+            if (data.position === -1) {
+                // Song not found in queue, user can request again
+                userCanRequest = true;
+                startOverBtn.style.display = 'inline-block';
+            }
+        } catch (error) {
+            console.error('Error updating queue position:', error);
+        }
+    }
+    
+    function startQueuePositionPolling() {
+        const interval = setInterval(async () => {
+            await updateQueuePosition();
+            
+            if (userCanRequest) {
+                clearInterval(interval);
+            }
+        }, 3000); // Update every 3 seconds
+    }
+    
+    function startOver() {
+        selectedSong = null;
+        userCanRequest = true;
+        currentStep = 1;
+        playerCount = 1;
+        
+        // Reset player entries
+        const playerEntries = document.querySelectorAll('.player-entry');
+        playerEntries.forEach((entry, index) => {
+            if (index > 0) {
+                entry.remove();
+            } else {
+                // Reset first player
+                entry.querySelector('input[type=""text""]').value = '';
+                entry.querySelector('select').selectedIndex = 1;
+                entry.querySelector('input[type=""checkbox""]').checked = true;
+            }
+        });
+        
+        updatePlayerButtons();
+        updateStepDisplay();
+        
+        // Clear search
+        searchInput.value = '';
+        searchResults.innerHTML = '';
+        
+        // Reset buttons
+        proceedToCompleteBtn.disabled = false;
+        proceedToCompleteBtn.textContent = 'Add to Queue →';
+    }
+    
+    async function openQueueModal() {
+        queueModal.classList.remove('hidden');
+        await loadQueue();
+    }
+    
+    function closeQueueModal() {
+        queueModal.classList.add('hidden');
+    }
     
     async function loadQueue() {
         try {
@@ -1037,8 +2203,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 queueItem.innerHTML = `
                     <div class=""song-info"">
-                        <div class=""song-title"">${item.name}</div>
-                        <div class=""song-details"">by ${item.artist} • ${item.length}</div>
+                        <div class=""song-title"">${escapeHtml(item.name)}</div>
+                        <div class=""song-details"">by ${escapeHtml(item.artist)} • ${item.length}</div>
                     </div>
                     <div class=""players"">
                         ${item.players.join(', ')}
@@ -1052,7 +2218,38 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error loading queue:', error);
         }
     }
+    
+    // Utility functions
+    function convertDuration(durationMs) {
+        const totalSeconds = Math.floor(durationMs / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Auto-refresh queue in modal every 5 seconds
+    setInterval(() => {
+        if (!queueModal.classList.contains('hidden')) {
+            loadQueue();
+        }
+    }, 5000);
 });";
+    }
+    
+    public void OnSongCompleted(string userId)
+    {
+        if (!string.IsNullOrEmpty(userId) && userSessions.ContainsKey(userId))
+        {
+            userSessions[userId].hasPendingRequest = false;
+            userSessions[userId].queuedSongId = "";
+            UnityEngine.Debug.Log($"User session reset for completed song: {userId}");
+        }
     }
 
     private void OnDestroy()
@@ -1070,5 +2267,124 @@ document.addEventListener('DOMContentLoaded', function() {
     public void TestStartWebServer()
     {
         StartWebServer();
+    }
+    
+    // New API Methods
+    private IEnumerator ProcessSpotifySearchCoroutine(string query, System.Action<string> callback)
+    {
+        if (string.IsNullOrEmpty(query))
+        {
+            callback("{\"error\":\"No search query provided\"}");
+            yield break;
+        }
+        
+        if (string.IsNullOrEmpty(spotifyAccessToken))
+        {
+            callback("{\"error\":\"Spotify access token not available\"}");
+            yield break;
+        }
+        
+        string encodedQuery = UnityWebRequest.EscapeURL(query);
+        string searchUrl = $"https://api.spotify.com/v1/search?q={encodedQuery}&type=track&limit=20";
+        
+        using (UnityWebRequest request = UnityWebRequest.Get(searchUrl))
+        {
+            request.SetRequestHeader("Authorization", "Bearer " + spotifyAccessToken);
+            yield return request.SendWebRequest();
+            
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                callback(request.downloadHandler.text);
+            }
+            else
+            {
+                callback($"{{\"error\":\"Spotify search failed: {request.error}\"}}");
+            }
+        }
+    }
+    
+    private string GetOrCreateUserId(HttpListenerRequest request)
+    {
+        // Check for existing user ID in cookies
+        string userId = null;
+        string cookieHeader = request.Headers["Cookie"];
+        
+        if (!string.IsNullOrEmpty(cookieHeader))
+        {
+            var match = Regex.Match(cookieHeader, @"yasg_user_id=([^;]+)");
+            if (match.Success)
+            {
+                userId = match.Groups[1].Value;
+            }
+        }
+        
+        // Generate new user ID if not found
+        if (string.IsNullOrEmpty(userId))
+        {
+            userId = System.Guid.NewGuid().ToString();
+        }
+        
+        // Initialize user session if not exists
+        if (!userSessions.ContainsKey(userId))
+        {
+            userSessions[userId] = new UserSession
+            {
+                userId = userId,
+                hasPendingRequest = false,
+                queuePosition = -1
+            };
+        }
+        
+        return userId;
+    }
+    
+    private string GetUserStatus(string userId)
+    {
+        if (!userSessions.ContainsKey(userId))
+        {
+            return "{\"hasPendingRequest\":false,\"canRequest\":true}";
+        }
+        
+        var session = userSessions[userId];
+        bool canRequest = !session.hasPendingRequest;
+        
+        return $"{{\"userId\":\"{userId}\",\"hasPendingRequest\":{session.hasPendingRequest.ToString().ToLower()},\"canRequest\":{canRequest.ToString().ToLower()}}}";
+    }
+    
+    private string GetQueuePosition(string userId)
+    {
+        if (!userSessions.ContainsKey(userId))
+        {
+            return "{\"position\":-1,\"total\":0}";
+        }
+        
+        var session = userSessions[userId];
+        int queueTotal = levelCompiler?.mainQueue?.Count ?? 0;
+        
+        // Find user's position in queue
+        int position = -1;
+        if (session.hasPendingRequest && levelCompiler?.mainQueue != null)
+        {
+            for (int i = 0; i < levelCompiler.mainQueue.Count; i++)
+            {
+                var queueItem = levelCompiler.mainQueue[i];
+                // Check if this queue item was requested by this user
+                if (!string.IsNullOrEmpty(queueItem.requestedByUserId) && queueItem.requestedByUserId == userId)
+                {
+                    position = i + 1;
+                    break;
+                }
+            }
+        }
+        
+        return $"{{\"position\":{position},\"total\":{queueTotal}}}";
+    }
+    
+    private string ConvertDuration(int durationMs)
+    {
+        int totalSeconds = durationMs / 1000;
+        int minutes = totalSeconds / 60;
+        int seconds = totalSeconds % 60;
+        return $"{minutes}:{seconds:D2}";
     }
 }
