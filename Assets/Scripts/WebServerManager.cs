@@ -157,21 +157,37 @@ public class WebServerManager : MonoBehaviour
     }
     
     private Dictionary<string, UserSession> userSessions = new Dictionary<string, UserSession>();
+    
+    public static WebServerManager Instance { get; private set; }
+
+    private void Awake()
+    {
+        // Singleton setup
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(gameObject); // Persist across scenes
+        }
+        else
+        {
+            Destroy(gameObject); // Destroy duplicate
+        }
+    }
 
     private void Start()
     {
         levelCompiler = LevelResourcesCompiler.Instance;
-        
+
         // Set default ngrok path if not specified
         if (string.IsNullOrEmpty(ngrokPath))
         {
             ngrokPath = Path.Combine(PlayerPrefs.GetString("dataPath"), "ngrok.exe");
         }
-        
+
         // Initialize Spotify credentials
         spotifyClientId = PlayerPrefs.GetString("CLIENTID");
         spotifyClientSecret = PlayerPrefs.GetString("APIKEY");
-        
+
         // Start Spotify token refresh routine
         StartCoroutine(SpotifyTokenRefreshRoutine());
     }
@@ -764,82 +780,104 @@ tunnels:
 </head>
 <body>
     <div class='container'>
-        <header>
-            <h1>🎤 YASG Party Mode</h1>
-            <p>Search and add songs to the karaoke queue!</p>
-        </header>
+        <!-- Language Selection -->
+        <div id='languageSelection' class='language-section'>
+            <div class='language-content'>
+                <h2>🌍 Select Language / Selecionar Idioma</h2>
+                <div class='language-buttons'>
+                    <button onclick=""setLanguage('pt')"" class='lang-btn active' data-lang='pt'>
+                        🇧🇷 Português (Brasil)
+                    </button>
+                    <button onclick=""setLanguage('en')"" class='lang-btn' data-lang='en'>
+                        🇺🇸 English
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div id='mainContent' class='hidden'>
+            <header>
+                <div class='header-content'>
+                    <h1 data-translate='header.title'>🎤 YASG Party Mode</h1>
+                    <p data-translate='header.subtitle'>Search and add songs to the karaoke queue!</p>
+                    <button id='changeLangBtn' class='change-lang-btn' onclick='showLanguageSelection()'>
+                        🌍 <span data-translate='header.changeLanguage'>Change Language</span>
+                    </button>
+                </div>
+            </header>
         
         <!-- Progress indicator -->
         <div class='progress-container'>
             <div class='progress-step active' data-step='1'>
                 <div class='step-number'>1</div>
-                <div class='step-label'>Search Song</div>
+                <div class='step-label' data-translate='steps.search'>Search Song</div>
             </div>
             <div class='progress-step' data-step='2'>
                 <div class='step-number'>2</div>
-                <div class='step-label'>Select Players</div>
+                <div class='step-label' data-translate='steps.players'>Select Players</div>
             </div>
             <div class='progress-step' data-step='3'>
                 <div class='step-number'>3</div>
-                <div class='step-label'>Complete</div>
+                <div class='step-label' data-translate='steps.complete'>Complete</div>
             </div>
         </div>
         
         <!-- Step 1: Search -->
         <div id='step1' class='step-container active'>
             <div class='search-section'>
-                <h2>Search for a Song</h2>
+                <h2 data-translate='step1.title'>Search for a Song</h2>
                 <div class='search-box'>
-                    <input type='text' id='searchInput' placeholder='Search for a song or artist...' />
+                    <input type='text' id='searchInput' data-translate-placeholder='step1.placeholder' placeholder='Search for a song or artist...' />
                     <button id='searchBtn' class='search-button'>🔍</button>
                 </div>
                 <div id='searchResults' class='search-results'></div>
-                <div id='searchLoading' class='loading hidden'>Searching...</div>
+                <div id='searchLoading' class='loading hidden' data-translate='step1.searching'>Searching...</div>
             </div>
         </div>
         
         <!-- Step 2: Players -->
         <div id='step2' class='step-container'>
             <div class='players-section'>
-                <h2>Configure Players</h2>
+                <h2 data-translate='step2.title'>Configure Players</h2>
                 <div class='selected-song-info'>
                     <div id='selectedSongCard' class='song-card'></div>
                 </div>
                 
                 <div class='players-config'>
-                    <h3>Players (1-4)</h3>
+                    <h3 data-translate='step2.playersTitle'>Players (1-4)</h3>
                     <div id='playersContainer'>
                         <div class='player-entry' data-player='1'>
-                            <h4>Player 1</h4>
+                            <h4 data-translate='player.title' data-translate-args='{""num"": 1}'>Player 1</h4>
                             <div class='form-group'>
-                                <label>Name:</label>
+                                <label data-translate='player.name'>Name:</label>
                                 <input type='text' name='playerName1' required>
                             </div>
                             <div class='form-group'>
-                                <label>Difficulty:</label>
+                                <label data-translate='player.difficulty'>Difficulty:</label>
                                 <select name='difficulty1'>
-                                    <option value='0'>Easy</option>
-                                    <option value='1' selected>Medium</option>
-                                    <option value='2'>Hard</option>
+                                    <option value='0' data-translate='difficulty.easy'>Easy</option>
+                                    <option value='1' selected data-translate='difficulty.medium'>Medium</option>
+                                    <option value='2' data-translate='difficulty.hard'>Hard</option>
                                 </select>
                             </div>
                             <div class='form-group'>
                                 <label>
-                                    <input type='checkbox' name='micToggle1' checked> Use Microphone
+                                    <input type='checkbox' name='micToggle1' checked> <span data-translate='player.microphone'>Enable Microphone Feedback</span>
                                 </label>
                             </div>
                         </div>
                     </div>
                     
                     <div class='player-controls'>
-                        <button type='button' id='addPlayer' class='add-player-btn'>+ Add Player</button>
-                        <button type='button' id='removePlayer' class='remove-player-btn' style='display: none;'>- Remove Player</button>
+                        <button type='button' id='addPlayer' class='add-player-btn'>+ <span data-translate='buttons.addPlayer'>Add Player</span></button>
+                        <button type='button' id='removePlayer' class='remove-player-btn' style='display: none;'>- <span data-translate='buttons.removePlayer'>Remove Player</span></button>
                     </div>
                 </div>
                 
                 <div class='step-navigation'>
-                    <button id='backToSearch' class='nav-button secondary'>← Back to Search</button>
-                    <button id='proceedToComplete' class='nav-button primary'>Add to Queue →</button>
+                    <button id='backToSearch' class='nav-button secondary'>← <span data-translate='buttons.backToSearch'>Back to Search</span></button>
+                    <button id='proceedToComplete' class='nav-button primary'><span data-translate='buttons.addToQueue'>Add to Queue</span> →</button>
                 </div>
             </div>
         </div>
@@ -847,29 +885,29 @@ tunnels:
         <!-- Step 3: Complete -->
         <div id='step3' class='step-container'>
             <div class='completion-section'>
-                <h2>Song Added Successfully!</h2>
+                <h2 data-translate='step3.title'>Song Added Successfully!</h2>
                 <div id='completionSongCard' class='song-card'></div>
                 
                 <div class='queue-status'>
-                    <h3>Your Queue Status</h3>
+                    <h3 data-translate='step3.queueStatus'>Your Queue Status</h3>
                     <div id='queuePosition' class='position-indicator'>
                         <div class='position-circle'>
                             <span id='positionNumber'>-</span>
                         </div>
                         <div class='position-text'>
-                            <div>Position in Queue</div>
-                            <div id='queueTotal' class='total'>of 0 songs</div>
+                            <div data-translate='step3.positionInQueue'>Position in Queue</div>
+                            <div id='queueTotal' class='total' data-translate='step3.ofSongs' data-translate-args='{""count"": 0}'>of 0 songs</div>
                         </div>
                     </div>
                     
-                    <div id='waitMessage' class='wait-message'>
+                    <div id='waitMessage' class='wait-message' data-translate='step3.waitMessage'>
                         Please wait for your turn. Your song will be played soon!
                     </div>
                 </div>
                 
                 <div class='completion-actions'>
-                    <button id='viewQueue' class='nav-button secondary'>View Full Queue</button>
-                    <button id='startOver' class='nav-button primary'>Add Another Song</button>
+                    <button id='viewQueue' class='nav-button secondary' data-translate='buttons.viewQueue'>View Full Queue</button>
+                    <button id='startOver' class='nav-button primary' data-translate='buttons.addAnother'>Add Another Song</button>
                 </div>
             </div>
         </div>
@@ -878,7 +916,7 @@ tunnels:
         <div id='queueModal' class='modal hidden'>
             <div class='modal-content'>
                 <div class='modal-header'>
-                    <h3>Current Queue</h3>
+                    <h3 data-translate='modal.currentQueue'>Current Queue</h3>
                     <button id='closeModal' class='close-button'>×</button>
                 </div>
                 <div class='modal-body'>
@@ -887,7 +925,8 @@ tunnels:
                 </div>
             </div>
         </div>
-    </div>
+        </div> <!-- End mainContent -->
+    </div> <!-- End container -->
     
     <script src='/static/script.js'></script>
 </body>
@@ -922,6 +961,94 @@ body {
     color: #e8eaed;
     min-height: 100vh;
     overflow-x: hidden;
+}
+
+/* Language Selection Styles */
+.language-section {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.language-content {
+    background: rgba(26, 26, 46, 0.9);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    padding: 40px;
+    text-align: center;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    max-width: 500px;
+    width: 100%;
+}
+
+.language-content h2 {
+    color: #3b82f6;
+    margin-bottom: 30px;
+    font-size: 2em;
+    font-weight: 600;
+}
+
+.language-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.lang-btn {
+    padding: 15px 25px;
+    font-size: 18px;
+    font-weight: 500;
+    background: rgba(71, 85, 105, 0.4);
+    color: #e2e8f0;
+    border: 2px solid rgba(71, 85, 105, 0.3);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.lang-btn:hover {
+    background: rgba(71, 85, 105, 0.6);
+    border-color: rgba(59, 130, 246, 0.5);
+    transform: translateY(-2px);
+}
+
+.lang-btn.active {
+    background: linear-gradient(45deg, #3b82f6, #06b6d4);
+    border-color: rgba(59, 130, 246, 0.6);
+    color: #ffffff;
+    box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+}
+
+.change-lang-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    padding: 8px 16px;
+    font-size: 14px;
+    background: rgba(71, 85, 105, 0.4);
+    color: #e2e8f0;
+    border: 1px solid rgba(71, 85, 105, 0.3);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.change-lang-btn:hover {
+    background: rgba(71, 85, 105, 0.6);
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+.header-content {
+    position: relative;
+}
+
+.hidden {
+    display: none !important;
 }
 
 .container {
@@ -1681,7 +1808,146 @@ header p {
     private string GetJavaScript()
     {
         return @"
+// Translation system - Global variables
+let currentLanguage = 'pt'; // Default to Brazilian Portuguese
+
+const translations = {
+        pt: {
+            'header.title': '🎤 YASG Party Mode',
+            'header.subtitle': 'Pesquise e adicione músicas à fila do karaokê!',
+            'header.changeLanguage': 'Mudar Idioma',
+            'steps.search': 'Buscar Música',
+            'steps.players': 'Selecionar Jogadores',
+            'steps.complete': 'Completar',
+            'step1.title': 'Pesquisar uma Música',
+            'step1.placeholder': 'Pesquise por uma música ou artista...',
+            'step1.searching': 'Pesquisando...',
+            'step2.title': 'Configurar Jogadores',
+            'step2.playersTitle': 'Jogadores (1-4)',
+            'player.title': 'Jogador {num}',
+            'player.name': 'Nome:',
+            'player.difficulty': 'Dificuldade:',
+            'player.microphone': 'Voz no alto-falante',
+            'difficulty.easy': 'Fácil',
+            'difficulty.medium': 'Médio',
+            'difficulty.hard': 'Difícil',
+            'buttons.addPlayer': 'Adicionar Jogador',
+            'buttons.removePlayer': 'Remover Jogador',
+            'buttons.backToSearch': 'Voltar à Pesquisa',
+            'buttons.addToQueue': 'Adicionar à Fila',
+            'step3.title': 'Música Adicionada com Sucesso!',
+            'step3.queueStatus': 'Status da Sua Fila',
+            'step3.positionInQueue': 'Posição na Fila',
+            'step3.ofSongs': 'de {count} músicas',
+            'step3.waitMessage': 'Aguarde sua vez. Sua música será tocada em breve!',
+            'buttons.viewQueue': 'Ver Fila Completa',
+            'buttons.addAnother': 'Adicionar Outra Música',
+            'modal.currentQueue': 'Fila Atual',
+            'queue.nowPlaying': 'Tocando Agora: ',
+            'queue.empty': 'A fila está vazia',
+            'song.by': 'por',
+            'queue.ready': '✓ Pronto',
+            'queue.processing': '⏳ Processando'
+        },
+        en: {
+            'header.title': '🎤 YASG Party Mode',
+            'header.subtitle': 'Search and add songs to the karaoke queue!',
+            'header.changeLanguage': 'Change Language',
+            'steps.search': 'Search Song',
+            'steps.players': 'Select Players',
+            'steps.complete': 'Complete',
+            'step1.title': 'Search for a Song',
+            'step1.placeholder': 'Search for a song or artist...',
+            'step1.searching': 'Searching...',
+            'step2.title': 'Configure Players',
+            'step2.playersTitle': 'Players (1-4)',
+            'player.title': 'Player {num}',
+            'player.name': 'Name:',
+            'player.difficulty': 'Difficulty:',
+            'player.microphone': 'Enable Microphone Feedback',
+            'difficulty.easy': 'Easy',
+            'difficulty.medium': 'Medium',
+            'difficulty.hard': 'Hard',
+            'buttons.addPlayer': 'Add Player',
+            'buttons.removePlayer': 'Remove Player',
+            'buttons.backToSearch': 'Back to Search',
+            'buttons.addToQueue': 'Add to Queue',
+            'step3.title': 'Song Added Successfully!',
+            'step3.queueStatus': 'Your Queue Status',
+            'step3.positionInQueue': 'Position in Queue',
+            'step3.ofSongs': 'of {count} songs',
+            'step3.waitMessage': 'Please wait for your turn. Your song will be played soon!',
+            'buttons.viewQueue': 'View Full Queue',
+            'buttons.addAnother': 'Add Another Song',
+            'modal.currentQueue': 'Current Queue',
+            'queue.nowPlaying': 'Now Playing: ',
+            'queue.empty': 'Queue is empty',
+            'song.by': 'by',
+            'queue.ready': '✓ Ready',
+            'queue.processing': '⏳ Processing'
+        }
+};
+
+// Language functions - Global functions
+function translate(key, args = {}) {
+    let text = translations[currentLanguage][key] || translations.en[key] || key;
+    
+    // Replace placeholders like {num}, {count}
+    for (const [placeholder, value] of Object.entries(args)) {
+        text = text.replace(new RegExp(`\\{${placeholder}\\}`, 'g'), value);
+    }
+    
+    return text;
+}
+
+function updatePageLanguage() {
+    // Update all elements with data-translate attribute
+    document.querySelectorAll('[data-translate]').forEach(element => {
+        const key = element.getAttribute('data-translate');
+        const args = element.getAttribute('data-translate-args');
+        const parsedArgs = args ? JSON.parse(args) : {};
+        element.textContent = translate(key, parsedArgs);
+    });
+    
+    // Update placeholder attributes
+    document.querySelectorAll('[data-translate-placeholder]').forEach(element => {
+        const key = element.getAttribute('data-translate-placeholder');
+        element.setAttribute('placeholder', translate(key));
+    });
+    
+    // Update dynamic content if functions are available
+    if (typeof updateQueuePosition === 'function') {
+        updateQueuePosition();
+    }
+    const queueModal = document.getElementById('queueModal');
+    if (queueModal && !queueModal.classList.contains('hidden') && typeof loadQueue === 'function') {
+        loadQueue();
+    }
+}
+
+function setLanguage(lang) {
+    currentLanguage = lang;
+    localStorage.setItem('yasg_language', lang);
+    
+    // Update button states
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
+    });
+    
+    updatePageLanguage();
+    
+    // Hide language selection and show main content
+    document.getElementById('languageSelection').classList.add('hidden');
+    document.getElementById('mainContent').classList.remove('hidden');
+}
+
+function showLanguageSelection() {
+    document.getElementById('languageSelection').classList.remove('hidden');
+    document.getElementById('mainContent').classList.add('hidden');
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    
     // Global state
     let currentStep = 1;
     let selectedSong = null;
@@ -1716,6 +1982,19 @@ document.addEventListener('DOMContentLoaded', function() {
     init();
     
     function init() {
+        // Check for saved language preference
+        const savedLang = localStorage.getItem('yasg_language');
+        if (savedLang && (savedLang === 'pt' || savedLang === 'en')) {
+            currentLanguage = savedLang;
+            // Auto-start with saved language
+            setLanguage(currentLanguage);
+        } else {
+            // Default to Portuguese and show language selection
+            currentLanguage = 'pt';
+            document.getElementById('languageSelection').classList.remove('hidden');
+            document.getElementById('mainContent').classList.add('hidden');
+        }
+        
         checkUserStatus();
         setupEventListeners();
         updateStepDisplay();
@@ -2007,22 +2286,22 @@ document.addEventListener('DOMContentLoaded', function() {
         playerEntry.setAttribute('data-player', playerNum);
         
         playerEntry.innerHTML = `
-            <h4>Player ${playerNum}</h4>
+            <h4>${translate('player.title', {num: playerNum})}</h4>
             <div class='form-group'>
-                <label>Name:</label>
+                <label>${translate('player.name')}</label>
                 <input type='text' name='playerName${playerNum}' required>
             </div>
             <div class='form-group'>
-                <label>Difficulty:</label>
+                <label>${translate('player.difficulty')}</label>
                 <select name='difficulty${playerNum}'>
-                    <option value='0'>Easy</option>
-                    <option value='1' selected>Medium</option>
-                    <option value='2'>Hard</option>
+                    <option value='0'>${translate('difficulty.easy')}</option>
+                    <option value='1' selected>${translate('difficulty.medium')}</option>
+                    <option value='2'>${translate('difficulty.hard')}</option>
                 </select>
             </div>
             <div class='form-group'>
                 <label>
-                    <input type='checkbox' name='micToggle${playerNum}' checked> Use Microphone
+                    <input type='checkbox' name='micToggle${playerNum}' checked> ${translate('player.microphone')}
                 </label>
             </div>
         `;
@@ -2187,13 +2466,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
             
             // Update current song
-            currentSong.textContent = 'Now Playing: ' + data.currentSong;
+            currentSong.textContent = translate('queue.nowPlaying') + data.currentSong;
             
             // Update queue list
             queueList.innerHTML = '';
             
             if (data.queue.length === 0) {
-                queueList.innerHTML = '<p style=""text-align: center; opacity: 0.7;"">Queue is empty</p>';
+                queueList.innerHTML = `<p style=""text-align: center; opacity: 0.7;"">${translate('queue.empty')}</p>`;
                 return;
             }
             
@@ -2204,11 +2483,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 queueItem.innerHTML = `
                     <div class=""song-info"">
                         <div class=""song-title"">${escapeHtml(item.name)}</div>
-                        <div class=""song-details"">by ${escapeHtml(item.artist)} • ${item.length}</div>
+                        <div class=""song-details"">${translate('song.by')} ${escapeHtml(item.artist)} • ${item.length}</div>
                     </div>
                     <div class=""players"">
                         ${item.players.join(', ')}
-                        ${item.processed ? '<br><small>✓ Ready</small>' : '<br><small>⏳ Processing</small>'}
+                        ${item.processed ? `<br><small>${translate('queue.ready')}</small>` : `<br><small>${translate('queue.processing')}</small>`}
                     </div>
                 `;
                 

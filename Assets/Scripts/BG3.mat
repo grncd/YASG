@@ -78,7 +78,7 @@ Material:
     - _LightingIntensity: 1
     - _LowIntensity: 0.18001415
     - _MaxIterations: 52.2
-    - _MaxSteps: 50
+    - _MaxSteps: 20
     - _Metallic: 0
     - _MidIntensity: 0.18000007
     - _Mode: 0
@@ -93,7 +93,7 @@ Material:
     - _SrcBlend: 1
     - _StepSize: 1.4
     - _SurfaceOffset: 0.001
-    - _TimeMult: 1
+    - _TimeMult: 0.2
     - _TimeScale: 0.1
     - _TimeSpeed: 0.54
     - _ToneMappingScale: 20000
