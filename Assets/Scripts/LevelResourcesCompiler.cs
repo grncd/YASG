@@ -80,6 +80,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         public List<bool> playerMicToggle;
         public BackgroundTrack track;
         public bool processed = false;
+        public bool isBeingProcessed = false;
         public string requestedByUserId;
     }
 
@@ -93,6 +94,12 @@ public class LevelResourcesCompiler : MonoBehaviour
     public GameObject advisorPrefab;
     public GameObject partyModeUI;
     public WebServerManager webServerManager;
+
+    public TextMeshProUGUI nextSongName;
+    public TextMeshProUGUI nextSongArtist;
+    public MPImage nextSongCover;
+    public MPImage nextSongBackdrop;
+    public TextMeshProUGUI nextSongLength;
 
     private int _originalVSyncCount;
 
@@ -122,8 +129,6 @@ public class LevelResourcesCompiler : MonoBehaviour
         initLoadingDone = true;
         RunUpdateCheckSilently(); // Run update check in background
         SceneManager.activeSceneChanged += OnSceneChanged;
-
-        partyMode = true;
         /*
         mainQueue.Add(new QueueObject
         {
@@ -181,17 +186,20 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     public void UpdatePartyModeUI()
     {
-        if (partyModeAdvisors != null)
+        if (mainQueue.Count != 0)
         {
-            foreach (Transform child in partyModeAdvisors)
+            if (partyModeAdvisors != null)
             {
-                Destroy(child.gameObject);
+                foreach (Transform child in partyModeAdvisors)
+                {
+                    Destroy(child.gameObject);
+                }
             }
-        }
-        foreach (string player in mainQueue[0].players)
-        {
-            GameObject advisor = Instantiate(advisorPrefab, partyModeAdvisors);
-            advisor.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = player + ",";
+            foreach (string player in mainQueue[0].players)
+            {
+                GameObject advisor = Instantiate(advisorPrefab, partyModeAdvisors);
+                advisor.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = player + ",";
+            }
         }
     }
 
@@ -204,13 +212,30 @@ public class LevelResourcesCompiler : MonoBehaviour
                 executionQueue.Dequeue().Invoke();
             }
         }
-        if (partyMode && SceneManager.GetActiveScene().name == "Menu")
+        if (partyMode)
         {
-            currentStatusText.text = currentStatus;
-            if (Input.GetKeyDown(KeyCode.Space))
+            if (SceneManager.GetActiveScene().name == "Menu")
             {
-                partyModeStartAllowed = false;
-                StartPartyMode(mainQueue[0].track.url, mainQueue[0].track.name, mainQueue[0].track.artist, mainQueue[0].track.length, mainQueue[0].track.cover);
+                currentStatusText.text = currentStatus;
+                if (mainQueue.Count != 0)
+                {
+                    if (Input.GetKeyDown(KeyCode.Space))
+                    {
+                        partyModeStartAllowed = false;
+                        StartPartyMode(mainQueue[0].track.url, mainQueue[0].track.name, mainQueue[0].track.artist, mainQueue[0].track.length, mainQueue[0].track.cover);
+                    }
+                    nextSongName.text = mainQueue[0].track.name;
+                    nextSongArtist.text = mainQueue[0].track.artist;
+                    nextSongLength.text = "Song Length: " + mainQueue[0].track.length;
+                    StartCoroutine(DownloadAlbumCover(mainQueue[0].track.cover, nextSongCover, nextSongBackdrop));
+                }
+            }
+            if (mainQueue.Count != 0)
+            {
+                if (!mainQueue[0].processed && !isProcessing)
+                {
+                    ProcessFirstOnQueue();
+                }
             }
         }
         
@@ -621,23 +646,16 @@ public class LevelResourcesCompiler : MonoBehaviour
     private async void ProcessFirstOnQueue()
     {
         isProcessing = true;
-        var currentTrack = compileExecutionQueue[0];
-        await BackgroundCompile(currentTrack.url, currentTrack.name, currentTrack.artist, currentTrack.length, currentTrack.cover);
-        compileExecutionQueue.RemoveAt(0);
-        
-        // Mark the corresponding queue item as processed
-        var queueItem = mainQueue.Find(q => q.track.url == currentTrack.url);
-        if (queueItem != null)
+        var currentQueue = mainQueue.FirstOrDefault(q => !q.processed);
+        var currentTrack = mainQueue.FirstOrDefault(q => !q.processed)?.track;
+        if (currentTrack == null)
         {
-            queueItem.processed = true;
-            
-            // Notify web server to clean up user session
-            if (webServerManager != null)
-            {
-                webServerManager.OnSongCompleted(queueItem.requestedByUserId);
-            }
+            isProcessing = false;
+            return;
         }
-        
+        await BackgroundCompile(currentTrack.url, currentTrack.name, currentTrack.artist, currentTrack.length, currentTrack.cover);
+        currentQueue.processed = true;
+
         isProcessing = false;
     }
 
