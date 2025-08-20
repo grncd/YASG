@@ -19,6 +19,8 @@ using static SearchHandler;
 using UnityEngine.Networking;
 using System.Text.RegularExpressions;
 using Debug = UnityEngine.Debug;
+using GameKit.Dependencies.Utilities;
+using FishNet.Demo.AdditiveScenes;
 
 public class LevelResourcesCompiler : MonoBehaviour
 {
@@ -62,6 +64,23 @@ public class LevelResourcesCompiler : MonoBehaviour
     private bool dontSave = false;
     public bool compiling = false;
     public Button startCompileButton;
+    public bool partyMode = false;
+
+    public TextMeshProUGUI currentStatusText;
+    private bool partyModeStartAllowed = true;
+    public Transform partyModeAdvisors;
+    public GameObject advisorPrefab;
+    public GameObject partyModeUI;
+    public WebServerManager webServerManager;
+
+    public TextMeshProUGUI nextSongName;
+    public TextMeshProUGUI nextSongArtist;
+    public MPImage nextSongCover;
+    public MPImage nextSongBackdrop;
+    public TextMeshProUGUI nextSongLength;
+    public GameObject menuGO;
+    public GameObject profileDisplay;
+    public Sprite placeholder;
 
     private int _originalVSyncCount;
 
@@ -70,7 +89,10 @@ public class LevelResourcesCompiler : MonoBehaviour
     private void Awake()
     {
         Instance = this;
+        DontDestroyOnLoad(gameObject);
     }
+
+
 
     private void Start()
     {
@@ -79,9 +101,117 @@ public class LevelResourcesCompiler : MonoBehaviour
         progressBar.gameObject.SetActive(false);
         initLoadingDone = true;
         RunUpdateCheckSilently(); // Run update check in background
+        SceneManager.activeSceneChanged += OnSceneChanged;
+        if (PlayerPrefs.GetInt("partyMode") == 1)
+        {
+            partyMode = true;
+            partyModeUI.SetActive(true);
+            menuGO.SetActive(false);
+            profileDisplay.SetActive(false);
+            GameObject.Find("QRCodeCanvas").GetComponent<CanvasGroup>().alpha = 1f;
+            UpdatePartyModeUI();
+        }
+        /*
+        mainQueue.Add(new QueueObject
+        {
+            players = new List<string> { "bingola games" },
+            playerDifficulties = new List<int> { 1 },
+            playerMicToggle = new List<bool> { true },
+            track = new BackgroundTrack
+            {
+                url = "https://open.spotify.com/track/5MLTylyzHVd7oV8OE4JMZt",
+                name = "Até Que Durou - Ao Vivo",
+                artist = "Péricles",
+                length = "5:13",
+                cover = "https://i.scdn.co/image/ab67616d0000b273c01abbbe975f17c84487e9f8"
+            }
+        });
+        // compileExecutionQueue.Add(mainQueue[0].track); // Moved to WebServerManager
+        ProcessFirstOnQueue();
+        */
+    }
+
+    public void OnSceneChanged(Scene oldScene, Scene newScene)
+    {
+        if (newScene.name == "Menu")
+        {
+            currentStatusText = GameObject.Find("CurrentSongStatusText").GetComponent<TextMeshProUGUI>();
+        }
+        if (newScene.name == "Results")
+        {
+            Destroy(gameObject);
+        }
     }
 
 
+
+    public void TogglePartyMode()
+    {
+        if (!partyMode)
+        {
+            partyMode = true;
+            partyModeUI.SetActive(true);
+            profileDisplay.SetActive(false);
+            UpdatePartyModeUI();
+            PlayerPrefs.SetInt("partyMode", 1);
+            GameObject.Find("QRCodeCanvas").GetComponent<CanvasGroup>().alpha = 1f;
+            // Start web server for party mode
+            if (webServerManager != null)
+            {
+                webServerManager.StartWebServer();
+                webServerManager.player1Old = PlayerPrefs.GetInt("Player1");
+                webServerManager.player1NameOld = PlayerPrefs.GetString("Player1Name");
+                webServerManager.player2Old = PlayerPrefs.GetInt("Player2");
+                webServerManager.player2NameOld = PlayerPrefs.GetString("Player2Name");
+                webServerManager.player3Old = PlayerPrefs.GetInt("Player3");
+                webServerManager.player3NameOld = PlayerPrefs.GetString("Player3Name");
+                webServerManager.player4Old = PlayerPrefs.GetInt("Player4");
+                webServerManager.player4NameOld = PlayerPrefs.GetString("Player4Name");
+            }
+            else
+            {
+                partyMode = false;
+                partyModeUI.SetActive(false);
+                profileDisplay.SetActive(true);
+                menuGO.SetActive(true);
+                PlayerPrefs.SetInt("partyMode", 0);
+                GameObject.Find("QRCodeCanvas").GetComponent<CanvasGroup>().alpha = 0f;
+                // Stop web server
+                if (webServerManager != null)
+                {
+                    webServerManager.StopWebServer();
+                    PlayerPrefs.SetInt("Player1", webServerManager.player1Old);
+                    PlayerPrefs.SetString("Player1Name", webServerManager.player1NameOld);
+                    PlayerPrefs.SetInt("Player2", webServerManager.player2Old);
+                    PlayerPrefs.SetString("Player2Name", webServerManager.player2NameOld);
+                    PlayerPrefs.SetInt("Player3", webServerManager.player3Old);
+                    PlayerPrefs.SetString("Player3Name", webServerManager.player3NameOld);
+                    PlayerPrefs.SetInt("Player4", webServerManager.player4Old);
+                    PlayerPrefs.SetString("Player4Name", webServerManager.player4NameOld);
+                }
+            }
+        }
+    }
+
+    public void UpdatePartyModeUI()
+    {
+        if (WebServerManager.Instance != null && WebServerManager.Instance.mainQueue.Count != 0)
+        {
+            if (partyModeAdvisors != null)
+            {
+                foreach (Transform child in partyModeAdvisors)
+                {
+                    Destroy(child.gameObject);
+                }
+            }
+            foreach (string player in WebServerManager.Instance.mainQueue[0].players)
+            {
+                GameObject advisor = Instantiate(advisorPrefab, partyModeAdvisors);
+                advisor.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = player + ",";
+                
+            }
+        }
+    }
 
     void Update()
     {
@@ -92,7 +222,69 @@ public class LevelResourcesCompiler : MonoBehaviour
                 executionQueue.Dequeue().Invoke();
             }
         }
-
+        if (partyMode)
+        {
+            if (SceneManager.GetActiveScene().name == "Menu")
+            {
+                if (WebServerManager.Instance != null)
+                {
+                    currentStatusText.text = WebServerManager.Instance.GetCurrentStatus();
+                    if (WebServerManager.Instance.mainQueue.Count != 0)
+                    {
+                        if (Input.GetKeyDown(KeyCode.Space))
+                        {
+                            partyModeStartAllowed = false;
+                            var firstTrack = WebServerManager.Instance.mainQueue[0].track;
+                            StartPartyMode(firstTrack.url, firstTrack.name, firstTrack.artist, firstTrack.length, firstTrack.cover);
+                        }
+                        if (Input.GetKeyDown(KeyCode.Backspace))
+                        {
+                            WebServerManager.Instance.mainQueue.RemoveAt(0);
+                            if (WebServerManager.Instance.IsProcessing())
+                            {
+                                WebServerManager.Instance.SetProcessing(false);
+                                if (activeProcess != null && !activeProcess.HasExited)
+                                {
+                                    try
+                                    {
+                                        activeProcess.Kill();
+                                        Debug.Log("Killed background process from BackgroundCompile.");
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Debug.LogWarning($"Failed to kill background process: {ex.Message}");
+                                    }
+                                }
+                            }
+                        }
+                        if (WebServerManager.Instance.mainQueue[0].track.name != nextSongName.text)
+                        {
+                            nextSongName.text = WebServerManager.Instance.mainQueue[0].track.name;
+                            nextSongArtist.text = WebServerManager.Instance.mainQueue[0].track.artist;
+                            nextSongLength.text = "Song Length: " + WebServerManager.Instance.mainQueue[0].track.length;
+                            StartCoroutine(DownloadAlbumCover(WebServerManager.Instance.mainQueue[0].track.cover, nextSongCover, nextSongBackdrop));
+                            BGMusic.Instance.PreviewSong(WebServerManager.Instance.mainQueue[0].track.url);
+                        }
+                    }
+                    else
+                    {
+                        nextSongName.text = "----------------------";
+                        nextSongArtist.text = "Escaneie o QR Code abaixo para adicionar músicas!";
+                        nextSongLength.text = "Song Length: X:XX";
+                        nextSongCover.sprite = placeholder;
+                        nextSongBackdrop.sprite = placeholder;
+                    }
+                }
+            }
+            if (WebServerManager.Instance != null && WebServerManager.Instance.mainQueue.Count != 0)
+            {
+                if (!WebServerManager.Instance.mainQueue[0].processed && !WebServerManager.Instance.IsProcessing())
+                {
+                    ProcessFirstOnQueue();
+                }
+            }
+        }
+        
         if (lyricsError)
         {
             alertManager.ShowError("This song does not have lyrics.", "The song you've selected either has no lyrics or we couldn't find any synced lyrics for it. If this song has lyrics and you'd like to add them, <b>use the Add Lyrics button</b> located in the menu.", "Dismiss");
@@ -104,9 +296,9 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             progressBar.gameObject.SetActive(true);
             elapsedFakeLoading += Time.deltaTime;
-            progressBar.value = elapsedFakeLoading / 25f;
+            progressBar.value = elapsedFakeLoading / 32f;
             GameObject progress2 = loadingSecond.transform.GetChild(4).GetChild(1).gameObject;
-            progress2.GetComponent<Slider>().value = elapsedFakeLoading / 25f;
+            progress2.GetComponent<Slider>().value = elapsedFakeLoading / 32f;
         }
         else if (!fakeLoading && elapsedFakeLoading != 0f)
         {
@@ -119,7 +311,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             initLoadingDone = false;
             LoadingDone();
         }
-        if (splittingVocals)
+        if (splittingVocals && !partyMode)
         {
             GameObject progress3 = loadingSecond.transform.GetChild(4).GetChild(2).gameObject;
             progress3.GetComponent<Slider>().value = progressBar.value;
@@ -136,7 +328,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
             extractedFileName = null;
         }
-        if (currentPercentage != 0f)
+        if (currentPercentage != 0f && !partyMode)
         {
             progressBar.gameObject.SetActive(true);
             progressBar.value = currentPercentage;
@@ -497,11 +689,96 @@ public class LevelResourcesCompiler : MonoBehaviour
         return Path.Combine(dataPath, "downloads", fileName);
     }
 
-    
+    private async void ProcessFirstOnQueue()
+    {
+        if (WebServerManager.Instance != null)
+        {
+            WebServerManager.Instance.SetProcessing(true);
+            var currentQueue = WebServerManager.Instance.mainQueue.FirstOrDefault(q => !q.processed);
+            var currentTrack = WebServerManager.Instance.mainQueue.FirstOrDefault(q => !q.processed)?.track;
+            if (currentTrack == null)
+            {
+                WebServerManager.Instance.SetProcessing(false);
+                return;
+            }
+            await BackgroundCompile(currentTrack.url, currentTrack.name, currentTrack.artist, currentTrack.length, currentTrack.cover);
+            currentQueue.processed = true;
+
+            WebServerManager.Instance.SetProcessing(false);
+        }
+    }
+
+    public async void StartPartyMode(string url, string name, string artist, string length, string cover)
+    {
+        var i = 0;
+        PlayerPrefs.SetInt("Player1", 0);
+        PlayerPrefs.SetInt("Player2", 0);
+        PlayerPrefs.SetInt("Player3", 0);
+        PlayerPrefs.SetInt("Player4", 0);
+        foreach (string playerName in WebServerManager.Instance.mainQueue[0].players)
+        {
+            i++;
+            PlayerPrefs.SetString($"Player{i}Name", playerName);
+            PlayerPrefs.SetInt($"Player{i}Difficulty", WebServerManager.Instance.mainQueue[0].playerDifficulties[i - 1]);
+            PlayerPrefs.SetInt($"Player{i}MicToggle", WebServerManager.Instance.mainQueue[0].playerMicToggle[i - 1] ? 1 : 0);
+            PlayerPrefs.SetInt($"Player{i}", 1);
+        }
+
+        if (i == 4)
+        {
+            GameObject.Find("QRCodeCanvas").GetComponent<CanvasGroup>().alpha = 0.5f;
+        }
+
+        dataPath = PlayerPrefs.GetString("dataPath");
+        UnityEngine.Debug.Log($"STARTING: {url}, {name}, {artist}, {length}, {cover}");
+        PlayerPrefs.SetString("currentSongURL", url);
+        name = name.Replace("\\", " ");
+        songInfo.transform.GetChild(4).GetComponent<AudioSource>().Play();
+
+        string sanitizedName = SanitizeFileName(name);
+        if (!CheckFile(sanitizedName + ".txt"))
+        {
+            File.Move(Path.Combine(dataPath,"downloads",sanitizedName + ".lrc"),Path.Combine(dataPath,"downloads",sanitizedName + ".txt") );
+        }
+        
+        transitionAnim.Play("TransitionSaved");
+        await Task.Delay(1450);
+        if (WebServerManager.Instance != null && WebServerManager.Instance.mainQueue.Count > 0)
+        {
+            WebServerManager.Instance.mainQueue.RemoveAt(0);
+        }
+
+        PlayerPrefs.SetString("currentSong", name);
+        PlayerPrefs.SetString("currentArtist", artist);
+        if (CheckFile(sanitizedName + ".txt"))
+        {
+            PlayerPrefs.SetInt("saved", 1);
+
+            string safeArtist = SanitizeFileName(artist);
+            string expectedFileName = $"{safeArtist} - {sanitizedName}.mp3";
+            string expectedFilePath = Path.Combine(dataPath, "downloads", expectedFileName);
+
+            if (File.Exists(expectedFilePath))
+            {
+                UnityEngine.Debug.Log("Found corresponding file: " + expectedFilePath);
+                string vocalLocation = Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedFilePath) + " [vocals].mp3");
+                PlayerPrefs.SetString("vocalLocation", vocalLocation);
+                PlayerPrefs.SetString("fullLocation", expectedFilePath);
+                partyModeStartAllowed = true; 
+                if (PlayerPrefs.GetInt("multiplayer") == 0) LoadMain();
+                return;
+            }
+            else
+            {
+                UnityEngine.Debug.LogError($"Lyrics file found for '{name}', but the corresponding audio file '{expectedFileName}' is missing in the downloads folder. A re-download might be required. If the issue persists, delete the song's .txt file inside YASG's data folder.");
+                return;
+            }
+        }
+    }
 
     public async Task StartCompile(string url, string name, string artist, string length, string cover)
     {
-        startCompileButton.interactable = false; 
+        startCompileButton.interactable = false;
         dataPath = PlayerPrefs.GetString("dataPath");
         UnityEngine.Debug.Log($"CALLED: {url}, {name}, {artist}, {length}, {cover}");
         PlayerPrefs.SetString("currentSongURL", url);
@@ -531,7 +808,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         PlayerPrefs.SetString("currentSong", name);
         PlayerPrefs.SetString("currentArtist", artist);
-        startCompileButton.interactable = true; 
+        startCompileButton.interactable = true;
         if (CheckFile(sanitizedName + ".txt"))
         {
             status.text = "Already downloaded. Loading main scene...";
@@ -684,7 +961,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             File.Move(downloadedMp3, expectedAudioPath);
 
             UnityEngine.Debug.Log($"Moved downloaded file to: {expectedAudioPath}");
-            
+
             if (!success)
             {
                 alertManager.ShowError("An error occured downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
@@ -710,7 +987,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         splittingVocals = true;
         stage3.transform.GetChild(1).gameObject.SetActive(true);
 
-        if(SettingsManager.Instance.GetSetting<int>("VocalProcessingMethod") == 1)
+        if (SettingsManager.Instance.GetSetting<int>("VocalProcessingMethod") == 1)
         {
             StartCoroutine(FadeImageAlpha(bgDarken, 1f, 1f));
             await Task.Delay(1010);
@@ -746,6 +1023,187 @@ public class LevelResourcesCompiler : MonoBehaviour
         stage4.transform.GetChild(1).gameObject.SetActive(true);
         await Task.Delay(1010);
         if (PlayerPrefs.GetInt("multiplayer") == 0) LoadMain();
+    }
+
+
+    public async Task BackgroundCompile(string url, string name, string artist, string length, string cover)
+    {
+        dataPath = PlayerPrefs.GetString("dataPath");
+        UnityEngine.Debug.Log($"Now processing: {url}, {name}, {artist}, {length}, {cover}");
+        PlayerPrefs.SetString("currentSongURL", url);
+        name = name.Replace("\\", " ");
+
+        string sanitizedName = SanitizeFileName(name);
+
+        if (CheckFile(sanitizedName + ".txt"))
+        {
+            if (WebServerManager.Instance != null)
+            {
+                WebServerManager.Instance.SetCurrentStatus("Ready to play!");
+            }
+            return; // No need to proceed if the file already exists
+        }
+
+        //PlayerPrefs.SetString("currentSong", name);
+        //PlayerPrefs.SetString("currentArtist", artist);
+        //startCompileButton.interactable = true; 
+        /*
+        if (CheckFile(sanitizedName + ".txt"))
+        {
+            status.text = "Already downloaded. Loading main scene...";
+            PlayerPrefs.SetInt("saved", 1);
+
+            string safeArtist = SanitizeFileName(artist);
+            string expectedFileName = $"{safeArtist} - {sanitizedName}.mp3";
+            string expectedFilePath = Path.Combine(dataPath, "downloads", expectedFileName);
+
+            if (File.Exists(expectedFilePath))
+            {
+                UnityEngine.Debug.Log("Found corresponding file: " + expectedFilePath);
+                string vocalLocation = Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedFilePath) + " [vocals].mp3");
+                PlayerPrefs.SetString("vocalLocation", vocalLocation);
+                PlayerPrefs.SetString("fullLocation", expectedFilePath);
+                if (PlayerPrefs.GetInt("multiplayer") == 0) LoadMain();
+                return;
+            }
+            else
+            {
+                UnityEngine.Debug.LogError($"Lyrics file found for '{name}', but the corresponding audio file '{expectedFileName}' is missing in the downloads folder. A re-download might be required. If the issue persists, delete the song's .txt file inside YASG's data folder.");
+                return;
+            }
+        }
+        */
+        if (WebServerManager.Instance != null)
+        {
+            WebServerManager.Instance.SetCurrentStatus("Fetching lyrics...");
+        }
+        compiling = true;
+
+        ProcessStartInfo psi = new ProcessStartInfo
+        {
+            FileName = dataPath + "\\getlyrics.bat",
+            Arguments = url + " " + dataPath,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        Process process = new Process { StartInfo = psi };
+        process.OutputDataReceived += (sender, args) =>
+        {
+            if (string.IsNullOrEmpty(args.Data)) return;
+            UnityEngine.Debug.Log("Output: " + args.Data);
+            if (args.Data.Contains("some tracks"))
+            {
+                lyricsError2 = true; // Set flag to try fallback
+            }
+        };
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        await Task.Run(() => process.WaitForExit());
+        UnityEngine.Debug.Log("Lyrics script finished.");
+
+        // --- FALLBACK LOGIC ---
+        if (lyricsError2)
+        {
+            lyricsError2 = false; // Reset flag
+            status.text = "Primary source failed. Trying LRCLib...";
+            UnityEngine.Debug.Log("Initial lyric fetch failed. Attempting LRCLib fallback.");
+
+            // In multiplayer, selectedTrack might be null. Use the cached track.
+            Track trackForLrcLib = selectedTrack;
+            if (PlayerPrefs.GetInt("multiplayer") == 1 && trackForLrcLib == null)
+            {
+                if (lastPrecompiledTrack != null && lastPrecompiledTrack.name == name && lastPrecompiledTrack.artists[0].name == artist)
+                {
+                    trackForLrcLib = lastPrecompiledTrack;
+                    UnityEngine.Debug.Log("Using cached track for LRCLib fallback in multiplayer.");
+                }
+                else
+                {
+                    UnityEngine.Debug.LogError("LRCLib fallback in multiplayer failed: No valid cached track found.");
+                    lyricsError = true;
+                    loadingFX.SetActive(false);
+                    return;
+                }
+            }
+
+            bool fallbackSuccess = await FetchLyricsFromLrcLib(trackForLrcLib);
+
+            if (!fallbackSuccess)
+            {
+                UnityEngine.Debug.LogError("LRCLib fallback also failed. No lyrics found.");
+                lyricsError = true; // Trigger the final error UI
+                loadingFX.SetActive(false);
+                return;
+            }
+
+            UnityEngine.Debug.Log("LRCLib fallback successful!");
+        }
+
+        if (WebServerManager.Instance != null)
+        {
+            WebServerManager.Instance.SetCurrentStatus("Downloading song...");
+        }
+
+        bool success = false;
+        string expectedAudioPath = GetExpectedAudioFilePath(artist, name);
+
+        while (!success)
+        {
+            if (File.Exists(expectedAudioPath))
+            {
+                UnityEngine.Debug.Log("Audio file already exists. Skipping download.");
+                success = true;
+                //PlayerPrefs.SetString("fullLocation", expectedAudioPath);
+                //PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedAudioPath) + " [vocals].mp3"));
+            }
+            else
+            {
+                success = await AttemptDownload(url);
+
+                var downloadedMp3 = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
+
+                DateTime creationTime = File.GetCreationTime(downloadedMp3);
+                if (!((DateTime.Now - creationTime).TotalSeconds < 50))
+                {
+                    success = false;
+                }
+
+                if (File.Exists(expectedAudioPath)) File.Delete(expectedAudioPath);
+                File.Move(downloadedMp3, expectedAudioPath);
+
+                UnityEngine.Debug.Log($"Moved downloaded file to: {expectedAudioPath}");
+            }
+        }
+
+        if (WebServerManager.Instance != null)
+        {
+            WebServerManager.Instance.SetCurrentStatus("Splitting vocals...");
+        }
+        splittingVocals = true;
+
+        if (SettingsManager.Instance.GetSetting<int>("VocalProcessingMethod") == 1)
+        {
+            StartCoroutine(FadeImageAlpha(bgDarken, 1f, 1f));
+            await Task.Delay(1010);
+            bgGM.SetActive(false);
+        }
+
+        await RunPythonDirectly(expectedAudioPath);
+
+        splittingVocals = false;
+        currentPercentage = 0f;
+
+        FavoritesManager.AddDownload(name, artist, length, cover, url);
+
+        if (WebServerManager.Instance != null)
+        {
+            WebServerManager.Instance.SetCurrentStatus("Ready to play!");
+        }
     }
 
     private async Task<bool> FetchLyricsFromLrcLib(Track track)
@@ -1081,6 +1539,10 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     void OnApplicationQuit()
     {
+        if (partyMode)
+        {
+            TogglePartyMode();
+        }
         if (activeProcess != null && !activeProcess.HasExited)
         {
             Debug.Log("Application quitting, killing active process...");
@@ -1197,6 +1659,11 @@ public class LevelResourcesCompiler : MonoBehaviour
             if (string.IsNullOrEmpty(args.Data)) return;
             UnityEngine.Debug.Log("Output: " + args.Data);
             if (args.Data.Contains("duplicate")) dontSave = true;
+            if (args.Data.Contains("KeyError:"))
+            {
+                fail = true;
+                if (!process.HasExited) process.Kill();
+            }
         };
 
         process.ErrorDataReceived += (sender, args) =>
@@ -1204,6 +1671,11 @@ public class LevelResourcesCompiler : MonoBehaviour
             if (string.IsNullOrEmpty(args.Data)) return;
             UnityEngine.Debug.LogError("Error: " + args.Data);
             if (args.Data.Contains("Traceback"))
+            {
+                fail = true;
+                if (!process.HasExited) process.Kill();
+            }
+            if (args.Data.Contains("KeyError:"))
             {
                 fail = true;
                 if (!process.HasExited) process.Kill();
