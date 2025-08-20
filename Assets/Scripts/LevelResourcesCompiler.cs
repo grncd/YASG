@@ -140,6 +140,8 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
     }
 
+
+
     public void TogglePartyMode()
     {
         if (!partyMode)
@@ -221,6 +223,7 @@ public class LevelResourcesCompiler : MonoBehaviour
                             nextSongArtist.text = WebServerManager.Instance.mainQueue[0].track.artist;
                             nextSongLength.text = "Song Length: " + WebServerManager.Instance.mainQueue[0].track.length;
                             StartCoroutine(DownloadAlbumCover(WebServerManager.Instance.mainQueue[0].track.cover, nextSongCover, nextSongBackdrop));
+                            BGMusic.Instance.PreviewSong(WebServerManager.Instance.mainQueue[0].track.url);
                         }
                     }
                 }
@@ -277,7 +280,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
             extractedFileName = null;
         }
-        if (currentPercentage != 0f)
+        if (currentPercentage != 0f && !partyMode)
         {
             progressBar.gameObject.SetActive(true);
             progressBar.value = currentPercentage;
@@ -682,7 +685,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         string sanitizedName = SanitizeFileName(name);
         if (!CheckFile(sanitizedName + ".txt"))
         {
-            File.Move(sanitizedName + ".lrc", sanitizedName + ".txt");
+            File.Move(Path.Combine(dataPath,"downloads",sanitizedName + ".lrc"),Path.Combine(dataPath,"downloads",sanitizedName + ".txt") );
         }
         
         transitionAnim.Play("TransitionSaved");
@@ -694,7 +697,6 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         PlayerPrefs.SetString("currentSong", name);
         PlayerPrefs.SetString("currentArtist", artist);
-        startCompileButton.interactable = true;
         if (CheckFile(sanitizedName + ".txt"))
         {
             PlayerPrefs.SetInt("saved", 1);
@@ -1488,6 +1490,10 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     void OnApplicationQuit()
     {
+        if (partyMode)
+        {
+            TogglePartyMode();
+        }
         if (activeProcess != null && !activeProcess.HasExited)
         {
             Debug.Log("Application quitting, killing active process...");

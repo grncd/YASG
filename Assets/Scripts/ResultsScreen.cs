@@ -192,8 +192,9 @@ public class ResultsScreen : MonoBehaviour
                     float previousPercent = ((float)(formerScore - GetXpForPreviousLevels(formerLevel)) / GetRequiredXPForLevel(formerLevel));
 
                     StartCoroutine(AnimatePlayerXP(panel, profile.level, previousPercent, profile.progressRemaining / 100f, profile.level > formerLevel));
-                    StartCoroutine(AnimateStars(panel.starsLocation, stars));
                 }
+                
+                StartCoroutine(AnimateStars(panel.starsLocation, stars));
             }
             else
             {
@@ -373,7 +374,10 @@ public class ResultsScreen : MonoBehaviour
         resultsOutFX.Play();
         StartCoroutine(ChangeVolumeRoutine(backgroundMusic, 0f, 0.6f));
         await Task.Delay(700);
-        PlayerPrefs.SetInt("fromMP", 1);
+        if (PlayerPrefs.GetInt("partyMode") == 0)
+        {
+            PlayerPrefs.SetInt("fromMP", 1);
+        }
         // Check if we are in a multiplayer session.
         if (PlayerPrefs.GetInt("multiplayer") == 1)
         {

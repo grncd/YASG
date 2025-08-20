@@ -804,11 +804,12 @@ tunnels:
                 
                 // Create sprite
                 Sprite qrSprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
-                
+
                 // Set sprite on main thread
                 if (qrCodeImage != null)
                 {
                     qrCodeImage.sprite = qrSprite;
+                    qrCodeImage.color = Color.white;
                 }
                 
                 UnityEngine.Debug.Log("QR code generated successfully");
