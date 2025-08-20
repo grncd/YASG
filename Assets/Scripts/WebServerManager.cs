@@ -195,6 +195,16 @@ public class WebServerManager : MonoBehaviour
     
     public static WebServerManager Instance { get; private set; }
 
+    public int player1Old;
+    public string player1NameOld;
+    public int player2Old;
+    public string player2NameOld;
+    public int player3Old;
+    public string player3NameOld;
+    public int player4Old;
+    public string player4NameOld;
+
+
     private void Awake()
     {
         // Singleton setup
@@ -2708,6 +2718,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     private void OnApplicationQuit()
     {
+        if (LevelResourcesCompiler.Instance.partyMode)
+        {
+            PlayerPrefs.SetInt("partyMode", 0);
+            PlayerPrefs.SetInt("Player1", player1Old);
+            PlayerPrefs.SetString("Player1Name", player1NameOld);
+            PlayerPrefs.SetInt("Player2", player2Old);
+            PlayerPrefs.SetString("Player2Name", player2NameOld);
+            PlayerPrefs.SetInt("Player3", player3Old);
+            PlayerPrefs.SetString("Player3Name", player3NameOld);
+            PlayerPrefs.SetInt("Player4", player4Old);
+            PlayerPrefs.SetString("Player4Name", player4NameOld);
+        }
         StopWebServer();
     }
     
