@@ -107,16 +107,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     private void Awake()
     {
-        // Singleton setup
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject); // Persist across scenes
-        }
-        else
-        {
-            Destroy(gameObject); // Destroy duplicate
-        }
+        Instance = this;
     }
 
 
@@ -164,7 +155,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             partyMode = true;
             partyModeUI.SetActive(true);
             UpdatePartyModeUI();
-            
+            PlayerPrefs.SetInt("partyMode", 1);
             // Start web server for party mode
             if (webServerManager != null)
             {
@@ -175,7 +166,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             partyMode = false;
             partyModeUI.SetActive(false);
-            
+            PlayerPrefs.SetInt("partyMode", 0);
             // Stop web server
             if (webServerManager != null)
             {
@@ -224,10 +215,13 @@ public class LevelResourcesCompiler : MonoBehaviour
                         partyModeStartAllowed = false;
                         StartPartyMode(mainQueue[0].track.url, mainQueue[0].track.name, mainQueue[0].track.artist, mainQueue[0].track.length, mainQueue[0].track.cover);
                     }
-                    nextSongName.text = mainQueue[0].track.name;
-                    nextSongArtist.text = mainQueue[0].track.artist;
-                    nextSongLength.text = "Song Length: " + mainQueue[0].track.length;
-                    StartCoroutine(DownloadAlbumCover(mainQueue[0].track.cover, nextSongCover, nextSongBackdrop));
+                    if (mainQueue[0].track.name != nextSongName.text)
+                    {
+                        nextSongName.text = mainQueue[0].track.name;
+                        nextSongArtist.text = mainQueue[0].track.artist;
+                        nextSongLength.text = "Song Length: " + mainQueue[0].track.length;
+                        StartCoroutine(DownloadAlbumCover(mainQueue[0].track.cover, nextSongCover, nextSongBackdrop));
+                    }
                 }
             }
             if (mainQueue.Count != 0)
@@ -668,22 +662,14 @@ public class LevelResourcesCompiler : MonoBehaviour
         songInfo.transform.GetChild(4).GetComponent<AudioSource>().Play();
 
         string sanitizedName = SanitizeFileName(name);
-
         if (!CheckFile(sanitizedName + ".txt"))
         {
-            transitionAnim.Play("Transition");
-            await Task.Delay(1350);
-            if (songInfo.activeSelf)
-            {
-                mainPanel.SetActive(false);
-            }
-            await Task.Delay(384);
+            File.Move(sanitizedName + ".lrc", sanitizedName + ".txt");
         }
-        else
-        {
-            transitionAnim.Play("TransitionSaved");
-            await Task.Delay(1450);
-        }
+        
+        transitionAnim.Play("TransitionSaved");
+        await Task.Delay(1450);
+        mainQueue.RemoveAt(0);
 
         PlayerPrefs.SetString("currentSong", name);
         PlayerPrefs.SetString("currentArtist", artist);
@@ -963,9 +949,10 @@ public class LevelResourcesCompiler : MonoBehaviour
         if (PlayerPrefs.GetInt("multiplayer") == 0) LoadMain();
     }
 
+
     public async Task BackgroundCompile(string url, string name, string artist, string length, string cover)
     {
-        startCompileButton.interactable = false; 
+        startCompileButton.interactable = false;
         dataPath = PlayerPrefs.GetString("dataPath");
         UnityEngine.Debug.Log($"Now processing: {url}, {name}, {artist}, {length}, {cover}");
         PlayerPrefs.SetString("currentSongURL", url);
@@ -976,8 +963,8 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         if (CheckFile(sanitizedName + ".txt"))
         {
-            //currentStatus = "Ready to play!";
-            //return; // No need to proceed if the file already exists
+            currentStatus = "Ready to play!";
+            return; // No need to proceed if the file already exists
         }
 
         //PlayerPrefs.SetString("currentSong", name);
@@ -1105,7 +1092,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             File.Move(downloadedMp3, expectedAudioPath);
 
             UnityEngine.Debug.Log($"Moved downloaded file to: {expectedAudioPath}");
-            
+
             if (!success)
             {
                 alertManager.ShowError("An error occured downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
