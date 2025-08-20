@@ -149,6 +149,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             profileDisplay.SetActive(false);
             UpdatePartyModeUI();
             PlayerPrefs.SetInt("partyMode", 1);
+            GameObject.Find("QRCodeCanvas").GetComponent<CanvasGroup>().alpha = 1f;
             // Start web server for party mode
             if (webServerManager != null)
             {
@@ -160,7 +161,9 @@ public class LevelResourcesCompiler : MonoBehaviour
             partyMode = false;
             partyModeUI.SetActive(false);
             profileDisplay.SetActive(true);
+            menuGO.SetActive(true);
             PlayerPrefs.SetInt("partyMode", 0);
+            GameObject.Find("QRCodeCanvas").GetComponent<CanvasGroup>().alpha = 0f;
             // Stop web server
             if (webServerManager != null)
             {
@@ -257,7 +260,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             initLoadingDone = false;
             LoadingDone();
         }
-        if (splittingVocals)
+        if (splittingVocals && !partyMode)
         {
             GameObject progress3 = loadingSecond.transform.GetChild(4).GetChild(2).gameObject;
             progress3.GetComponent<Slider>().value = progressBar.value;
@@ -665,6 +668,8 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             i++;
             PlayerPrefs.SetString($"Player{i}Name", playerName);
+            PlayerPrefs.SetInt($"Player{i}Difficulty", WebServerManager.Instance.mainQueue[0].playerDifficulties[i - 1]);
+            PlayerPrefs.SetInt($"Player{i}MicToggle", WebServerManager.Instance.mainQueue[0].playerMicToggle[i - 1] ? 1 : 0);
             PlayerPrefs.SetInt($"Player{i}", 1);
         }
 
@@ -1099,9 +1104,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
         else
         {
-            fakeLoading = true;
             bool success = await AttemptDownload(url);
-            fakeLoading = false;
 
             var downloadedMp3 = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
 
@@ -1138,17 +1141,8 @@ public class LevelResourcesCompiler : MonoBehaviour
             await Task.Delay(1010);
             bgGM.SetActive(false);
         }
-        else
-        {
-            _originalVSyncCount = QualitySettings.vSyncCount;
-            QualitySettings.vSyncCount = 0;
-            Application.targetFrameRate = 30;
-        }
 
         await RunPythonDirectly(expectedAudioPath);
-
-        Application.targetFrameRate = -1;
-        QualitySettings.vSyncCount = _originalVSyncCount;
 
         splittingVocals = false;
         currentPercentage = 0f;

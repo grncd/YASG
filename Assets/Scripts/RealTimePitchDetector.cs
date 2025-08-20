@@ -348,9 +348,13 @@ public class RealTimePitchDetector : MonoBehaviour
     {
 
         Debug.Log("Recording coroutine called");
-        if (PlayerPrefs.GetInt("multiplayer") == 0)
+        if (PlayerPrefs.GetInt("multiplayer") == 0 && PlayerPrefs.GetInt("partyMode") == 0)
         {
             diffIndex = ProfileManager.Instance.GetProfileByName(PlayerPrefs.GetString(gameObject.name + "Name")).difficulty;
+        }
+        else if (PlayerPrefs.GetInt("partyMode") == 0)
+        {
+            diffIndex = PlayerPrefs.GetInt(gameObject.name + "Difficulty");
         }
         else
         {
