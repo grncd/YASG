@@ -65,29 +65,6 @@ public class LevelResourcesCompiler : MonoBehaviour
     public Button startCompileButton;
     private bool partyMode = false;
 
-    public class BackgroundTrack
-    {
-        public string url;
-        public string name;
-        public string artist;
-        public string length;
-        public string cover;
-    }
-    public class QueueObject
-    {
-        public List<string> players;
-        public List<int> playerDifficulties;
-        public List<bool> playerMicToggle;
-        public BackgroundTrack track;
-        public bool processed = false;
-        public bool isBeingProcessed = false;
-        public string requestedByUserId;
-    }
-
-    private bool isProcessing = false;
-    public List<QueueObject> mainQueue = new List<QueueObject>();
-    private List<BackgroundTrack> compileExecutionQueue = new List<BackgroundTrack>();
-    private string currentStatus;
     public TextMeshProUGUI currentStatusText;
     private bool partyModeStartAllowed = true;
     public Transform partyModeAdvisors;
@@ -100,6 +77,8 @@ public class LevelResourcesCompiler : MonoBehaviour
     public MPImage nextSongCover;
     public MPImage nextSongBackdrop;
     public TextMeshProUGUI nextSongLength;
+    public GameObject menuGO;
+    public GameObject profileDisplay;
 
     private int _originalVSyncCount;
 
@@ -108,6 +87,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     private void Awake()
     {
         Instance = this;
+        DontDestroyOnLoad(gameObject);
     }
 
 
@@ -120,6 +100,14 @@ public class LevelResourcesCompiler : MonoBehaviour
         initLoadingDone = true;
         RunUpdateCheckSilently(); // Run update check in background
         SceneManager.activeSceneChanged += OnSceneChanged;
+        if (PlayerPrefs.GetInt("partyMode") == 1)
+        {
+            partyMode = true;
+            partyModeUI.SetActive(true);
+            menuGO.SetActive(false);
+            profileDisplay.SetActive(false);
+            UpdatePartyModeUI();
+        }
         /*
         mainQueue.Add(new QueueObject
         {
@@ -135,7 +123,7 @@ public class LevelResourcesCompiler : MonoBehaviour
                 cover = "https://i.scdn.co/image/ab67616d0000b273c01abbbe975f17c84487e9f8"
             }
         });
-        compileExecutionQueue.Add(mainQueue[0].track);
+        // compileExecutionQueue.Add(mainQueue[0].track); // Moved to WebServerManager
         ProcessFirstOnQueue();
         */
     }
@@ -146,6 +134,10 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             currentStatusText = GameObject.Find("CurrentSongStatusText").GetComponent<TextMeshProUGUI>();
         }
+        if (newScene.name == "Results")
+        {
+            Destroy(gameObject);
+        }
     }
 
     public void TogglePartyMode()
@@ -154,6 +146,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             partyMode = true;
             partyModeUI.SetActive(true);
+            profileDisplay.SetActive(false);
             UpdatePartyModeUI();
             PlayerPrefs.SetInt("partyMode", 1);
             // Start web server for party mode
@@ -166,6 +159,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             partyMode = false;
             partyModeUI.SetActive(false);
+            profileDisplay.SetActive(true);
             PlayerPrefs.SetInt("partyMode", 0);
             // Stop web server
             if (webServerManager != null)
@@ -177,7 +171,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     public void UpdatePartyModeUI()
     {
-        if (mainQueue.Count != 0)
+        if (WebServerManager.Instance != null && WebServerManager.Instance.mainQueue.Count != 0)
         {
             if (partyModeAdvisors != null)
             {
@@ -186,7 +180,7 @@ public class LevelResourcesCompiler : MonoBehaviour
                     Destroy(child.gameObject);
                 }
             }
-            foreach (string player in mainQueue[0].players)
+            foreach (string player in WebServerManager.Instance.mainQueue[0].players)
             {
                 GameObject advisor = Instantiate(advisorPrefab, partyModeAdvisors);
                 advisor.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = player + ",";
@@ -207,26 +201,30 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             if (SceneManager.GetActiveScene().name == "Menu")
             {
-                currentStatusText.text = currentStatus;
-                if (mainQueue.Count != 0)
+                if (WebServerManager.Instance != null)
                 {
-                    if (Input.GetKeyDown(KeyCode.Space))
+                    currentStatusText.text = WebServerManager.Instance.GetCurrentStatus();
+                    if (WebServerManager.Instance.mainQueue.Count != 0)
                     {
-                        partyModeStartAllowed = false;
-                        StartPartyMode(mainQueue[0].track.url, mainQueue[0].track.name, mainQueue[0].track.artist, mainQueue[0].track.length, mainQueue[0].track.cover);
-                    }
-                    if (mainQueue[0].track.name != nextSongName.text)
-                    {
-                        nextSongName.text = mainQueue[0].track.name;
-                        nextSongArtist.text = mainQueue[0].track.artist;
-                        nextSongLength.text = "Song Length: " + mainQueue[0].track.length;
-                        StartCoroutine(DownloadAlbumCover(mainQueue[0].track.cover, nextSongCover, nextSongBackdrop));
+                        if (Input.GetKeyDown(KeyCode.Space))
+                        {
+                            partyModeStartAllowed = false;
+                            var firstTrack = WebServerManager.Instance.mainQueue[0].track;
+                            StartPartyMode(firstTrack.url, firstTrack.name, firstTrack.artist, firstTrack.length, firstTrack.cover);
+                        }
+                        if (WebServerManager.Instance.mainQueue[0].track.name != nextSongName.text)
+                        {
+                            nextSongName.text = WebServerManager.Instance.mainQueue[0].track.name;
+                            nextSongArtist.text = WebServerManager.Instance.mainQueue[0].track.artist;
+                            nextSongLength.text = "Song Length: " + WebServerManager.Instance.mainQueue[0].track.length;
+                            StartCoroutine(DownloadAlbumCover(WebServerManager.Instance.mainQueue[0].track.cover, nextSongCover, nextSongBackdrop));
+                        }
                     }
                 }
             }
-            if (mainQueue.Count != 0)
+            if (WebServerManager.Instance != null && WebServerManager.Instance.mainQueue.Count != 0)
             {
-                if (!mainQueue[0].processed && !isProcessing)
+                if (!WebServerManager.Instance.mainQueue[0].processed && !WebServerManager.Instance.IsProcessing())
                 {
                     ProcessFirstOnQueue();
                 }
@@ -639,22 +637,37 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     private async void ProcessFirstOnQueue()
     {
-        isProcessing = true;
-        var currentQueue = mainQueue.FirstOrDefault(q => !q.processed);
-        var currentTrack = mainQueue.FirstOrDefault(q => !q.processed)?.track;
-        if (currentTrack == null)
+        if (WebServerManager.Instance != null)
         {
-            isProcessing = false;
-            return;
-        }
-        await BackgroundCompile(currentTrack.url, currentTrack.name, currentTrack.artist, currentTrack.length, currentTrack.cover);
-        currentQueue.processed = true;
+            WebServerManager.Instance.SetProcessing(true);
+            var currentQueue = WebServerManager.Instance.mainQueue.FirstOrDefault(q => !q.processed);
+            var currentTrack = WebServerManager.Instance.mainQueue.FirstOrDefault(q => !q.processed)?.track;
+            if (currentTrack == null)
+            {
+                WebServerManager.Instance.SetProcessing(false);
+                return;
+            }
+            await BackgroundCompile(currentTrack.url, currentTrack.name, currentTrack.artist, currentTrack.length, currentTrack.cover);
+            currentQueue.processed = true;
 
-        isProcessing = false;
+            WebServerManager.Instance.SetProcessing(false);
+        }
     }
 
     public async void StartPartyMode(string url, string name, string artist, string length, string cover)
     {
+        var i = 0;
+        PlayerPrefs.SetInt("Player1", 0);
+        PlayerPrefs.SetInt("Player2", 0);
+        PlayerPrefs.SetInt("Player3", 0);
+        PlayerPrefs.SetInt("Player4", 0);
+        foreach (string playerName in WebServerManager.Instance.mainQueue[0].players)
+        {
+            i++;
+            PlayerPrefs.SetString($"Player{i}Name", playerName);
+            PlayerPrefs.SetInt($"Player{i}", 1);
+        }
+
         dataPath = PlayerPrefs.GetString("dataPath");
         UnityEngine.Debug.Log($"STARTING: {url}, {name}, {artist}, {length}, {cover}");
         PlayerPrefs.SetString("currentSongURL", url);
@@ -669,7 +682,10 @@ public class LevelResourcesCompiler : MonoBehaviour
         
         transitionAnim.Play("TransitionSaved");
         await Task.Delay(1450);
-        mainQueue.RemoveAt(0);
+        if (WebServerManager.Instance != null && WebServerManager.Instance.mainQueue.Count > 0)
+        {
+            WebServerManager.Instance.mainQueue.RemoveAt(0);
+        }
 
         PlayerPrefs.SetString("currentSong", name);
         PlayerPrefs.SetString("currentArtist", artist);
@@ -952,18 +968,19 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     public async Task BackgroundCompile(string url, string name, string artist, string length, string cover)
     {
-        startCompileButton.interactable = false;
         dataPath = PlayerPrefs.GetString("dataPath");
         UnityEngine.Debug.Log($"Now processing: {url}, {name}, {artist}, {length}, {cover}");
         PlayerPrefs.SetString("currentSongURL", url);
         name = name.Replace("\\", " ");
-        songInfo.transform.GetChild(4).GetComponent<AudioSource>().Play();
 
         string sanitizedName = SanitizeFileName(name);
 
         if (CheckFile(sanitizedName + ".txt"))
         {
-            currentStatus = "Ready to play!";
+            if (WebServerManager.Instance != null)
+            {
+                WebServerManager.Instance.SetCurrentStatus("Ready to play!");
+            }
             return; // No need to proceed if the file already exists
         }
 
@@ -996,7 +1013,10 @@ public class LevelResourcesCompiler : MonoBehaviour
             }
         }
         */
-        currentStatus = "Fetching lyrics...";
+        if (WebServerManager.Instance != null)
+        {
+            WebServerManager.Instance.SetCurrentStatus("Fetching lyrics...");
+        }
         compiling = true;
 
         ProcessStartInfo psi = new ProcessStartInfo
@@ -1064,7 +1084,10 @@ public class LevelResourcesCompiler : MonoBehaviour
             UnityEngine.Debug.Log("LRCLib fallback successful!");
         }
 
-        currentStatus = "Downloading song...";
+        if (WebServerManager.Instance != null)
+        {
+            WebServerManager.Instance.SetCurrentStatus("Downloading song...");
+        }
 
         string expectedAudioPath = GetExpectedAudioFilePath(artist, name);
 
@@ -1103,7 +1126,10 @@ public class LevelResourcesCompiler : MonoBehaviour
             }
         }
 
-        currentStatus = "Splitting vocals...";
+        if (WebServerManager.Instance != null)
+        {
+            WebServerManager.Instance.SetCurrentStatus("Splitting vocals...");
+        }
         splittingVocals = true;
 
         if (SettingsManager.Instance.GetSetting<int>("VocalProcessingMethod") == 1)
@@ -1129,7 +1155,10 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         FavoritesManager.AddDownload(name, artist, length, cover, url);
 
-        currentStatus = "Ready to play!";
+        if (WebServerManager.Instance != null)
+        {
+            WebServerManager.Instance.SetCurrentStatus("Ready to play!");
+        }
     }
 
     private async Task<bool> FetchLyricsFromLrcLib(Track track)
