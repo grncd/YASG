@@ -20,6 +20,7 @@ using UnityEngine.Networking;
 using System.Text.RegularExpressions;
 using Debug = UnityEngine.Debug;
 using GameKit.Dependencies.Utilities;
+using FishNet.Demo.AdditiveScenes;
 
 public class LevelResourcesCompiler : MonoBehaviour
 {
@@ -63,7 +64,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     private bool dontSave = false;
     public bool compiling = false;
     public Button startCompileButton;
-    private bool partyMode = false;
+    public bool partyMode = false;
 
     public TextMeshProUGUI currentStatusText;
     private bool partyModeStartAllowed = true;
@@ -79,6 +80,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     public TextMeshProUGUI nextSongLength;
     public GameObject menuGO;
     public GameObject profileDisplay;
+    public Sprite placeholder;
 
     private int _originalVSyncCount;
 
@@ -106,6 +108,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             partyModeUI.SetActive(true);
             menuGO.SetActive(false);
             profileDisplay.SetActive(false);
+            GameObject.Find("QRCodeCanvas").GetComponent<CanvasGroup>().alpha = 1f;
             UpdatePartyModeUI();
         }
         /*
@@ -156,20 +159,36 @@ public class LevelResourcesCompiler : MonoBehaviour
             if (webServerManager != null)
             {
                 webServerManager.StartWebServer();
+                webServerManager.player1Old = PlayerPrefs.GetInt("Player1");
+                webServerManager.player1NameOld = PlayerPrefs.GetString("Player1Name");
+                webServerManager.player2Old = PlayerPrefs.GetInt("Player2");
+                webServerManager.player2NameOld = PlayerPrefs.GetString("Player2Name");
+                webServerManager.player3Old = PlayerPrefs.GetInt("Player3");
+                webServerManager.player3NameOld = PlayerPrefs.GetString("Player3Name");
+                webServerManager.player4Old = PlayerPrefs.GetInt("Player4");
+                webServerManager.player4NameOld = PlayerPrefs.GetString("Player4Name");
             }
-        }
-        else
-        {
-            partyMode = false;
-            partyModeUI.SetActive(false);
-            profileDisplay.SetActive(true);
-            menuGO.SetActive(true);
-            PlayerPrefs.SetInt("partyMode", 0);
-            GameObject.Find("QRCodeCanvas").GetComponent<CanvasGroup>().alpha = 0f;
-            // Stop web server
-            if (webServerManager != null)
+            else
             {
-                webServerManager.StopWebServer();
+                partyMode = false;
+                partyModeUI.SetActive(false);
+                profileDisplay.SetActive(true);
+                menuGO.SetActive(true);
+                PlayerPrefs.SetInt("partyMode", 0);
+                GameObject.Find("QRCodeCanvas").GetComponent<CanvasGroup>().alpha = 0f;
+                // Stop web server
+                if (webServerManager != null)
+                {
+                    webServerManager.StopWebServer();
+                    PlayerPrefs.SetInt("Player1", webServerManager.player1Old);
+                    PlayerPrefs.SetString("Player1Name", webServerManager.player1NameOld);
+                    PlayerPrefs.SetInt("Player2", webServerManager.player2Old);
+                    PlayerPrefs.SetString("Player2Name", webServerManager.player2NameOld);
+                    PlayerPrefs.SetInt("Player3", webServerManager.player3Old);
+                    PlayerPrefs.SetString("Player3Name", webServerManager.player3NameOld);
+                    PlayerPrefs.SetInt("Player4", webServerManager.player4Old);
+                    PlayerPrefs.SetString("Player4Name", webServerManager.player4NameOld);
+                }
             }
         }
     }
@@ -189,6 +208,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             {
                 GameObject advisor = Instantiate(advisorPrefab, partyModeAdvisors);
                 advisor.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = player + ",";
+                
             }
         }
     }
@@ -217,6 +237,26 @@ public class LevelResourcesCompiler : MonoBehaviour
                             var firstTrack = WebServerManager.Instance.mainQueue[0].track;
                             StartPartyMode(firstTrack.url, firstTrack.name, firstTrack.artist, firstTrack.length, firstTrack.cover);
                         }
+                        if (Input.GetKeyDown(KeyCode.Backspace))
+                        {
+                            WebServerManager.Instance.mainQueue.RemoveAt(0);
+                            if (WebServerManager.Instance.IsProcessing())
+                            {
+                                WebServerManager.Instance.SetProcessing(false);
+                                if (activeProcess != null && !activeProcess.HasExited)
+                                {
+                                    try
+                                    {
+                                        activeProcess.Kill();
+                                        Debug.Log("Killed background process from BackgroundCompile.");
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Debug.LogWarning($"Failed to kill background process: {ex.Message}");
+                                    }
+                                }
+                            }
+                        }
                         if (WebServerManager.Instance.mainQueue[0].track.name != nextSongName.text)
                         {
                             nextSongName.text = WebServerManager.Instance.mainQueue[0].track.name;
@@ -225,6 +265,14 @@ public class LevelResourcesCompiler : MonoBehaviour
                             StartCoroutine(DownloadAlbumCover(WebServerManager.Instance.mainQueue[0].track.cover, nextSongCover, nextSongBackdrop));
                             BGMusic.Instance.PreviewSong(WebServerManager.Instance.mainQueue[0].track.url);
                         }
+                    }
+                    else
+                    {
+                        nextSongName.text = "----------------------";
+                        nextSongArtist.text = "Escaneie o QR Code abaixo para adicionar músicas!";
+                        nextSongLength.text = "Song Length: X:XX";
+                        nextSongCover.sprite = placeholder;
+                        nextSongBackdrop.sprite = placeholder;
                     }
                 }
             }
@@ -676,6 +724,11 @@ public class LevelResourcesCompiler : MonoBehaviour
             PlayerPrefs.SetInt($"Player{i}", 1);
         }
 
+        if (i == 4)
+        {
+            GameObject.Find("QRCodeCanvas").GetComponent<CanvasGroup>().alpha = 0.5f;
+        }
+
         dataPath = PlayerPrefs.GetString("dataPath");
         UnityEngine.Debug.Log($"STARTING: {url}, {name}, {artist}, {length}, {cover}");
         PlayerPrefs.SetString("currentSongURL", url);
@@ -1096,38 +1149,34 @@ public class LevelResourcesCompiler : MonoBehaviour
             WebServerManager.Instance.SetCurrentStatus("Downloading song...");
         }
 
+        bool success = false;
         string expectedAudioPath = GetExpectedAudioFilePath(artist, name);
 
-        if (File.Exists(expectedAudioPath))
+        while (!success)
         {
-            UnityEngine.Debug.Log("Audio file already exists. Skipping download.");
-            //PlayerPrefs.SetString("fullLocation", expectedAudioPath);
-            //PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedAudioPath) + " [vocals].mp3"));
-        }
-        else
-        {
-            bool success = await AttemptDownload(url);
-
-            var downloadedMp3 = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
-
-            DateTime creationTime = File.GetCreationTime(downloadedMp3);
-            if (!((DateTime.Now - creationTime).TotalSeconds < 50))
+            if (File.Exists(expectedAudioPath))
             {
-                success = false;
+                UnityEngine.Debug.Log("Audio file already exists. Skipping download.");
+                success = true;
+                //PlayerPrefs.SetString("fullLocation", expectedAudioPath);
+                //PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedAudioPath) + " [vocals].mp3"));
             }
-
-            if (File.Exists(expectedAudioPath)) File.Delete(expectedAudioPath);
-            File.Move(downloadedMp3, expectedAudioPath);
-
-            UnityEngine.Debug.Log($"Moved downloaded file to: {expectedAudioPath}");
-
-            if (!success)
+            else
             {
-                alertManager.ShowError("An error occured downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
-                LoadingDone();
-                loadingFX.SetActive(false);
-                mainPanel.SetActive(true);
-                return;
+                success = await AttemptDownload(url);
+
+                var downloadedMp3 = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
+
+                DateTime creationTime = File.GetCreationTime(downloadedMp3);
+                if (!((DateTime.Now - creationTime).TotalSeconds < 50))
+                {
+                    success = false;
+                }
+
+                if (File.Exists(expectedAudioPath)) File.Delete(expectedAudioPath);
+                File.Move(downloadedMp3, expectedAudioPath);
+
+                UnityEngine.Debug.Log($"Moved downloaded file to: {expectedAudioPath}");
             }
         }
 

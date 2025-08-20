@@ -612,7 +612,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
 
         if (singingFrames > 0)
         {
-            scoreIncrement = (1000000f / singingFrames) * 1.95f;
+            scoreIncrement = (1000000f / singingFrames) * 2.26f;
         }
         else scoreIncrement = 0f;
 
@@ -949,7 +949,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
             OutputPitches_Native[frameIndex] = DetectPitch_MPM_Burst(
                 frameSamplesSlice, HannWindow_Native, SampleRate, VolumeThreshold, MinLag, MaxLag,
                 out clarity, // <-- MOVED: Pass the out parameter first
-                0.7f         // <-- MOVED: Pass the optional parameter last
+                0.6f         // <-- MOVED: Pass the optional parameter last
             );
         }
     }
