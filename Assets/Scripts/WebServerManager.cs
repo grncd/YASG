@@ -563,6 +563,20 @@ tunnels:
             yield return StartCoroutine(ProcessSpotifySearchCoroutine(query, result => responseString = result));
             response.ContentType = "application/json";
         }
+        // Handle check-lyrics endpoint separately due to async nature
+        else if (request.Url.AbsolutePath == "/api/check-lyrics" && request.HttpMethod == "GET")
+        {
+            string url = request.QueryString["url"];
+            if (!string.IsNullOrEmpty(url))
+            {
+                yield return StartCoroutine(CheckLyricsCoroutine(url, result => responseString = result));
+            }
+            else
+            {
+                responseString = "{\"hasLyrics\":false,\"error\":\"URL parameter missing\"}";
+            }
+            response.ContentType = "application/json";
+        }
         else
         {
             try
@@ -1885,7 +1899,11 @@ const translations = {
             'queue.empty': 'A fila está vazia',
             'song.by': 'por',
             'queue.ready': '✓ Pronto',
-            'queue.processing': '⏳ Processando'
+            'queue.processing': '⏳ Processando',
+            'lyrics.checking': 'Verificando disponibilidade de letras...',
+            'lyrics.notAvailable': 'Letras Não Disponíveis',
+            'lyrics.explanation': 'Esta música não possui letras sincronizadas disponíveis. Por favor, escolha outra música para continuar.',
+            'buttons.understood': 'Entendi'
         },
         en: {
             'header.title': '🎤 YASG Party Mode',
@@ -1922,7 +1940,11 @@ const translations = {
             'queue.empty': 'Queue is empty',
             'song.by': 'by',
             'queue.ready': '✓ Ready',
-            'queue.processing': '⏳ Processing'
+            'queue.processing': '⏳ Processing',
+            'lyrics.checking': 'Checking lyrics availability...',
+            'lyrics.notAvailable': 'Lyrics Not Available',
+            'lyrics.explanation': 'This song does not have synchronized lyrics available. Please choose another song to continue.',
+            'buttons.understood': 'Understood'
         }
 };
 
@@ -2201,10 +2223,119 @@ document.addEventListener('DOMContentLoaded', function() {
         cardElement.classList.add('selected');
         selectedSong = track;
         
-        // Move to step 2
-        setTimeout(() => {
-            goToStep(2);
-        }, 300);
+        // Check lyrics availability before proceeding
+        checkLyricsAndProceed(track.external_urls.spotify);
+    }
+    
+    function checkLyricsAndProceed(spotifyUrl) {
+        // Show loading state
+        const loadingMessage = document.createElement('div');
+        loadingMessage.id = 'lyrics-check-loading';
+        loadingMessage.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(26, 26, 46, 0.95);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            z-index: 1000;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        `;
+        loadingMessage.innerHTML = `
+            <div style=""color: #3b82f6; margin-bottom: 15px; font-size: 1.2em;"">⏳</div>
+            <div style=""color: #e8eaed;"">${translate('lyrics.checking')}</div>
+        `;
+        document.body.appendChild(loadingMessage);
+        
+        fetch(`/api/check-lyrics?url=${encodeURIComponent(spotifyUrl)}`)
+            .then(response => response.json())
+            .then(data => {
+                // Remove loading message
+                const loading = document.getElementById('lyrics-check-loading');
+                if (loading) loading.remove();
+                
+                if (data.hasLyrics) {
+                    // Lyrics available, proceed to step 2
+                    setTimeout(() => {
+                        goToStep(2);
+                    }, 300);
+                } else {
+                    // No lyrics found, show error and reset selection
+                    showLyricsError(data.reason || 'Lyrics not available');
+                    resetSongSelection();
+                }
+            })
+            .catch(error => {
+                console.error('Error checking lyrics:', error);
+                // Remove loading message
+                const loading = document.getElementById('lyrics-check-loading');
+                if (loading) loading.remove();
+                
+                // Show error and reset selection
+                showLyricsError('Error checking lyrics');
+                resetSongSelection();
+            });
+    }
+    
+    function showLyricsError(message) {
+        const errorModal = document.createElement('div');
+        errorModal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1001;
+        `;
+        
+        errorModal.innerHTML = `
+            <div style=""
+                background: rgba(26, 26, 46, 0.95);
+                border: 1px solid rgba(239, 68, 68, 0.5);
+                border-radius: 20px;
+                padding: 40px;
+                text-align: center;
+                max-width: 500px;
+                margin: 20px;
+                backdrop-filter: blur(20px);
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            "">
+                <div style=""color: #ef4444; margin-bottom: 20px; font-size: 3em;"">❌</div>
+                <h3 style=""color: #ef4444; margin-bottom: 15px; font-size: 1.5em;"">${translate('lyrics.notAvailable')}</h3>
+                <p style=""color: #e8eaed; margin-bottom: 25px; line-height: 1.5;"">${message}</p>
+                <p style=""color: #94a3b8; margin-bottom: 25px; font-size: 0.9em;"">${translate('lyrics.explanation')}</p>
+                <button onclick=""this.closest('div').parentElement.remove()"" style=""
+                    background: linear-gradient(45deg, #ef4444, #dc2626);
+                    color: white;
+                    border: none;
+                    padding: 12px 30px;
+                    border-radius: 12px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                "" onmouseover=""this.style.transform='translateY(-2px)'"" onmouseout=""this.style.transform='translateY(0)'"">
+                    ${translate('buttons.understood')}
+                </button>
+            </div>
+        `;
+        
+        document.body.appendChild(errorModal);
+    }
+    
+    function resetSongSelection() {
+        // Remove selection from all cards
+        document.querySelectorAll('.song-card.selected').forEach(card => {
+            card.classList.remove('selected');
+        });
+        selectedSong = null;
     }
     
     function goToStep(step) {
@@ -2697,6 +2828,95 @@ document.addEventListener('DOMContentLoaded', function() {
         return $"{{\"position\":{position},\"total\":{queueTotal}}}";
     }
     
+    private IEnumerator CheckLyricsCoroutine(string spotifyUrl, System.Action<string> callback)
+    {
+        // Get dataPath on main thread
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        if (string.IsNullOrEmpty(dataPath))
+        {
+            callback("{\"hasLyrics\":false,\"error\":\"Data path not configured\"}");
+            yield break;
+        }
+        
+        var task = Task.Run(() => CheckLyricsAvailability(spotifyUrl, dataPath));
+        
+        while (!task.IsCompleted)
+        {
+            yield return null;
+        }
+        
+        callback(task.Result);
+    }
+    
+    private async Task<string> CheckLyricsAvailability(string spotifyUrl, string dataPath)
+    {
+        try
+        {
+            
+            ProcessStartInfo psi = new ProcessStartInfo
+            {
+                FileName = Path.Combine(dataPath, "getlyrics.bat"),
+                Arguments = $"{spotifyUrl} {dataPath}",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            Process process = new Process { StartInfo = psi };
+            bool hasLyrics = true;
+            string errorMessage = "";
+            
+            process.OutputDataReceived += (sender, args) =>
+            {
+                if (string.IsNullOrEmpty(args.Data)) return;
+                UnityEngine.Debug.Log($"[Lyrics Check] Output: {args.Data}");
+                
+                // Check for indicators that lyrics were not found
+                if (args.Data.Contains("some tracks") || 
+                    args.Data.Contains("No lyrics found") || 
+                    args.Data.Contains("Lyrics not available"))
+                {
+                    hasLyrics = false;
+                    errorMessage = "No synced lyrics available";
+                }
+            };
+            
+            process.ErrorDataReceived += (sender, args) =>
+            {
+                if (!string.IsNullOrEmpty(args.Data))
+                {
+                    UnityEngine.Debug.LogError($"[Lyrics Check] Error: {args.Data}");
+                    if (args.Data.Contains("error") || args.Data.Contains("failed"))
+                    {
+                        hasLyrics = false;
+                        errorMessage = "Error checking lyrics";
+                    }
+                }
+            };
+
+            process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+            
+            await Task.Run(() => process.WaitForExit());
+            
+            if (hasLyrics)
+            {
+                return "{\"hasLyrics\":true}";
+            }
+            else
+            {
+                return $"{{\"hasLyrics\":false,\"reason\":\"{errorMessage}\"}}";
+            }
+        }
+        catch (Exception e)
+        {
+            UnityEngine.Debug.LogError($"Error checking lyrics: {e.Message}");
+            return $"{{\"hasLyrics\":false,\"error\":\"{e.Message}\"}}";
+        }
+    }
+
     private string ConvertDuration(int durationMs)
     {
         int totalSeconds = durationMs / 1000;
