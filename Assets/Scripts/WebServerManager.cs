@@ -145,6 +145,41 @@ public class WebServerManager : MonoBehaviour
         public string spotify;
     }
     
+    // Queue data structures (moved from LevelResourcesCompiler)
+    [System.Serializable]
+    public class BackgroundTrack
+    {
+        public string url;
+        public string name;
+        public string artist;
+        public string length;
+        public string cover;
+    }
+    
+    [System.Serializable]
+    public class QueueObject
+    {
+        public List<string> players;
+        public List<int> playerDifficulties;
+        public List<bool> playerMicToggle;
+        public BackgroundTrack track;
+        public bool processed = false;
+        public bool isBeingProcessed = false;
+        public string requestedByUserId;
+    }
+    
+    // Party mode data
+    public List<QueueObject> mainQueue = new List<QueueObject>();
+    private List<BackgroundTrack> compileExecutionQueue = new List<BackgroundTrack>();
+    private bool isProcessing = false;
+    private string currentStatus = "";
+    
+    // Public methods for queue management
+    public bool IsProcessing() => isProcessing;
+    public void SetProcessing(bool processing) => isProcessing = processing;
+    public string GetCurrentStatus() => currentStatus;
+    public void SetCurrentStatus(string status) => currentStatus = status;
+    
     // User tracking
     [System.Serializable]
     public class UserSession
@@ -634,9 +669,9 @@ tunnels:
             currentSong = "None"
         };
         
-        if (levelCompiler != null && levelCompiler.mainQueue != null)
+        if (mainQueue != null)
         {
-            foreach (var queueObj in levelCompiler.mainQueue)
+            foreach (var queueObj in mainQueue)
             {
                 queueResponse.queue.Add(new QueueItem
                 {
@@ -684,12 +719,12 @@ tunnels:
                 int playerCount = Mathf.Min(songRequest.players.Count, 4);
                 
                 // Create new queue object with multiple players
-                var newQueueObject = new LevelResourcesCompiler.QueueObject
+                var newQueueObject = new QueueObject
                 {
                     players = songRequest.players.GetRange(0, playerCount),
                     playerDifficulties = songRequest.difficulties.GetRange(0, playerCount),
                     playerMicToggle = songRequest.micToggles.GetRange(0, playerCount),
-                    track = new LevelResourcesCompiler.BackgroundTrack
+                    track = new BackgroundTrack
                     {
                         url = songRequest.url,
                         name = songRequest.name,
@@ -700,7 +735,7 @@ tunnels:
                 };
                 
                 // Add to queue
-                levelCompiler.mainQueue.Add(newQueueObject);
+                mainQueue.Add(newQueueObject);
                 
                 // Update user session
                 if (userSessions.ContainsKey(userId))
@@ -714,7 +749,10 @@ tunnels:
                 newQueueObject.requestedByUserId = userId;
                 
                 // Update party mode UI
-                levelCompiler.UpdatePartyModeUI();
+                if (levelCompiler != null)
+                {
+                    levelCompiler.UpdatePartyModeUI();
+                }
                 
                 string playerNames = string.Join(", ", newQueueObject.players);
                 UnityEngine.Debug.Log($"Song added to queue by user {userId}: {songRequest.name} by {songRequest.artist} with players: {playerNames}");
@@ -2638,15 +2676,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         var session = userSessions[userId];
-        int queueTotal = levelCompiler?.mainQueue?.Count ?? 0;
+        int queueTotal = mainQueue?.Count ?? 0;
         
         // Find user's position in queue
         int position = -1;
-        if (session.hasPendingRequest && levelCompiler?.mainQueue != null)
+        if (session.hasPendingRequest && mainQueue != null)
         {
-            for (int i = 0; i < levelCompiler.mainQueue.Count; i++)
+            for (int i = 0; i < mainQueue.Count; i++)
             {
-                var queueItem = levelCompiler.mainQueue[i];
+                var queueItem = mainQueue[i];
                 // Check if this queue item was requested by this user
                 if (!string.IsNullOrEmpty(queueItem.requestedByUserId) && queueItem.requestedByUserId == userId)
                 {

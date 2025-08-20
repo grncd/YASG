@@ -25635,6 +25635,7 @@ MonoBehaviour:
   ngrokPath: C:\Program Files\WindowsApps\ngrok.ngrok_3.24.0.0_x64__1g87z0zv29zzc\ngrok.exe
   ngrokAuthToken: 2J91uLLuuBT4RcZnFwkJlwEFhCv_5o6Pd1XgjfxK1TsANahei
   qrCodeImage: {fileID: 661594863}
+  mainQueue: []
 --- !u!1 &697760089
 GameObject:
   m_ObjectHideFlags: 0
@@ -64800,6 +64801,8 @@ MonoBehaviour:
   nextSongCover: {fileID: 511368658}
   nextSongBackdrop: {fileID: 729543876}
   nextSongLength: {fileID: 1735659197}
+  menuGO: {fileID: 959612404}
+  profileDisplay: {fileID: 442346702}
 --- !u!4 &1667038467
 Transform:
   m_ObjectHideFlags: 0
