@@ -5118,8 +5118,8 @@ RectTransform:
   - {fileID: 1373693719}
   - {fileID: 1124323258}
   - {fileID: 166540098}
-  - {fileID: 1756052978}
   - {fileID: 437914969}
+  - {fileID: 1756052978}
   m_Father: {fileID: 0}
   m_RootOrder: 4
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -15784,7 +15784,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &437914969
 RectTransform:
   m_ObjectHideFlags: 0
@@ -15809,7 +15809,7 @@ RectTransform:
   - {fileID: 1905179482}
   - {fileID: 1473522640}
   m_Father: {fileID: 150457276}
-  m_RootOrder: 11
+  m_RootOrder: 10
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
@@ -36623,7 +36623,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &959612405
 RectTransform:
   m_ObjectHideFlags: 0
@@ -58985,9 +58985,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 1124323259}
-        m_TargetAssemblyTypeName: EditorManager, Assembly-CSharp
-        m_MethodName: LocalSaveLyrics
+      - m_Target: {fileID: 1667038466}
+        m_TargetAssemblyTypeName: LevelResourcesCompiler, Assembly-CSharp
+        m_MethodName: TogglePartyMode
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -58997,10 +58997,10 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 1124323259}
-        m_TargetAssemblyTypeName: EditorManager, Assembly-CSharp
-        m_MethodName: ReloadScene
-        m_Mode: 1
+      - m_Target: {fileID: 437914968}
+        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
+        m_MethodName: SetActive
+        m_Mode: 6
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
@@ -84725,7 +84725,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6648392157254385905, guid: d4f983bb192877546abdda8830bc19b3, type: 3}
       propertyPath: m_RootOrder
-      value: 10
+      value: 11
       objectReference: {fileID: 0}
     - target: {fileID: 6648392157254385905, guid: d4f983bb192877546abdda8830bc19b3, type: 3}
       propertyPath: m_AnchorMax.x
