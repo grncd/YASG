@@ -96,6 +96,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
     public AudioSource countdownFX;
     public ParticleSystem[] guideArrows;
     AudioSource musicSource;
+    AudioSource musicSource2;
     private Coroutine transitionCoroutine;
     public AudioMixerGroup musicControl;
     public float overallSongActivity;
@@ -277,11 +278,17 @@ public class AudioClipPitchProcessor : MonoBehaviour
         dynamicVolumeThresholdDbBoost = Mathf.Clamp(float.Parse(SettingsManager.Instance.GetSetting<string>("DynamicVolumeThreshold")), -10f, 10f);
         AUDIO_TRIM_TIME = Mathf.Clamp(float.Parse(SettingsManager.Instance.GetSetting<string>("SongOffset")), 0f, 1.5f);
 
+        if (PlayerPrefs.GetInt("Player1") == 0) GameObject.Find("Player1GPitch").gameObject.SetActive(false);
+        if (PlayerPrefs.GetInt("Player2") == 0) GameObject.Find("Player2GPitch").gameObject.SetActive(false);
+        if (PlayerPrefs.GetInt("Player3") == 0) GameObject.Find("Player3GPitch").gameObject.SetActive(false);
+        if (PlayerPrefs.GetInt("Player4") == 0) GameObject.Find("Player4GPitch").gameObject.SetActive(false);
+
         float temp;
         musicControl.audioMixer.GetFloat("LowpassCutoff", out temp);
         if (temp != 650f) LowpassTransition(true);
 
-        musicSource = GameObject.Find("Music")?.GetComponent<AudioSource>();
+        musicSource = GameObject.Find("Music")?.GetComponents<AudioSource>()[0];
+        musicSource2 = GameObject.Find("Music")?.GetComponents<AudioSource>()[1];
         //guideArrowP = guideArrow.transform.GetChild(1).GetChild(0).GetChild(0).GetComponent<ParticleSystem>();
         //guideArrowP2 = guideArrow2.transform.GetChild(1).GetChild(0).GetChild(0).GetComponent<ParticleSystem>();
         // = guideArrow3.transform.GetChild(1).GetChild(0).GetChild(0).GetComponent<ParticleSystem>();
@@ -612,7 +619,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
 
         if (singingFrames > 0)
         {
-            scoreIncrement = (1000000f / singingFrames) * 2.26f;
+            scoreIncrement = (1000000f / singingFrames) * 2.075f;
         }
         else scoreIncrement = 0f;
 
@@ -649,6 +656,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
         await Task.Delay(TimeSpan.FromSeconds(0.8f));
 
         StartCoroutine(FadeOutAndStop(musicSource, 2f));
+        StartCoroutine(FadeOutAndStop(musicSource2, 2f));
         StartCoroutine(FadeOutLoadingScreen());
 
         await Task.Delay(TimeSpan.FromSeconds(1.2f));
@@ -690,6 +698,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
         yield return new WaitForSeconds(1);
         countdownText.text = "1";
         if (musicSource != null) musicSource.Stop();
+        if (musicSource2 != null) musicSource2.Stop();
         musicControl.audioMixer.SetFloat("LowpassCutoff", 20000f);
         yield return new WaitForSeconds(1);
         countdownText.text = "0";
