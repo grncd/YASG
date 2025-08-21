@@ -133,10 +133,6 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     public void OnSceneChanged(Scene oldScene, Scene newScene)
     {
-        if (newScene.name == "Menu")
-        {
-            currentStatusText = GameObject.Find("CurrentSongStatusText").GetComponent<TextMeshProUGUI>();
-        }
         if (newScene.name == "Results")
         {
             Destroy(gameObject);
@@ -543,6 +539,15 @@ public class LevelResourcesCompiler : MonoBehaviour
         songInfo.SetActive(false);
     }
 
+    public async void Dismiss(bool plc)
+    {
+        DIH.Close();
+        DIH2.Close();
+        songInfo.GetComponent<Animator>().Play("SongInfoOut");
+        await Task.Delay(200);
+        songInfo.SetActive(false);
+    }
+
     public void ChallengeBegin()
     {
         loadingCanvas.SetActive(true);
@@ -793,7 +798,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             await Task.Delay(1350);
             if (songInfo.activeSelf)
             {
-                Dismiss();
+                Dismiss(true);
                 mainPanel.SetActive(false);
             }
             await Task.Delay(384);
@@ -802,7 +807,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             transitionAnim.Play("TransitionSaved");
             await Task.Delay(1450);
-            Dismiss();
+            Dismiss(true);
             await Task.Delay(600);
         }
 
@@ -1185,13 +1190,6 @@ public class LevelResourcesCompiler : MonoBehaviour
             WebServerManager.Instance.SetCurrentStatus("Splitting vocals...");
         }
         splittingVocals = true;
-
-        if (SettingsManager.Instance.GetSetting<int>("VocalProcessingMethod") == 1)
-        {
-            StartCoroutine(FadeImageAlpha(bgDarken, 1f, 1f));
-            await Task.Delay(1010);
-            bgGM.SetActive(false);
-        }
 
         await RunPythonDirectly(expectedAudioPath);
 

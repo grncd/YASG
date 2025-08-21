@@ -99,6 +99,7 @@ public class RealTimePitchDetector : MonoBehaviour
     public float vocalArrow3;
     public float vocalArrow4;
     public Slider vocalArrowS;
+    private Slider vocalArrowSG;
     public Slider vocalArrowSDBG;
     public Slider vocalArrowS2DBG;
     public Slider vocalArrowS3DBG;
@@ -129,10 +130,12 @@ public class RealTimePitchDetector : MonoBehaviour
     private bool _isInitialized = false;
     private bool _isRecording = false;
     private bool _scoreIncrementInitialized = false;
+    private int harmonicUsed = 0;
 
 
     private void Start()
     {
+        vocalArrowSG = GameObject.Find(gameObject.name + "GPitch").GetComponent<Slider>();
         switch (SettingsManager.Instance.GetSetting<int>("PitchDetectionQuality"))
         {
             case 0:
@@ -637,7 +640,7 @@ public class RealTimePitchDetector : MonoBehaviour
             mashGracePeriodElapsed = 0f;
         }
         */
-
+        
         if (enableAdvancedAntiMonotony && AudioClipPitchProcessor.Instance != null && AudioClipPitchProcessor.Instance.pitchOverTime != null && AudioClipPitchProcessor.Instance.pitchOverTime.Count > 0 &&
         AudioClipPitchProcessor.Instance.audioSource != null && AudioClipPitchProcessor.Instance.audioSource.isPlaying && _scoreIncrementInitialized && LyricsHandler.Instance != null && !LyricsHandler.Instance.songOver)
         {
@@ -762,11 +765,15 @@ public class RealTimePitchDetector : MonoBehaviour
             float currentAppPitch = AudioClipPitchProcessor.Instance.currentPitch;
             float bestDifference = float.MaxValue;
             float bestValue = 0f;
+            harmonicUsed = 0;
+            int i = 0;
             foreach (float val in vocalValues)
             {
+                i++;
                 float difference = Mathf.Abs(currentAppPitch - val);
                 if (difference < bestDifference)
                 {
+                    harmonicUsed = i;
                     bestDifference = difference;
                     bestValue = val;
                 }
@@ -775,8 +782,11 @@ public class RealTimePitchDetector : MonoBehaviour
             if (showPitch)
             {
                 if (vocalArrowP != null && !vocalArrowP.isPlaying) vocalArrowP.Play();
+                vocalArrowSG.gameObject.GetComponent<CanvasGroup>().alpha = 1f;
+                vocalArrowSG.transform.GetChild(1).GetChild(0).transform.rotation = Quaternion.Euler(0f, 0f, 0f + bestDifference * 0.4f);
             }
             vocalArrowS.value = bestValue;
+            vocalArrowSG.value = bestValue;
 
             if (debugMode)
             {
@@ -818,9 +828,11 @@ public class RealTimePitchDetector : MonoBehaviour
             }
 
 
-
+            ParticleSystem arrowPS = vocalArrowSG.transform.GetChild(1).GetChild(0).GetChild(1).GetComponent<ParticleSystem>();
             if (scoredThisFrame)
             {
+                if (!arrowPS.isEmitting) arrowPS.Play();
+
                 if (PlayerPrefs.GetInt("multiplayer") == 0)
                 {
                     score += scoreIncrement;
@@ -870,10 +882,41 @@ public class RealTimePitchDetector : MonoBehaviour
             {
                 //Debug.Log($"[RealTimePitchDetector] NO SCORE. BestDiff: {bestDifference:F1}, Threshold: {leniencyThreshold:F1}, PPJudge: {ppJudge}, SongNotOver: {songNotOver}, ScoreInc: {scoreIncrement}");
             }
+            else
+            {
+                if (arrowPS.isEmitting) arrowPS.Stop();
+            }
         }
         else
         {
             if (vocalArrowP != null && vocalArrowP.isPlaying) vocalArrowP.Stop();
+            if (currentPitch > 32f)
+            {
+                vocalArrowSG.gameObject.GetComponent<CanvasGroup>().alpha = 0.35f;
+                switch (harmonicUsed)
+                {
+                    case 1:
+                        vocalArrowSG.value = currentPitch;
+                        break;
+                    case 2:
+                        vocalArrowSG.value = currentPitch * 2f;
+                        break;
+                    case 3:
+                        vocalArrowSG.value = currentPitch / 2f;
+                        break;
+                    case 4:
+                        vocalArrowSG.value = currentPitch * 4f;
+                        break;
+                    default:
+                        vocalArrowSG.value = currentPitch;
+                        break;
+                }
+                vocalArrowSG.transform.GetChild(1).GetChild(0).transform.rotation = Quaternion.Euler(0f, 0f, 0f);
+            }
+            else
+            {
+                vocalArrowSG.gameObject.GetComponent<CanvasGroup>().alpha = 0f;
+            }
         }
 
         if (LyricsHandler.Instance != null && LyricsHandler.Instance.songOver)
