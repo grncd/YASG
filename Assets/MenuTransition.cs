@@ -9,7 +9,7 @@ public class MenuTransition : MonoBehaviour
 
     void Awake()
     {
-        if (PlayerPrefs.GetInt("fromMP") == 1)
+        if (PlayerPrefs.GetInt("fromMP") == 1 || PlayerPrefs.GetInt("partyMode") == 1)
         {
             PlayTransition();
         }

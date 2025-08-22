@@ -62,7 +62,10 @@ public class BGMusic : MonoBehaviour
         {
             StopPreview();
             previewAudioSource.volume = 0.26f;
-            audioSource.volume = 0.211f;
+            if (audioSource != null)
+            {
+                audioSource.volume = 0.211f;
+            }
             killSwitch = false;
             songName = GameObject.Find("Canvas").transform.GetChild(2).GetChild(7).GetChild(2).GetComponent<TextMeshProUGUI>();
             shuffleButton = songName.transform.parent.GetChild(4).gameObject;
