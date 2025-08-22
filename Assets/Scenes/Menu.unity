@@ -26019,7 +26019,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fb169fe7ab7ce1046a5239ed4da638dc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  port: 8080
+  port: 8081
   ngrokPath: C:\Program Files\WindowsApps\ngrok.ngrok_3.24.0.0_x64__1g87z0zv29zzc\ngrok.exe
   ngrokAuthToken: 2J91uLLuuBT4RcZnFwkJlwEFhCv_5o6Pd1XgjfxK1TsANahei
   qrCodeImage: {fileID: 1825144122}
@@ -65489,6 +65489,7 @@ MonoBehaviour:
   loadingFX: {fileID: 2034392104}
   compiling: 0
   startCompileButton: {fileID: 158726058}
+  partyMode: 0
   currentStatusText: {fileID: 1254253085}
   partyModeAdvisors: {fileID: 342123015}
   advisorPrefab: {fileID: 8902485982453742560, guid: 522c6f6034567414a9a47fb441babe13, type: 3}

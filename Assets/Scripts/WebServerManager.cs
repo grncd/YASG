@@ -2092,12 +2092,30 @@ document.addEventListener('DOMContentLoaded', function() {
     function setupEventListeners() {
         // Search functionality
         searchInput.addEventListener('input', handleSearchInput);
+        
+        // Add additional mobile-friendly event listeners
+        if (isMobile()) {
+            searchInput.addEventListener('change', handleSearchInput);
+            searchInput.addEventListener('blur', handleSearchInput);
+        }
+        
         searchInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
+                e.preventDefault();
                 performSearch();
             }
         });
-        searchBtn.addEventListener('click', performSearch);
+        searchBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            // Force focus blur on mobile to ensure input value is captured
+            if (isMobile() && searchInput) {
+                searchInput.blur();
+                // Small delay to ensure blur is processed
+                setTimeout(() => performSearch(), 50);
+            } else {
+                performSearch();
+            }
+        });
         
         // Player management
         addPlayerBtn.addEventListener('click', addPlayer);
@@ -2150,7 +2168,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     async function performSearch(query = null) {
-        const searchQuery = query || searchInput.value.trim();
+        // Ensure we get the current value from the input, especially important on mobile
+        const searchQuery = query || (searchInput ? searchInput.value.trim() : '');
         
         if (searchQuery.length < 2) {
             return;

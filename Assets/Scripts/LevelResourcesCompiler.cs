@@ -133,7 +133,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     public void OnSceneChanged(Scene oldScene, Scene newScene)
     {
-        if (newScene.name == "Results")
+        if (newScene.name == "Menu" && oldScene.name == "Results")
         {
             Destroy(gameObject);
         }
@@ -217,6 +217,10 @@ public class LevelResourcesCompiler : MonoBehaviour
             {
                 executionQueue.Dequeue().Invoke();
             }
+        }
+        if (nextSongArtist == null)
+        {
+            Destroy(gameObject);
         }
         if (partyMode)
         {
@@ -1172,17 +1176,25 @@ public class LevelResourcesCompiler : MonoBehaviour
 
                 var downloadedMp3 = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
 
-                DateTime creationTime = File.GetCreationTime(downloadedMp3);
-                if (!((DateTime.Now - creationTime).TotalSeconds < 50))
+                if (downloadedMp3 != null)
+                {
+                    DateTime creationTime = File.GetCreationTime(downloadedMp3);
+                    if (!((DateTime.Now - creationTime).TotalSeconds < 50))
+                    {
+                        success = false;
+                    }
+
+                    if (File.Exists(expectedAudioPath)) File.Delete(expectedAudioPath);
+                    File.Move(downloadedMp3, expectedAudioPath);
+
+                    UnityEngine.Debug.Log($"Moved downloaded file to: {expectedAudioPath}");
+                }
+                else
                 {
                     success = false;
                 }
-
-                if (File.Exists(expectedAudioPath)) File.Delete(expectedAudioPath);
-                File.Move(downloadedMp3, expectedAudioPath);
-
-                UnityEngine.Debug.Log($"Moved downloaded file to: {expectedAudioPath}");
             }
+            await Task.Delay(1500); 
         }
 
         if (WebServerManager.Instance != null)
