@@ -89,7 +89,6 @@ public class LevelResourcesCompiler : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        DontDestroyOnLoad(gameObject);
     }
 
 
@@ -101,7 +100,6 @@ public class LevelResourcesCompiler : MonoBehaviour
         progressBar.gameObject.SetActive(false);
         initLoadingDone = true;
         RunUpdateCheckSilently(); // Run update check in background
-        SceneManager.activeSceneChanged += OnSceneChanged;
         if (PlayerPrefs.GetInt("partyMode") == 1)
         {
             partyMode = true;
@@ -129,14 +127,6 @@ public class LevelResourcesCompiler : MonoBehaviour
         // compileExecutionQueue.Add(mainQueue[0].track); // Moved to WebServerManager
         ProcessFirstOnQueue();
         */
-    }
-
-    public void OnSceneChanged(Scene oldScene, Scene newScene)
-    {
-        if (newScene.name == "Menu" && oldScene.name == "Results")
-        {
-            Destroy(gameObject);
-        }
     }
 
 
@@ -217,10 +207,6 @@ public class LevelResourcesCompiler : MonoBehaviour
             {
                 executionQueue.Dequeue().Invoke();
             }
-        }
-        if (nextSongArtist == null)
-        {
-            Destroy(gameObject);
         }
         if (partyMode)
         {
@@ -729,7 +715,6 @@ public class LevelResourcesCompiler : MonoBehaviour
             i++;
             PlayerPrefs.SetString($"Player{i}Name", playerName);
             PlayerPrefs.SetInt($"Player{i}Difficulty", WebServerManager.Instance.mainQueue[0].playerDifficulties[i - 1]);
-            PlayerPrefs.SetInt($"Player{i}MicToggle", WebServerManager.Instance.mainQueue[0].playerMicToggle[i - 1] ? 1 : 0);
             PlayerPrefs.SetInt($"Player{i}", 1);
         }
 

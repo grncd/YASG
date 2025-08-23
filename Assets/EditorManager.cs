@@ -128,7 +128,7 @@ public class EditorManager : MonoBehaviour
         transform.GetChild(0).GetComponent<CanvasGroup>().blocksRaycasts = false;
         selectorGO.transform.GetChild(0).gameObject.SetActive(false);
         selectorGO.transform.GetChild(1).gameObject.SetActive(true);
-        selectorGO.transform.GetChild(1).GetChild(2).gameObject.SetActive(false);
+        selectorGO.transform.GetChild(2).GetChild(2).gameObject.SetActive(false);
         PlayerPrefs.SetInt("editing", 1);
     }
     private IEnumerator FadeOutAndStop(AudioSource audioSource, float duration)
