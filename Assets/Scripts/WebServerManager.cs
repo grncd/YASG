@@ -10,6 +10,9 @@ using System.Diagnostics;
 using UnityEngine.UI;
 using System.Text.RegularExpressions;
 using UnityEngine.Networking;
+using UnityEditor.SearchService;
+using FishNet.Managing.Scened;
+using UnityEngine.SceneManagement;
 
 public class WebServerManager : MonoBehaviour
 {
@@ -43,7 +46,6 @@ public class WebServerManager : MonoBehaviour
         public string cover;
         public List<string> players;
         public List<int> difficulties;
-        public List<bool> micToggles;
     }
     
     [System.Serializable]
@@ -219,22 +221,41 @@ public class WebServerManager : MonoBehaviour
         }
     }
 
+    private void Update() {
+        if (levelCompiler == null && UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "Menu")
+        {
+            levelCompiler = GameObject.Find("Resources").GetComponent<LevelResourcesCompiler>();
+            if (levelCompiler == null)
+            {
+                UnityEngine.Debug.LogError("LevelResourcesCompiler not found in Menu scene!");
+            }
+        }
+    }
+
     private void Start()
     {
-        levelCompiler = LevelResourcesCompiler.Instance;
+        levelCompiler = GameObject.Find("Resources").GetComponent<LevelResourcesCompiler>();
 
         // Set default ngrok path if not specified
         if (string.IsNullOrEmpty(ngrokPath))
         {
             ngrokPath = Path.Combine(PlayerPrefs.GetString("dataPath"), "ngrok.exe");
         }
-
+        UnityEngine.SceneManagement.SceneManager.activeSceneChanged += OnSceneChanged;
         // Initialize Spotify credentials
         spotifyClientId = PlayerPrefs.GetString("CLIENTID");
         spotifyClientSecret = PlayerPrefs.GetString("APIKEY");
 
         // Start Spotify token refresh routine
         StartCoroutine(SpotifyTokenRefreshRoutine());
+    }
+
+    public void OnSceneChanged(UnityEngine.SceneManagement.Scene newScene, UnityEngine.SceneManagement.Scene oldScene)
+    {
+        if(newScene.name == "Menu" && oldScene.name == "Results")
+        {
+            levelCompiler = GameObject.Find("Resources").GetComponent<LevelResourcesCompiler>();
+        }
     }
     
     private IEnumerator SpotifyTokenRefreshRoutine()
@@ -721,20 +742,13 @@ tunnels:
     {
         try
         {
-            // Check if user already has a pending request
-            if (userSessions.ContainsKey(userId) && userSessions[userId].hasPendingRequest)
-            {
-                return "{\"success\":false,\"message\":\"You already have a song in the queue. Please wait until it's played before adding another.\"}";
-            }
-            
             SongRequest songRequest = JsonUtility.FromJson<SongRequest>(postData);
             
             if (levelCompiler != null && songRequest.players != null && songRequest.players.Count > 0)
             {
                 // Validate that all arrays have the same length
-                if (songRequest.difficulties == null || songRequest.micToggles == null ||
-                    songRequest.players.Count != songRequest.difficulties.Count ||
-                    songRequest.players.Count != songRequest.micToggles.Count)
+                if (songRequest.difficulties == null ||
+                    songRequest.players.Count != songRequest.difficulties.Count)
                 {
                     return "{\"success\":false,\"message\":\"Invalid player data - mismatched array lengths\"}";
                 }
@@ -747,7 +761,6 @@ tunnels:
                 {
                     players = songRequest.players.GetRange(0, playerCount),
                     playerDifficulties = songRequest.difficulties.GetRange(0, playerCount),
-                    playerMicToggle = songRequest.micToggles.GetRange(0, playerCount),
                     track = new BackgroundTrack
                     {
                         url = songRequest.url,
@@ -761,17 +774,9 @@ tunnels:
                 // Add to queue
                 mainQueue.Add(newQueueObject);
                 
-                // Update user session
-                if (userSessions.ContainsKey(userId))
-                {
-                    userSessions[userId].hasPendingRequest = true;
-                    userSessions[userId].queuedSongId = songRequest.url;
-                    userSessions[userId].requestTime = System.DateTime.Now;
-                }
-                
                 // Store the user ID in the queue object for position tracking
                 newQueueObject.requestedByUserId = userId;
-                
+
                 // Update party mode UI
                 if (levelCompiler != null)
                 {
@@ -923,11 +928,6 @@ tunnels:
                                     <option value='1' selected data-translate='difficulty.medium'>Medium</option>
                                     <option value='2' data-translate='difficulty.hard'>Hard</option>
                                 </select>
-                            </div>
-                            <div class='form-group'>
-                                <label>
-                                    <input type='checkbox' name='micToggle1' checked> <span data-translate='player.microphone'>Enable Microphone Feedback</span>
-                                </label>
                             </div>
                         </div>
                     </div>
@@ -1890,7 +1890,6 @@ const translations = {
             'player.title': 'Jogador {num}',
             'player.name': 'Nome:',
             'player.difficulty': 'Dificuldade:',
-            'player.microphone': 'Voz no alto-falante',
             'difficulty.easy': 'Fácil',
             'difficulty.medium': 'Médio',
             'difficulty.hard': 'Difícil',
@@ -1931,7 +1930,6 @@ const translations = {
             'player.title': 'Player {num}',
             'player.name': 'Name:',
             'player.difficulty': 'Difficulty:',
-            'player.microphone': 'Enable Microphone Feedback',
             'difficulty.easy': 'Easy',
             'difficulty.medium': 'Medium',
             'difficulty.hard': 'Hard',
@@ -2498,11 +2496,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     <option value='2'>${translate('difficulty.hard')}</option>
                 </select>
             </div>
-            <div class='form-group'>
-                <label>
-                    <input type='checkbox' name='micToggle${playerNum}' checked> ${translate('player.microphone')}
-                </label>
-            </div>
         `;
         
         playersContainer.appendChild(playerEntry);
@@ -2522,17 +2515,14 @@ document.addEventListener('DOMContentLoaded', function() {
         // Collect player data
         const players = [];
         const difficulties = [];
-        const micToggles = [];
         
         for (let i = 1; i <= playerCount; i++) {
             const nameInput = document.querySelector(`input[name='playerName${i}']`);
             const difficultySelect = document.querySelector(`select[name='difficulty${i}']`);
-            const micToggleInput = document.querySelector(`input[name='micToggle${i}']`);
             
             if (nameInput && nameInput.value.trim()) {
                 players.push(nameInput.value.trim());
                 difficulties.push(parseInt(difficultySelect.value));
-                micToggles.push(micToggleInput.checked);
             }
         }
         
@@ -2556,8 +2546,7 @@ document.addEventListener('DOMContentLoaded', function() {
             length: duration,
             cover: artworkUrl,
             players: players,
-            difficulties: difficulties,
-            micToggles: micToggles
+            difficulties: difficulties
         };
         
         try {
