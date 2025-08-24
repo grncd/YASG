@@ -10,7 +10,6 @@ using System.Diagnostics;
 using UnityEngine.UI;
 using System.Text.RegularExpressions;
 using UnityEngine.Networking;
-using UnityEditor.SearchService;
 using FishNet.Managing.Scened;
 using UnityEngine.SceneManagement;
 
