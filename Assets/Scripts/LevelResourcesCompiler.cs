@@ -73,6 +73,8 @@ public class LevelResourcesCompiler : MonoBehaviour
     public GameObject partyModeUI;
     public WebServerManager webServerManager;
 
+    public List<bool> playersReady;
+
     public TextMeshProUGUI nextSongName;
     public TextMeshProUGUI nextSongArtist;
     public MPImage nextSongCover;
@@ -81,6 +83,10 @@ public class LevelResourcesCompiler : MonoBehaviour
     public GameObject menuGO;
     public GameObject profileDisplay;
     public Sprite placeholder;
+    public CanvasGroup textAdvisors;
+    public AudioSource playFX;
+
+    private Process currentBGProcess;
 
     private int _originalVSyncCount;
 
@@ -88,7 +94,18 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     private void Awake()
     {
-        Instance = this;
+        // Singleton setup
+        if (Instance == null)
+        {
+            Instance = this;
+            DontDestroyOnLoad(gameObject); // Persist across scenes
+        }
+        else
+        {
+            Destroy(Instance.gameObject); // Destroy previous instance
+            Instance = this;
+            DontDestroyOnLoad(gameObject); // Persist across scenes
+        }
     }
 
 
@@ -183,6 +200,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     {
         if (WebServerManager.Instance != null && WebServerManager.Instance.mainQueue.Count != 0)
         {
+            playersReady.Clear();
             if (partyModeAdvisors != null)
             {
                 foreach (Transform child in partyModeAdvisors)
@@ -190,13 +208,36 @@ public class LevelResourcesCompiler : MonoBehaviour
                     Destroy(child.gameObject);
                 }
             }
+            var i = 0;
             foreach (string player in WebServerManager.Instance.mainQueue[0].players)
             {
+                i++;
+                playersReady.Add(false);
                 GameObject advisor = Instantiate(advisorPrefab, partyModeAdvisors);
-                advisor.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = player + ",";
-                
+                advisor.name = $"Player{i}";
+                advisor.transform.GetChild(1).GetChild(1).GetComponent<TextMeshProUGUI>().text = player + ",";
+                advisor.transform.GetChild(2).GetChild(1).GetComponent<TextMeshProUGUI>().text = player + ",";
+                advisor.transform.GetChild(3).GetChild(1).GetComponent<TextMeshProUGUI>().text = player + ",";
+
             }
         }
+        else
+        {
+            foreach (Transform child in partyModeAdvisors)
+            {
+                Destroy(child.gameObject);
+            }
+        }
+    }
+
+    public async void PartyModeStart()
+    {
+        partyModeStartAllowed = false;
+        playersReady.Clear();
+        var firstTrack = WebServerManager.Instance.mainQueue[0].track;
+        playFX.Play();
+        await Task.Delay(1010);
+        StartPartyMode(firstTrack.url, firstTrack.name, firstTrack.artist, firstTrack.length, firstTrack.cover);
     }
 
     void Update()
@@ -217,23 +258,26 @@ public class LevelResourcesCompiler : MonoBehaviour
                     currentStatusText.text = WebServerManager.Instance.GetCurrentStatus();
                     if (WebServerManager.Instance.mainQueue.Count != 0)
                     {
-                        if (Input.GetKeyDown(KeyCode.Space))
+                        textAdvisors.alpha = 1f;
+                        if (playersReady.All(ready => ready) && playersReady.Count != 0 && WebServerManager.Instance.mainQueue[0].processed)
                         {
-                            partyModeStartAllowed = false;
-                            var firstTrack = WebServerManager.Instance.mainQueue[0].track;
-                            StartPartyMode(firstTrack.url, firstTrack.name, firstTrack.artist, firstTrack.length, firstTrack.cover);
+                            PartyModeStart();
                         }
                         if (Input.GetKeyDown(KeyCode.Backspace))
                         {
                             WebServerManager.Instance.mainQueue.RemoveAt(0);
+                            BGMusic.Instance.StopPreview();
+                            playersReady.Clear();
+                            WebServerManager.Instance.SetCurrentStatus("");
+                            UpdatePartyModeUI();
                             if (WebServerManager.Instance.IsProcessing())
                             {
                                 WebServerManager.Instance.SetProcessing(false);
-                                if (activeProcess != null && !activeProcess.HasExited)
+                                if (currentBGProcess != null && !currentBGProcess.HasExited)
                                 {
                                     try
                                     {
-                                        activeProcess.Kill();
+                                        currentBGProcess.Kill();
                                         Debug.Log("Killed background process from BackgroundCompile.");
                                     }
                                     catch (Exception ex)
@@ -259,6 +303,7 @@ public class LevelResourcesCompiler : MonoBehaviour
                         nextSongLength.text = "Song Length: X:XX";
                         nextSongCover.sprite = placeholder;
                         nextSongBackdrop.sprite = placeholder;
+                        textAdvisors.alpha = 0.2f;
                     }
                 }
             }
@@ -1094,6 +1139,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             }
         };
         process.Start();
+        currentBGProcess = process;
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
@@ -1264,51 +1310,32 @@ public class LevelResourcesCompiler : MonoBehaviour
     private async Task RunPythonDirectly(string audioFilePath)
     {
         dataPath = PlayerPrefs.GetString("dataPath");
-        Debug.Log("here");
+
         if (string.IsNullOrEmpty(audioFilePath) || !File.Exists(audioFilePath))
         {
             UnityEngine.Debug.LogError("Audio file not found or path is invalid!");
             return;
         }
 
-        if (processLocally)
+        var inputFolder = Path.Combine(dataPath, "vocalremover", "input");
+        var targetPath = Path.Combine(inputFolder, Path.GetFileName(audioFilePath));
+        File.Copy(audioFilePath, targetPath, true);
+
+        PlayerPrefs.SetString("fullLocation", audioFilePath);
+        PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(audioFilePath) + " [vocals].mp3"));
+
+        string pythonArgs;
+        if(SettingsManager.Instance.GetSetting<int>("VocalProcessingMethod") == 0)
         {
-            var inputFolder = Path.Combine(dataPath, "Mel-Band-Roformer-Vocal-Model-main", "input");
-            var targetPath = Path.Combine(inputFolder, Path.GetFileName(audioFilePath));
-            File.Copy(audioFilePath, targetPath, true);
-            await RunProcessAsync("ffmpeg", $"-i \"{audioFilePath}\" \"{Path.ChangeExtension(audioFilePath, ".wav")}\"", dataPath);
-
-            PlayerPrefs.SetString("fullLocation", Path.ChangeExtension(audioFilePath, ".mp3"));
-            PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "Mel-Band-Roformer-Vocal-Model-main", "output", Path.GetFileNameWithoutExtension(audioFilePath) + "_vocals.wav"));
-
-            await RunProcessAsync("ffmpeg", $"-i \"{targetPath}\" \"{Path.ChangeExtension(targetPath, ".wav")}\"", dataPath);
-            File.Delete(Path.ChangeExtension(audioFilePath, ".wav")); // saves storage
-            splittingVocals = true;
-            while (splittingVocals) await Task.Delay(1000);
+            pythonArgs = $"-u \"vr.py\"";
         }
         else
         {
-            Debug.Log("here");
-            var inputFolder = Path.Combine(dataPath, "vocalremover", "input");
-            var targetPath = Path.Combine(inputFolder, Path.GetFileName(audioFilePath));
-            File.Copy(audioFilePath, targetPath, true);
-
-            PlayerPrefs.SetString("fullLocation", audioFilePath);
-            PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(audioFilePath) + " [vocals].mp3"));
-
-            string pythonArgs;
-            if(SettingsManager.Instance.GetSetting<int>("VocalProcessingMethod") == 0)
-            {
-                pythonArgs = $"-u \"vr.py\"";
-            }
-            else
-            {
-                pythonArgs = $"-u \"main.py\"";
-            }
-            string pythonExe = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
-            string workingDir = Path.Combine(dataPath, "vocalremover");
-            await RunProcessAsync(pythonExe, pythonArgs, workingDir);
+            pythonArgs = $"-u \"main.py\"";
         }
+        string pythonExe = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
+        string workingDir = Path.Combine(dataPath, "vocalremover");
+        await RunProcessAsync(pythonExe, pythonArgs, workingDir);
         UnityEngine.Debug.Log("Python inference finished!");
     }
 
@@ -1568,6 +1595,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         };
 
         var process = new Process { StartInfo = psi };
+        currentBGProcess = process;
 
         process.OutputDataReceived += (sender, args) =>
         {
@@ -1648,6 +1676,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         };
 
         Process process = new Process { StartInfo = psi };
+        currentBGProcess = process;
 
         process.OutputDataReceived += (sender, args) =>
         {
