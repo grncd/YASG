@@ -6,6 +6,7 @@ using System.IO;
 using TMPro;
 using UnityEngine;
 using System.Threading.Tasks;
+using System.Threading;
 using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine.SceneManagement;
@@ -87,6 +88,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     public AudioSource playFX;
 
     private Process currentBGProcess;
+    private CancellationTokenSource backgroundCompileCancellationSource;
 
     private int _originalVSyncCount;
 
@@ -284,6 +286,12 @@ public class LevelResourcesCompiler : MonoBehaviour
                                     {
                                         Debug.LogWarning($"Failed to kill background process: {ex.Message}");
                                     }
+                                }
+                                // Cancel the BackgroundCompile task
+                                if (backgroundCompileCancellationSource != null)
+                                {
+                                    backgroundCompileCancellationSource.Cancel();
+                                    Debug.Log("Cancelled BackgroundCompile task.");
                                 }
                             }
                         }
@@ -741,10 +749,25 @@ public class LevelResourcesCompiler : MonoBehaviour
                 WebServerManager.Instance.SetProcessing(false);
                 return;
             }
-            await BackgroundCompile(currentTrack.url, currentTrack.name, currentTrack.artist, currentTrack.length, currentTrack.cover);
-            currentQueue.processed = true;
-
-            WebServerManager.Instance.SetProcessing(false);
+            
+            // Create a new cancellation token source for this background compile operation
+            backgroundCompileCancellationSource = new CancellationTokenSource();
+            
+            try
+            {
+                await BackgroundCompile(currentTrack.url, currentTrack.name, currentTrack.artist, currentTrack.length, currentTrack.cover, backgroundCompileCancellationSource.Token);
+                currentQueue.processed = true;
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.Log("BackgroundCompile was cancelled.");
+            }
+            finally
+            {
+                backgroundCompileCancellationSource?.Dispose();
+                backgroundCompileCancellationSource = null;
+                WebServerManager.Instance.SetProcessing(false);
+            }
         }
     }
 
@@ -1065,7 +1088,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     }
 
 
-    public async Task BackgroundCompile(string url, string name, string artist, string length, string cover)
+    public async Task BackgroundCompile(string url, string name, string artist, string length, string cover, CancellationToken cancellationToken = default)
     {
         dataPath = PlayerPrefs.GetString("dataPath");
         UnityEngine.Debug.Log($"Now processing: {url}, {name}, {artist}, {length}, {cover}");
@@ -1082,6 +1105,9 @@ public class LevelResourcesCompiler : MonoBehaviour
             }
             return; // No need to proceed if the file already exists
         }
+        
+        // Check for cancellation before proceeding
+        cancellationToken.ThrowIfCancellationRequested();
 
         //PlayerPrefs.SetString("currentSong", name);
         //PlayerPrefs.SetString("currentArtist", artist);
@@ -1143,9 +1169,32 @@ public class LevelResourcesCompiler : MonoBehaviour
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        await Task.Run(() => process.WaitForExit());
+        // Wait for process completion or cancellation
+        await Task.Run(() =>
+        {
+            while (!process.HasExited && !cancellationToken.IsCancellationRequested)
+            {
+                Thread.Sleep(100);
+            }
+            
+            if (cancellationToken.IsCancellationRequested && !process.HasExited)
+            {
+                try
+                {
+                    process.Kill();
+                    Debug.Log("Killed lyrics process due to cancellation.");
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"Failed to kill lyrics process: {ex.Message}");
+                }
+            }
+        }, cancellationToken);
         UnityEngine.Debug.Log("Lyrics script finished.");
 
+        // Check for cancellation after lyrics fetch
+        cancellationToken.ThrowIfCancellationRequested();
+        
         // --- FALLBACK LOGIC ---
         if (lyricsError2)
         {
@@ -1188,6 +1237,9 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             WebServerManager.Instance.SetCurrentStatus("Downloading song...");
         }
+        
+        // Check for cancellation before download
+        cancellationToken.ThrowIfCancellationRequested();
 
         bool success = false;
         string expectedAudioPath = GetExpectedAudioFilePath(artist, name);
@@ -1225,16 +1277,20 @@ public class LevelResourcesCompiler : MonoBehaviour
                     success = false;
                 }
             }
-            await Task.Delay(1500); 
+            await Task.Delay(1500, cancellationToken); 
         }
 
         if (WebServerManager.Instance != null)
         {
             WebServerManager.Instance.SetCurrentStatus("Splitting vocals...");
         }
+        
+        // Check for cancellation before vocal splitting
+        cancellationToken.ThrowIfCancellationRequested();
+        
         splittingVocals = true;
 
-        await RunPythonDirectly(expectedAudioPath);
+        await RunPythonDirectly(expectedAudioPath, cancellationToken);
 
         splittingVocals = false;
         currentPercentage = 0f;
@@ -1307,7 +1363,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     }
 
 
-    private async Task RunPythonDirectly(string audioFilePath)
+    private async Task RunPythonDirectly(string audioFilePath, CancellationToken cancellationToken = default)
     {
         dataPath = PlayerPrefs.GetString("dataPath");
 
@@ -1335,7 +1391,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
         string pythonExe = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
         string workingDir = Path.Combine(dataPath, "vocalremover");
-        await RunProcessAsync(pythonExe, pythonArgs, workingDir);
+        await RunProcessAsync(pythonExe, pythonArgs, workingDir, cancellationToken);
         UnityEngine.Debug.Log("Python inference finished!");
     }
 
@@ -1572,7 +1628,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
     }
 
-    private async Task RunProcessAsync(string exePath, string arguments, string workingDirectory)
+    private async Task RunProcessAsync(string exePath, string arguments, string workingDirectory, CancellationToken cancellationToken = default)
     {
         if (exePath == "python" && processLocally)
         {
@@ -1658,7 +1714,27 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
         else
         {
-            await Task.Run(() => process.WaitForExit());
+            // Wait for process completion or cancellation
+            await Task.Run(() =>
+            {
+                while (!process.HasExited && !cancellationToken.IsCancellationRequested)
+                {
+                    Thread.Sleep(100);
+                }
+                
+                if (cancellationToken.IsCancellationRequested && !process.HasExited)
+                {
+                    try
+                    {
+                        process.Kill();
+                        Debug.Log("Killed vocal processing due to cancellation.");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogWarning($"Failed to kill vocal processing: {ex.Message}");
+                    }
+                }
+            }, cancellationToken);
         }
     }
 

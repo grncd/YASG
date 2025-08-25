@@ -33,6 +33,12 @@ public class ResultsScreen : MonoBehaviour
     public TextMeshProUGUI btmLabel;
     public Animator resultsOutAnimator;
     public AudioSource resultsOutFX;
+    public GameObject playerAdvisorGO;
+    public Transform playerAdvisor;
+    public GameObject playerAdvisorPrefab;
+    private float elapsedTime = 0f;
+    private float targetTime = 10f;
+    public MPImage backToMenuButtonFill;
 
     [Header("Audio")]
     public AudioSource levelFX;
@@ -144,6 +150,29 @@ public class ResultsScreen : MonoBehaviour
     {
         Debug.Log("Starting Results Screen in LOCAL mode.");
 
+        if (PlayerPrefs.GetInt("partyMode") == 1)
+        {
+            var i = 0;
+            if (WebServerManager.Instance != null)
+            {
+                foreach (string player in WebServerManager.Instance.mainQueue[0].players)
+                {
+                    i++;
+                    GameObject advisor = Instantiate(playerAdvisorPrefab, playerAdvisor);
+                    advisor.name = $"Player{i}";
+                    advisor.transform.GetChild(1).gameObject.SetActive(false);
+                    advisor.transform.GetChild(2).gameObject.SetActive(false);
+                    advisor.transform.GetChild(3).GetChild(1).GetComponent<TextMeshProUGUI>().text = player + ",";
+                    advisor.transform.GetChild(3).GetChild(2).GetComponent<TextMeshProUGUI>().text = "coloque seu microfone aqui.";
+                    advisor.transform.GetChild(3).GetChild(3).gameObject.SetActive(false);
+                }
+            }
+        }
+        else
+        {
+            playerAdvisorGO.SetActive(false);
+        }
+
         for (int i = 0; i < resultPanels.Count; i++)
         {
             int playerId = i + 1; // Local player IDs are 1-4
@@ -193,12 +222,28 @@ public class ResultsScreen : MonoBehaviour
 
                     StartCoroutine(AnimatePlayerXP(panel, profile.level, previousPercent, profile.progressRemaining / 100f, profile.level > formerLevel));
                 }
-                
+
                 StartCoroutine(AnimateStars(panel.starsLocation, stars));
             }
             else
             {
                 panel.panelRoot.SetActive(false);
+            }
+        }
+    }
+
+    private void Update() {
+        if (PlayerPrefs.GetInt("partyMode") == 1)
+        {
+            elapsedTime += Time.deltaTime;
+            if (elapsedTime > targetTime / 2)
+            {
+                backToMenuButtonFill.fillAmount = (elapsedTime - targetTime / 2) / (targetTime / 2);
+            }
+            if (elapsedTime >= targetTime)
+            {
+                elapsedTime = 0;
+                BackToMenu();
             }
         }
     }
@@ -216,8 +261,7 @@ public class ResultsScreen : MonoBehaviour
         panel.levelText.text = leveledUp ? (finalLevel - 1).ToString() : finalLevel.ToString();
         panel.progressBar.fillAmount = fromProgress;
 
-        // Optional: A delay before the animation starts. 3.5s is quite long, you might want to reduce it.
-        yield return new WaitForSeconds(3.5f); // Reduced for better feel, change as needed.
+        yield return new WaitForSeconds(3.5f);
 
         if (leveledUp)
         {
