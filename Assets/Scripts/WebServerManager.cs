@@ -22,6 +22,7 @@ public class WebServerManager : MonoBehaviour
     
     [Header("UI References")]
     public Image qrCodeImage;
+    public GameObject qrCodeLoading;
     
     private HttpListener httpListener;
     private bool isServerRunning = false;
@@ -233,6 +234,8 @@ public class WebServerManager : MonoBehaviour
 
     private void Start()
     {
+        qrCodeLoading.SetActive(true);
+        qrCodeImage.color = new Color(1, 1, 1, 0);
         levelCompiler = GameObject.Find("Resources").GetComponent<LevelResourcesCompiler>();
 
         // Set default ngrok path if not specified
@@ -824,6 +827,7 @@ tunnels:
                 {
                     qrCodeImage.sprite = qrSprite;
                     qrCodeImage.color = Color.white;
+                    qrCodeLoading.SetActive(false);
                 }
                 
                 UnityEngine.Debug.Log("QR code generated successfully");

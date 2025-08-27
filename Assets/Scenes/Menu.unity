@@ -26049,6 +26049,7 @@ MonoBehaviour:
   ngrokPath: C:\Program Files\WindowsApps\ngrok.ngrok_3.24.0.0_x64__1g87z0zv29zzc\ngrok.exe
   ngrokAuthToken: 2J91uLLuuBT4RcZnFwkJlwEFhCv_5o6Pd1XgjfxK1TsANahei
   qrCodeImage: {fileID: 1825144122}
+  qrCodeLoading: {fileID: 801798025}
   mainQueue: []
   player1Old: 0
   player1NameOld: 
