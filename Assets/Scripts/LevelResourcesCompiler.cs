@@ -222,6 +222,10 @@ public class LevelResourcesCompiler : MonoBehaviour
                 advisor.transform.GetChild(3).GetChild(1).GetComponent<TextMeshProUGUI>().text = player + ",";
 
             }
+            if (i == 4)
+            {
+                GameObject.Find("QRCodeCanvas").GetComponent<CanvasGroup>().alpha = 0.5f;
+            }
         }
         else
         {
@@ -786,10 +790,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             PlayerPrefs.SetInt($"Player{i}", 1);
         }
 
-        if (i == 4)
-        {
-            GameObject.Find("QRCodeCanvas").GetComponent<CanvasGroup>().alpha = 0.5f;
-        }
+        
 
         dataPath = PlayerPrefs.GetString("dataPath");
         UnityEngine.Debug.Log($"STARTING: {url}, {name}, {artist}, {length}, {cover}");
