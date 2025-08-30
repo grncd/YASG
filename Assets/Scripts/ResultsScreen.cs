@@ -152,17 +152,33 @@ public class ResultsScreen : MonoBehaviour
 
         if (PlayerPrefs.GetInt("partyMode") == 1)
         {
-            var i = 0;
+            var times = 0;
+            if (PlayerPrefs.GetInt("Player1") == 1)
+            {
+                times++;
+            }
+            if (PlayerPrefs.GetInt("Player2") == 1)
+            {
+                times++;
+            }
+            if (PlayerPrefs.GetInt("Player3") == 1)
+            {
+                times++;
+            }
+            if (PlayerPrefs.GetInt("Player4") == 1)
+            {
+                times++;
+            }
             if (WebServerManager.Instance != null)
             {
-                foreach (string player in WebServerManager.Instance.mainQueue[0].players)
+                for (int i = 1; i < times+1; i++)
                 {
-                    i++;
                     GameObject advisor = Instantiate(playerAdvisorPrefab, playerAdvisor);
                     advisor.name = $"Player{i}";
                     advisor.transform.GetChild(1).gameObject.SetActive(false);
                     advisor.transform.GetChild(2).gameObject.SetActive(false);
-                    advisor.transform.GetChild(3).GetChild(1).GetComponent<TextMeshProUGUI>().text = player + ",";
+                    advisor.transform.GetChild(3).gameObject.SetActive(true);
+                    advisor.transform.GetChild(3).GetChild(1).GetComponent<TextMeshProUGUI>().text = PlayerPrefs.GetString($"Player{i}Name") + ",";
                     advisor.transform.GetChild(3).GetChild(2).GetComponent<TextMeshProUGUI>().text = "coloque seu microfone aqui.";
                     advisor.transform.GetChild(3).GetChild(3).gameObject.SetActive(false);
                 }
