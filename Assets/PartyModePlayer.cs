@@ -1,5 +1,6 @@
 using System;
 using System.Text.RegularExpressions;
+using FishNet.Managing.Scened;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -25,8 +26,18 @@ public class PartyModePlayer : MonoBehaviour
     private int startPaddingTop = 340;
     private int endPaddingTop = 12;
 
+    void Awake()
+    {
+        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "Results")
+        {
+            GetComponent<PartyModePlayer>().enabled = false;
+        }
+    }
+
     void Start()
     {
+        
+
         micDeviceIndex = PlayerPrefs.GetInt($"{gameObject.name}Mic", 0);
 
         Debug.Log($"Available microphones: {Microphone.devices.Length}");
