@@ -4,6 +4,6 @@
     </picture>
 </p>
 
-<p align="center">
+<p align="center" style="width: 25%; margin: 0 auto;">
     YASG (Yet Another Singing Game)
 </p>
