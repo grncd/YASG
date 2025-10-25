@@ -1833,7 +1833,21 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             using (var process = new Process { StartInfo = psi })
             {
+                process.OutputDataReceived += (sender, args) =>
+                {
+                    if (!string.IsNullOrEmpty(args.Data))
+                        Debug.Log($"[UpChkr] {args.Data}");
+                };
+                process.ErrorDataReceived += (sender, args) =>
+                {
+                    if (!string.IsNullOrEmpty(args.Data))
+                        Debug.LogError($"[UpdateChecker STDERR] {args.Data}");
+                };
+
                 process.Start();
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
+
                 await Task.Run(() => process.WaitForExit());
             }
         }
