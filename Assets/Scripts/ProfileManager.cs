@@ -385,7 +385,14 @@ public class ProfileManager : MonoBehaviour
         _activeProfileNames.Add(name);
         GetProfileByName(name).index = _activeProfileNames.Count;
         SaveActiveProfilesToPlayerPrefs();
-        Debug.Log($"Profile '{name}' activated.");
+
+        // Sync PlayerPrefs for the newly activated profile
+        int newIndex = _activeProfileNames.Count;
+        PlayerPrefs.SetInt("Player" + newIndex, 1);
+        PlayerPrefs.SetString("Player" + newIndex + "Name", name);
+        PlayerPrefs.Save();
+
+        Debug.Log($"Profile '{name}' activated at index {newIndex}.");
         return _activeProfileNames.Count;
     }
 
@@ -398,9 +405,72 @@ public class ProfileManager : MonoBehaviour
         }
         GetProfileByName(name).index = 0;
         _activeProfileNames.Remove(name);
+
+        // Reindex all remaining active profiles to maintain sequential order
+        ReindexActiveProfiles();
+
         SaveActiveProfilesToPlayerPrefs();
         Debug.Log($"Profile '{name}' deactivated.");
         return true;
+    }
+
+    /// <summary>
+    /// Reindexes all active profiles sequentially (1, 2, 3, 4).
+    /// This ensures there are no gaps in the index numbers.
+    /// </summary>
+    private void ReindexActiveProfiles()
+    {
+        for (int i = 0; i < _activeProfileNames.Count; i++)
+        {
+            Profile profile = GetProfileByName(_activeProfileNames[i]);
+            if (profile != null)
+            {
+                profile.index = i + 1; // 1-based indexing
+                Debug.Log($"Reindexed profile '{profile.name}' to index {profile.index}");
+            }
+        }
+
+        // Synchronize PlayerPrefs with new indices
+        SyncPlayerPrefsWithIndices();
+    }
+
+    /// <summary>
+    /// Updates PlayerPrefs to match current profile indices.
+    /// Clears unused player slots and updates active ones.
+    /// </summary>
+    private void SyncPlayerPrefsWithIndices()
+    {
+        // Clear all player slots first
+        for (int i = 1; i <= MAX_ACTIVE_PROFILES; i++)
+        {
+            PlayerPrefs.SetInt("Player" + i, 0);
+            PlayerPrefs.DeleteKey("Player" + i + "Name");
+            PlayerPrefs.DeleteKey("Player" + i + "Mic");
+        }
+
+        // Set active profiles
+        foreach (string profileName in _activeProfileNames)
+        {
+            Profile profile = GetProfileByName(profileName);
+            if (profile != null && profile.index > 0)
+            {
+                PlayerPrefs.SetInt("Player" + profile.index, 1);
+                PlayerPrefs.SetString("Player" + profile.index + "Name", profile.name);
+                // Note: Microphone index should be set by MicDropdownUI
+                Debug.Log($"Synced PlayerPrefs for '{profile.name}' at index {profile.index}");
+            }
+        }
+
+        PlayerPrefs.Save();
+    }
+
+    /// <summary>
+    /// Gets the current active index of a profile (1-4), or 0 if not active.
+    /// </summary>
+    public int GetProfileActiveIndex(string name)
+    {
+        Profile profile = GetProfileByName(name);
+        return profile?.index ?? 0;
     }
 
     public bool IsProfileActive(string name)

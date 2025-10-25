@@ -26,7 +26,19 @@ public class MicDropdownUI : MonoBehaviour
     private bool _isInitialized = false;
     private bool _listenersAttached = false;
     private string _playerPrefsKeyForProfileName;
-    private int playerIndex = 0;
+
+    // Dynamic property that always gets the current index from ProfileManager
+    private int PlayerIndex
+    {
+        get
+        {
+            if (ProfileManager.Instance != null && _currentProfile != null)
+            {
+                return ProfileManager.Instance.GetProfileActiveIndex(_currentProfile.name);
+            }
+            return 0;
+        }
+    }
 
 
     void Start()
@@ -153,7 +165,7 @@ public class MicDropdownUI : MonoBehaviour
                 succ = ProfileManager.Instance.GetProfileByName(_currentProfile.name).index;
                 PlayerPrefs.SetString("Player" + succ + "Name", _currentProfile.name);
                 PlayerPrefs.SetInt("Player" + succ, 1);
-                playerIndex = succ;
+                // playerIndex is now a property that queries ProfileManager, so no assignment needed
             }
         }
 
@@ -251,7 +263,7 @@ public class MicDropdownUI : MonoBehaviour
             }
         }
         micDropdown.value = currentIndex;
-        PlayerPrefs.SetInt("Player" + playerIndex + "Mic", currentIndex-1);
+        PlayerPrefs.SetInt("Player" + PlayerIndex + "Mic", currentIndex-1);
 
         if (_listenersAttached) micDropdown.onValueChanged.AddListener(OnMicDropdownChanged);
     }
@@ -277,7 +289,7 @@ public class MicDropdownUI : MonoBehaviour
             profileIdentifier = newName;
             _currentProfile = ProfileManager.Instance.GetProfileByName(newName);
 
-            PlayerPrefs.SetString("Player"+playerIndex+"Name", newName);
+            PlayerPrefs.SetString("Player"+PlayerIndex+"Name", newName);
             PlayerPrefs.Save();
         }
         else
@@ -293,7 +305,7 @@ public class MicDropdownUI : MonoBehaviour
 
         string selectedMicName = (index == 0) ? string.Empty : micDropdown.options[index].text;
         ProfileManager.Instance.SetProfileMicrophone(_currentProfile.name, selectedMicName);
-        PlayerPrefs.SetInt("Player" + playerIndex + "Mic", index-1);
+        PlayerPrefs.SetInt("Player" + PlayerIndex + "Mic", index-1);
     }
 
     void CheckForMicChangesAndUpdateDropdown()
@@ -332,11 +344,14 @@ public class MicDropdownUI : MonoBehaviour
     {
         if (ProfileManager.Instance != null && _currentProfile != null)
         {
-            Debug.Log($"'{gameObject.name}': Attempting to deactivate profile '{_currentProfile.name}' before destroying UI element.");
+            int currentIndex = PlayerIndex;
+            Debug.Log($"'{gameObject.name}': Attempting to deactivate profile '{_currentProfile.name}' (index {currentIndex}) before destroying UI element.");
+
+            // DeactivateProfile will handle reindexing and PlayerPrefs synchronization
             bool deactivated = ProfileManager.Instance.DeactivateProfile(_currentProfile.name);
             if (deactivated)
             {
-                Debug.Log($"'{gameObject.name}': Profile '{_currentProfile.name}' deactivated successfully.");
+                Debug.Log($"'{gameObject.name}': Profile '{_currentProfile.name}' deactivated successfully. ProfileManager has reindexed remaining profiles.");
             }
             else
             {
@@ -354,7 +369,9 @@ public class MicDropdownUI : MonoBehaviour
 
         Debug.Log($"'{gameObject.name}': Destroying GameObject.");
         ProfileDisplay.Instance.RemoveProfile(gameObject.name);
-        PlayerPrefs.SetInt("Player" + playerIndex, 0);
+
+        // No need to manually clear PlayerPrefs - ProfileManager.DeactivateProfile() handles all reindexing and syncing
+
         Destroy(gameObject);
     }
 
