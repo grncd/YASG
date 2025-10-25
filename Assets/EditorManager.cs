@@ -57,6 +57,10 @@ public class EditorManager : MonoBehaviour
     private float targetTime = 22f;
     private float saveTimer = 0f;
 
+    private void OnApplicationQuit() {
+        PlayerPrefs.SetInt("editing", 0);
+    }
+
     // --- (Unchanged Setup/Teardown Methods) ---
     #region Unchanged Setup/Teardown Methods
     private void Start()
@@ -127,7 +131,8 @@ public class EditorManager : MonoBehaviour
         transform.GetChild(0).GetComponent<CanvasGroup>().alpha = 0f;
         transform.GetChild(0).GetComponent<CanvasGroup>().blocksRaycasts = false;
         selectorGO.transform.GetChild(0).gameObject.SetActive(false);
-        selectorGO.transform.GetChild(1).gameObject.SetActive(true);
+        selectorGO.transform.GetChild(1).gameObject.SetActive(false);
+        selectorGO.transform.GetChild(2).gameObject.SetActive(true);
         selectorGO.transform.GetChild(2).GetChild(2).gameObject.SetActive(false);
         PlayerPrefs.SetInt("editing", 1);
     }
@@ -148,8 +153,8 @@ public class EditorManager : MonoBehaviour
         GameObject.Find("Music").GetComponent<AudioSource>().Play();
         GameObject.Find("Music").GetComponent<AudioSource>().volume = 0.211f;
         selectorGO.transform.GetChild(0).gameObject.SetActive(true);
-        selectorGO.transform.GetChild(1).gameObject.SetActive(false);
-        selectorGO.transform.GetChild(1).GetChild(2).gameObject.SetActive(true);
+        selectorGO.transform.GetChild(1).gameObject.SetActive(true);
+        selectorGO.transform.GetChild(2).GetChild(2).gameObject.SetActive(true);
         PlayerPrefs.SetInt("editing", 0);
     }
     #endregion
