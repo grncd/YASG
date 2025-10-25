@@ -1,9 +1,9 @@
 <p align="center">
     <picture>
-        <img src="./Assets/Sprites/logo.png" width="50%">
+        <img src="./Assets/Sprites/logo.png" width="25%">
     </picture>
 </p>
 
-<p align="center" style="width: 25%; margin: 0 auto;">
+<p align="center">
     YASG (Yet Another Singing Game)
 </p>
