@@ -14,7 +14,7 @@ public class AlertManager : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        if(PlayerPrefs.GetInt("fromMP") == 0)
+        if (PlayerPrefs.GetInt("fromMP") == 0)
         {
             PlayerPrefs.SetInt("multiplayer", 0);
         }
@@ -22,7 +22,7 @@ public class AlertManager : MonoBehaviour
         {
             menuGO.SetActive(false);
             PlayerPrefs.SetInt("fromMP", 0);
-            if(PlayerPrefs.GetInt("multiplayer") == 0)
+            if (PlayerPrefs.GetInt("multiplayer") == 0)
             {
                 localGO.SetActive(true);
             }
@@ -93,5 +93,10 @@ public class AlertManager : MonoBehaviour
     {
         SelectorOutline.Instance.defaultObject = localGO.transform.GetChild(2).gameObject;
         SelectorOutline.Instance.UnrestrictAllButtons();
+    }
+
+    public void MPDisclaimer()
+    {
+        ShowInfo("Multiplayer is unavailable.", "Multiplayer mode is currently under development! Once development is complete, it will be accessible from this button.", "Close");
     }
 }
