@@ -189,6 +189,19 @@ public class SetupManager : MonoBehaviour
         }
     }
 
+    private void Start() {
+        // Ensure there's a sensible default (Unity game's data folder) if none set
+        string defaultPath = PlayerPrefs.GetString("dataPath");
+        if (string.IsNullOrEmpty(defaultPath))
+        {
+            defaultPath = Application.persistentDataPath;
+            PlayerPrefs.SetString("dataPath", defaultPath);
+        }
+
+        // Update UI to show current/default path before opening selector
+        if (selectedDataPath != null) selectedDataPath.text = defaultPath;
+        selectDataPathButton.interactable = true;
+    }
 
     public void StartLogin()
     {
@@ -468,7 +481,7 @@ public class SetupManager : MonoBehaviour
     private void ProcessErrorLine(string line)
     {
         // Filter for the multi-line pip warning.
-        if (line.Contains("WARNING: You are using pip version") || line.Contains("install --upgrade pip") || line.Contains("A new release of pip available"))
+        if (line.Contains("WARNING: You are using pip version") || line.Contains("install --upgrade pip") || line.Contains("A new release of pip is available"))
         {
             UnityEngine.Debug.Log($"[Ignored Warning] {line}");
             return; // Exit without showing error on UI
@@ -478,15 +491,15 @@ public class SetupManager : MonoBehaviour
         UnityEngine.Debug.LogError($"[Process Error] {line}");
         if (currentProcessType == ActiveProcessType.Preinstall && statusTextPreinstall != null)
         {
-            statusTextPreinstall.text = "An error occurred. Check console.";
+            statusTextPreinstall.text = "An error occurred. Check logs for details.";
         }
         else if (currentProcessType == ActiveProcessType.Login && statusTextLogin != null)
         {
-            statusTextLogin.text = "An error occurred. Check console.";
+            statusTextLogin.text = "An error occurred. You might need to use another account.";
         }
         else if (currentProcessType == ActiveProcessType.FinalInstall && statusTextFinalInstall != null)
         {
-            statusTextFinalInstall.text = "An error occurred. Check console.";
+            statusTextFinalInstall.text = "An error occurred. Check logs for details.";
         }
     }
 
@@ -543,11 +556,10 @@ public class SetupManager : MonoBehaviour
     public void OpenFolderSelector()
     {
         var paths = StandaloneFileBrowser.OpenFolderPanel("Select Folder", "", false);
-        if (paths.Length > 0)
+        if (paths.Length > 0 && !string.IsNullOrEmpty(paths[0]))
         {
             PlayerPrefs.SetString("dataPath", paths[0]);
-            selectDataPathButton.interactable = true;
-            selectedDataPath.text = paths[0];
+            if (selectedDataPath != null) selectedDataPath.text = paths[0];
         }
     }
 

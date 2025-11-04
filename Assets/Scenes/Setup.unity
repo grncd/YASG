@@ -8853,7 +8853,13 @@ MonoBehaviour:
 
     This is where all of
     your YASG related data will be stored. <b>At the moment, this cannot be changed
-    after you proceed.'
+    after you proceed.</b>
+
+
+    If you are unsure, leave it as the default path
+    and click Next.
+
+'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: d7b32db4901769e4188bd82a9e439b3e, type: 2}
   m_sharedMaterial: {fileID: -2273542556847416566, guid: d7b32db4901769e4188bd82a9e439b3e, type: 2}
@@ -9049,7 +9055,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -366, y: 142.54}
+  m_AnchoredPosition: {x: -366, y: 194}
   m_SizeDelta: {x: 568.65, y: 54.67}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1284571848
