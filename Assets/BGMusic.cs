@@ -11,6 +11,8 @@ public class BGMusic : MonoBehaviour
 {
     public AudioClip menuMusicClip;
     public UnityEngine.Audio.AudioMixerGroup previewAudioMixerGroup;
+    [Range(0f, 1f)]
+    public float bgMusicVolume = 0.143f;
     private AudioSource audioSource;
     private int lastMenuMusicValue = -1;
     public TextMeshProUGUI songName;
@@ -61,10 +63,10 @@ public class BGMusic : MonoBehaviour
         if (newScene.name == "Menu")
         {
             StopPreview();
-            previewAudioSource.volume = 0.26f;
+            previewAudioSource.volume = 0.143f;
             if (audioSource != null)
             {
-                audioSource.volume = 0.211f;
+                audioSource.volume = bgMusicVolume;
             }
             killSwitch = false;
             songName = GameObject.Find("Canvas").transform.GetChild(2).GetChild(7).GetChild(2).GetComponent<TextMeshProUGUI>();
@@ -136,7 +138,7 @@ public class BGMusic : MonoBehaviour
                             audioSource.clip = menuMusicClip;
                             audioSource.loop = true;
                             audioSource.Play();
-                            songName.text = "ivvys - unfinished 2";
+                            songName.text = "grncd - YASG Menu";
                         }
                         break;
                     case 2:
@@ -171,8 +173,18 @@ public class BGMusic : MonoBehaviour
                                     audioSource.clip = menuMusicClip;
                                     audioSource.loop = true;
                                     audioSource.Play();
-                                    songName.text = "ivvys - unfinished 2";
+                                    songName.text = "grncd - YASG Menu";
                                 }
+                            }
+                        }else
+                        {
+                            if (!audioSource.isPlaying)
+                            {
+                                if (shuffleButton != null) shuffleButton.SetActive(false);
+                                audioSource.clip = menuMusicClip;
+                                audioSource.loop = true;
+                                audioSource.Play();
+                                songName.text = "grncd - YASG Menu";
                             }
                         }
                         break;
@@ -292,7 +304,7 @@ public class BGMusic : MonoBehaviour
     {
         // Fade out the preview song and fade in the BG music simultaneously
         Coroutine fadeOutPreview = StartCoroutine(FadeAudio(previewAudioSource, 0.5f, 0f));
-        StartCoroutine(FadeAudio(audioSource, 0.5f, 0.211f));
+        StartCoroutine(FadeAudio(audioSource, 0.5f, bgMusicVolume));
 
         // Wait for the preview to finish fading out before we stop it and delete the file
         yield return fadeOutPreview;
