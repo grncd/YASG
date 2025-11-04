@@ -165,7 +165,7 @@ public class SettingsManager : MonoBehaviour
 
             // Misc
             // DONE
-            { "MenuMusic", new Setting { Value = 1, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Music", Description = "Defines the song that will be played in the menu.", DropdownOptions = new List<string> { "None","Default","Random selection from downloaded songs" } } },
+            { "MenuMusic", new Setting { Value = 2, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Music", Description = "Defines the song that will be played in the menu.", DropdownOptions = new List<string> { "None","Default","Random selection from downloaded songs" } } },
             // DONE
             { "MenuBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Background", Description = "Defines the background that will be displayed in the menu.", DropdownOptions = new List<string> { "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
             // Done
