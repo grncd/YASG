@@ -27,9 +27,16 @@ public class BGMusic : MonoBehaviour
 
     void Awake()
     {
+        // Make this a persistent singleton so preview audio is controlled by a single instance across scenes
         if (Instance == null)
         {
             Instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
+        else
+        {
+            Destroy(gameObject);
+            return;
         }
         previewAudioSource = gameObject.AddComponent<AudioSource>();
         previewAudioSource.loop = false;
@@ -58,11 +65,28 @@ public class BGMusic : MonoBehaviour
         SceneManager.activeSceneChanged -= OnActiveSceneChanged;
     }
 
-    private void OnActiveSceneChanged(Scene preivousScene, Scene newScene)
+    private void OnDestroy()
     {
-        if (newScene.name == "Menu")
+        // Clean up event subscription if this instance is being destroyed
+        if (Instance == this)
+        {
+            SceneManager.activeSceneChanged -= OnActiveSceneChanged;
+            Instance = null;
+        }
+    }
+
+    private void OnActiveSceneChanged(Scene previousScene, Scene newScene)
+    {
+        // Always ensure any preview is stopped when scenes change to prevent overlapping audio
+        if (previewAudioSource != null && previewAudioSource.isPlaying)
         {
             StopPreview();
+        }
+
+        // Only run menu setup when entering the Menu scene
+        if (newScene.name == "Menu")
+        {
+            // Ensure bg volumes are sane
             previewAudioSource.volume = 0.143f;
             if (audioSource != null)
             {
@@ -218,12 +242,21 @@ public class BGMusic : MonoBehaviour
 
     public void StopPreview()
     {
+        // Stop any preview coroutine immediately
         if (previewSongCoroutine != null)
         {
             StopCoroutine(previewSongCoroutine);
             previewSongCoroutine = null;
-            StartCoroutine(StopPreviewCoroutine());
         }
+
+        // Immediately stop preview audio to avoid overlapping with BG music
+        if (previewAudioSource != null && previewAudioSource.isPlaying)
+        {
+            previewAudioSource.Stop();
+        }
+
+        // Start fade/cleanup routine (will handle nulls safely)
+        StartCoroutine(StopPreviewCoroutine());
     }
 
     IEnumerator PreviewSongCoroutine(string trackId)
