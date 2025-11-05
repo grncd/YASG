@@ -10,6 +10,9 @@
 
 ---
 
+> [!WARNING]
+> **YASG is in it's early beta stage.** This means you are very likely to find a lot of bugs when playing.
+
 YASG (Yet Another Singing Game) **is a karaoke game** just like others, but **without the hassle of grabbing songs or lyrics yourself.** A simple search is all you need to play any song available on digital streaming platforms (DSPs).
 
 # 🔽 [DOWNLOAD HERE](https://github.com/grncd/YASG/releases/download/v0.0.1a/Build.zip) (CURRENTLY WINDOWS-ONLY)
