@@ -893,6 +893,8 @@ public class LevelResourcesCompiler : MonoBehaviour
             else
             {
                 UnityEngine.Debug.LogError($"Lyrics file found for '{name}', but the corresponding audio file '{expectedFileName}' is missing in the downloads folder. A re-download might be required. If the issue persists, delete the song's .txt file inside YASG's data folder.");
+                PlayerPrefs.SetInt("ERR", 1);
+                UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
                 return;
             }
         }

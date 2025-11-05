@@ -170,6 +170,8 @@ public class LyricsHandler : MonoBehaviour
         else
         {
             Debug.LogError("File not found at path: " + path);
+            PlayerPrefs.SetInt("ERR", 1);
+            UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
         }
     }
 
