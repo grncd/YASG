@@ -12,7 +12,7 @@
 
 YASG (Yet Another Singing Game) **is a karaoke game** just like others, but **without the hassle of grabbing songs or lyrics yourself.** A simple search is all you need to play any song available on digital streaming platforms (DSPs).
 
-# 🔽 [DOWNLOAD HERE](https://github.com/grncd/YASG/releases/download/v0.0.1/Build.zip) (CURRENTLY WINDOWS-ONLY)
+# 🔽 [DOWNLOAD HERE](https://github.com/grncd/YASG/releases/download/v0.0.1a/Build.zip) (CURRENTLY WINDOWS-ONLY)
 ## ⚠️ Disclaimer
 
 YASG relies on several open-source projects to function. These tools are not included with the game, but are installed on the created Python VENV automatically by the game's setup.
