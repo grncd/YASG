@@ -462,6 +462,8 @@ public class SetupManager : MonoBehaviour
         else if (line.Contains("Filling out app creation form...")) { loginProgress.value = 0.5f; }
         else if (line.Contains("Submitting form...")) { loginProgress.value = 0.75f; }
         else if (line.Contains("Copying client secret to clipboard...")) { loginProgress.value = 1f; }
+        else if (line.Contains("Interstitial button found, clicking it...")) { statusTextLogin.text = "Please check your email and click the link to verify!"; }
+        else if (line.Contains("Interstitial button is gone, proceeding...")) { statusTextLogin.text = "Email verified!"; }
     }
 
     private void ParseFinalInstallOutputLine(string line)

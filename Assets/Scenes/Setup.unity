@@ -1040,9 +1040,9 @@ MonoBehaviour:
   m_fontSize: 55.8
   m_fontSizeBase: 55.8
   m_fontWeight: 400
-  m_enableAutoSizing: 0
+  m_enableAutoSizing: 1
   m_fontSizeMin: 18
-  m_fontSizeMax: 72
+  m_fontSizeMax: 55.8
   m_fontStyle: 0
   m_HorizontalAlignment: 1
   m_VerticalAlignment: 256
@@ -9660,7 +9660,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Please login in the browser.
+  m_text: Loading...
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: d7b32db4901769e4188bd82a9e439b3e, type: 2}
   m_sharedMaterial: {fileID: -2273542556847416566, guid: d7b32db4901769e4188bd82a9e439b3e, type: 2}
@@ -9690,12 +9690,12 @@ MonoBehaviour:
   m_fontSize: 55.8
   m_fontSizeBase: 55.8
   m_fontWeight: 400
-  m_enableAutoSizing: 0
+  m_enableAutoSizing: 1
   m_fontSizeMin: 18
-  m_fontSizeMax: 72
+  m_fontSizeMax: 55.8
   m_fontStyle: 0
   m_HorizontalAlignment: 1
-  m_VerticalAlignment: 256
+  m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
   m_wordSpacing: 0
@@ -10085,9 +10085,9 @@ MonoBehaviour:
   m_fontSize: 55.8
   m_fontSizeBase: 55.8
   m_fontWeight: 400
-  m_enableAutoSizing: 0
+  m_enableAutoSizing: 1
   m_fontSizeMin: 18
-  m_fontSizeMax: 72
+  m_fontSizeMax: 55.8
   m_fontStyle: 0
   m_HorizontalAlignment: 1
   m_VerticalAlignment: 256
