@@ -33,6 +33,7 @@ public class AlertManager : MonoBehaviour
         }
     }
 
+    
     public void ShowSuccess(string title, string info, string button)
     {
         SelectorOutline.Instance.defaultObject = this.transform.GetChild(3).GetChild(5).gameObject;
@@ -94,6 +95,15 @@ public class AlertManager : MonoBehaviour
         SelectorOutline.Instance.defaultObject = localGO.transform.GetChild(2).gameObject;
         SelectorOutline.Instance.UnrestrictAllButtons();
     }
+
+    private void Start() {
+        if (PlayerPrefs.GetInt("ERR") == 1)
+        {
+            ShowError("An error occurred.", "Please try playing the song again. If the issue persists, open an issue in our GitHub page.", "Close");
+            PlayerPrefs.SetInt("ERR", 0);
+        }
+    }
+
 
     public void MPDisclaimer()
     {

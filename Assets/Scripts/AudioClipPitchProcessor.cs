@@ -247,6 +247,8 @@ public class AudioClipPitchProcessor : MonoBehaviour
         catch (Exception e)
         {
             UnityEngine.Debug.LogError($"[AudioClipPitchProcessor] Error saving pitch data to {filePath}: {e.Message}");
+            PlayerPrefs.SetInt("ERR", 1);
+            UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
         }
     }
 
@@ -342,8 +344,8 @@ public class AudioClipPitchProcessor : MonoBehaviour
         if (string.IsNullOrEmpty(vocalTrackPath))
         {
             UnityEngine.Debug.LogError("Vocal file path is empty! Cannot proceed.");
-            processingProgress = 1f; // <<< MODIFIED: Indicate completion (failure)
-            if (progressBar != null) progressBar.value = processingProgress;
+            PlayerPrefs.SetInt("ERR", 1);
+            UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
             StartCoroutine(FadeOutLoadingScreen());
             yield break;
         }
@@ -363,7 +365,9 @@ public class AudioClipPitchProcessor : MonoBehaviour
             if (wwwVocal.result != UnityWebRequest.Result.Success)
             {
                 UnityEngine.Debug.LogError($"Failed to load vocal audio: {wwwVocal.error} from path: {urlVocal}");
-                processingProgress = 1f; // <<< MODIFIED: Indicate completion (failure)
+                processingProgress = 1f; 
+                PlayerPrefs.SetInt("ERR", 1);
+                UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
                 StartCoroutine(FadeOutLoadingScreen());
                 yield break;
             }
@@ -371,7 +375,9 @@ public class AudioClipPitchProcessor : MonoBehaviour
             if (audioClip == null)
             {
                 UnityEngine.Debug.LogError($"Vocal AudioClip is null after download from: {urlVocal}. Cannot proceed.");
-                processingProgress = 1f; // <<< MODIFIED: Indicate completion (failure)
+                processingProgress = 1f;
+                PlayerPrefs.SetInt("ERR", 1);
+                UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
                 StartCoroutine(FadeOutLoadingScreen());
                 yield break;
             }
@@ -437,7 +443,8 @@ public class AudioClipPitchProcessor : MonoBehaviour
         if (audioClip == null)
         {
             UnityEngine.Debug.LogError("[AudioClipPitchProcessor] No AudioClip (vocals) assigned for analysis! Aborting.");
-            SetPhaseProgress(1f);
+            PlayerPrefs.SetInt("ERR", 1);
+            UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
             StartCoroutine(FadeOutLoadingScreen());
             return;
         }
@@ -461,7 +468,8 @@ public class AudioClipPitchProcessor : MonoBehaviour
         if (audioSamples == null || audioSamples.Length == 0)
         {
             UnityEngine.Debug.LogError("[AudioClipPitchProcessor] audioSamples are null or empty after ExtractAudioData. Aborting processing.");
-            SetPhaseProgress(1f);
+            PlayerPrefs.SetInt("ERR", 1);
+            UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
             StartCoroutine(FadeOutLoadingScreen());
             return;
         }
@@ -502,7 +510,8 @@ public class AudioClipPitchProcessor : MonoBehaviour
             if (audioSamples == null || audioSamples.Length == 0)
             {
                 UnityEngine.Debug.LogError("[AudioClipPitchProcessor] audioSamples are null or empty after ExtractAudioData. Aborting processing.");
-                SetPhaseProgress(1f);
+                PlayerPrefs.SetInt("ERR", 1);
+                UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
                 StartCoroutine(FadeOutLoadingScreen());
                 return;
             }
@@ -593,7 +602,8 @@ public class AudioClipPitchProcessor : MonoBehaviour
         if (pitchOverTime == null || pitchOverTime.Count == 0)
         {
             UnityEngine.Debug.LogError("[AudioClipPitchProcessor] pitchOverTime is null or empty after processing/loading. Cannot calculate score or play.");
-            SetPhaseProgress(1f);
+            PlayerPrefs.SetInt("ERR", 1);
+            UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
             StartCoroutine(FadeOutLoadingScreen());
             return;
         }
