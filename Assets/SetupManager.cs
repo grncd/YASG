@@ -194,7 +194,14 @@ public class SetupManager : MonoBehaviour
         string defaultPath = PlayerPrefs.GetString("dataPath");
         if (string.IsNullOrEmpty(defaultPath))
         {
-            defaultPath = Application.persistentDataPath;
+            // Prefer the Program Files folder for portability across locales.
+            string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            if (string.IsNullOrEmpty(programFiles))
+            {
+                // Fallback to a sensible Windows default if the API didn't return a path.
+                programFiles = @"C:\Program Files";
+            }
+            defaultPath = Path.Combine(programFiles, "YASG");
             PlayerPrefs.SetString("dataPath", defaultPath);
         }
 
