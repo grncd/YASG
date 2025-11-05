@@ -11,7 +11,8 @@
 ---
 
 > [!WARNING]
-> **YASG is in it's early beta stage.** This means you are very likely to find a lot of bugs when playing.
+> **YASG is currently in its early beta stage.** As such, you may encounter **various bugs or unexpected behavior** while playing.
+If you discover any issues, please report them by creating an issue on the project’s GitHub page.
 
 YASG (Yet Another Singing Game) **is a karaoke game** just like others, but **without the hassle of grabbing songs or lyrics yourself.** A simple search is all you need to play any song available on digital streaming platforms (DSPs).
 
