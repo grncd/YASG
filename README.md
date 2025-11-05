@@ -8,6 +8,10 @@
     <i>YASG (Yet Another Singing Game)</i>
 </p>
 
+<p align="center" width="100%">
+<video src="https://github.com/user-attachments/assets/34665318-e107-4581-8e10-cab439f1beab" width="50%" autoplay controls></video>
+</p>
+
 ---
 
 > [!WARNING]
