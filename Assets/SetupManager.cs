@@ -194,14 +194,26 @@ public class SetupManager : MonoBehaviour
         string defaultPath = PlayerPrefs.GetString("dataPath");
         if (string.IsNullOrEmpty(defaultPath))
         {
-            // Prefer the Program Files folder for portability across locales.
-            string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-            if (string.IsNullOrEmpty(programFiles))
+            // Use the user's Roaming AppData folder so the path works regardless of username.
+            string roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            if (string.IsNullOrEmpty(roaming))
             {
-                // Fallback to a sensible Windows default if the API didn't return a path.
-                programFiles = @"C:\Program Files";
+                // Fallback: construct a plausible Roaming path from the user profile.
+                string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                roaming = Path.Combine(userProfile ?? @"C:\Users\Default", "AppData", "Roaming");
             }
-            defaultPath = Path.Combine(programFiles, "YASG");
+            defaultPath = Path.Combine(roaming, "YASG", "YASG");
+
+            // Ensure the folder exists and persist it to PlayerPrefs.
+            try
+            {
+                Directory.CreateDirectory(defaultPath);
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogWarning($"Could not create default data path '{defaultPath}': {e.Message}");
+            }
+
             PlayerPrefs.SetString("dataPath", defaultPath);
         }
 
