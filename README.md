@@ -16,7 +16,7 @@
 
 > [!WARNING]
 > **YASG is currently in its early beta stage.**  
-> As such, you may encounter **various bugs or unexpected behavior** while playing.  
+> As such, you may encounter **various bugs, unexpected behavior and missing features** while playing.  
 > If you discover any issues, please report them by creating an issue on the [GitHub Issues page](https://github.com/grncd/YASG/issues).
 
 ---
