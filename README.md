@@ -78,10 +78,3 @@ These tools are not included with the game but are automatically installed withi
 * [**spotDL**](https://github.com/spotDL/spotify-downloader) – Handles song downloading.  
 * [**demucs**](https://github.com/adefossez/demucs) and [**vocalremover.org**](https://vocalremover.org/) – Used for vocal/instrumental separation.  
 * [**LRCLib**](https://lrclib.net/) – Provides fallback and custom lyric database support.
-
----
-
-## 📄 License
-
-This project is licensed under the [MIT License](LICENSE).  
-You are free to use, modify, and distribute this software under the terms of the license.
