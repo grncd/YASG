@@ -52,7 +52,7 @@ If you encounter bugs, crashes, or have feature suggestions, please open an issu
 When reporting a bug, include:
 - A brief description of the issue  
 - Steps to reproduce it (if possible)  
-- Any relevant screenshots or error messages
+- Your Player.log (located at %LOCALAPPDATA%Low/YASG/YASG)
 - Your system specifications (CPU, GPU, etc.)
 
 ---
