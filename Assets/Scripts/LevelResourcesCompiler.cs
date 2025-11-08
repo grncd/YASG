@@ -91,6 +91,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     private CancellationTokenSource backgroundCompileCancellationSource;
 
     private int _originalVSyncCount;
+    private static bool _hasRunUpdateCheck = false;
 
     public static LevelResourcesCompiler Instance { get; private set; }
 
@@ -118,7 +119,14 @@ public class LevelResourcesCompiler : MonoBehaviour
         Application.targetFrameRate = -1;
         progressBar.gameObject.SetActive(false);
         initLoadingDone = true;
-        RunUpdateCheckSilently(); // Run update check in background
+
+        // Only run update check once per game session
+        if (!_hasRunUpdateCheck)
+        {
+            _hasRunUpdateCheck = true;
+            RunUpdateCheckSilently();
+        }
+
         if (PlayerPrefs.GetInt("partyMode") == 1)
         {
             partyMode = true;
