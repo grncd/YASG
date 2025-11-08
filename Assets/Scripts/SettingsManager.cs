@@ -5,6 +5,7 @@ using System.IO;
 using Newtonsoft.Json;
 using System.Linq;
 using System;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Defines the categories for settings.
@@ -94,15 +95,33 @@ public class SettingsManager : MonoBehaviour
             try
             {
                 // Try to deserialize to the new format
-                var newSettings = JsonConvert.DeserializeObject<Dictionary<string, Setting>>(json);
-                if (newSettings != null && newSettings.Count > 0)
+                var loadedSettings = JsonConvert.DeserializeObject<Dictionary<string, Setting>>(json);
+                if (loadedSettings != null && loadedSettings.Count > 0)
                 {
-                    _settings = newSettings;
+                    // Initialize with defaults first
+                    InitializeDefaultSettings();
+
+                    // Merge loaded settings, preserving user values
+                    foreach (var loadedSetting in loadedSettings)
+                    {
+                        if (_settings.ContainsKey(loadedSetting.Key))
+                        {
+                            _settings[loadedSetting.Key].Value = loadedSetting.Value.Value;
+                        }
+                    }
+
+                    // Check if any new settings were added and save if needed
+                    if (_settings.Count > loadedSettings.Count)
+                    {
+                        Debug.Log($"Added {_settings.Count - loadedSettings.Count} new setting(s) to settings.json");
+                        SaveSettings();
+                    }
                 }
                 else
                 {
                     // Handle case where file is empty or invalid
                     InitializeDefaultSettings();
+                    SaveSettings();
                 }
             }
             catch (JsonSerializationException)
@@ -171,7 +190,10 @@ public class SettingsManager : MonoBehaviour
             // Done
             { "InGameBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "In-Game Background", Description = "Defines the background that will be displayed in-game.", DropdownOptions = new List<string> { "None", "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
             // DONE
-            { "AudioReactiveBGInGame", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Background", Description = "Defines if the background will be audio-reactive or not. Currently, this only works if you are using the Rainbow Tunnel BG."  } }
+            { "AudioReactiveBGInGame", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Background", Description = "Defines if the background will be audio-reactive or not. Currently, this only works if you are using the Rainbow Tunnel BG."  } },
+
+            { "ApiKey", new Setting { Value = PlayerPrefs.GetString("APIKEY", ""), Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.TextInput, FormalName = "API Key", Description = "Manually change your API key for Spotify integration."  } },
+            { "ClientId", new Setting { Value = PlayerPrefs.GetString("CLIENTID", ""), Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.TextInput, FormalName = "Client ID", Description = "Manually change your Client ID for Spotify integration."  } }
         };
     }
 
@@ -219,6 +241,18 @@ public class SettingsManager : MonoBehaviour
                 {
                     LevelResourcesCompiler.Instance.RunFullInstall();
                 }
+            }
+            else if(key == "ApiKey")
+            {
+                PlayerPrefs.SetString("APIKEY", value.ToString());
+                PlayerPrefs.Save();
+                ReloadMenuScene();
+            }
+            else if(key == "ClientId")
+            {
+                PlayerPrefs.SetString("CLIENTID", value.ToString());
+                PlayerPrefs.Save();
+                ReloadMenuScene();
             }
             setting.Value = value;
         }
@@ -332,5 +366,13 @@ public class SettingsManager : MonoBehaviour
             setting.DropdownOptions = options;
             SaveSettings();
         }
+    }
+
+    /// <summary>
+    /// Reloads the Menu scene.
+    /// </summary>
+    private void ReloadMenuScene()
+    {
+        SceneManager.LoadScene("Menu");
     }
 }

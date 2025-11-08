@@ -76884,7 +76884,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: carbine - fakeout
+  m_text: '-'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 54bcfc41279f6af4cb4cb8b7dfe0979f, type: 2}
   m_sharedMaterial: {fileID: -1612320144615957249, guid: 54bcfc41279f6af4cb4cb8b7dfe0979f, type: 2}

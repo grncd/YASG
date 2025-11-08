@@ -50,14 +50,23 @@ public class SettingsUIInstantiator : MonoBehaviour
                     textInput.transform.GetChild(1).GetComponent<TextMeshProUGUI>().text = setting.Value.Description;
                     TMP_InputField inputfield = textInput.transform.GetChild(2).GetComponent<TMP_InputField>();
                     inputfield.onEndEdit.AddListener(delegate {
-                        float result;
-                        if (float.TryParse(inputfield.text, out result))
+                        // Check if this is a string-based setting (like ApiKey or ClientId)
+                        if (setting.Key == "ApiKey" || setting.Key == "ClientId")
                         {
                             SettingsManager.Instance.SetSetting(setting.Key, inputfield.text);
                         }
                         else
                         {
-                            inputfield.text = setting.Value.Value.ToString();
+                            // For numeric settings, validate as float
+                            float result;
+                            if (float.TryParse(inputfield.text, out result))
+                            {
+                                SettingsManager.Instance.SetSetting(setting.Key, inputfield.text);
+                            }
+                            else
+                            {
+                                inputfield.text = setting.Value.Value.ToString();
+                            }
                         }
                     });
                     inputfield.text = setting.Value.Value.ToString();
