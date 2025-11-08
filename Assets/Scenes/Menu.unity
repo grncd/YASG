@@ -19277,6 +19277,7 @@ GameObject:
   - component: {fileID: 549611387}
   - component: {fileID: 549611389}
   - component: {fileID: 549611388}
+  - component: {fileID: 549611390}
   m_Layer: 0
   m_Name: Info
   m_TagString: Untagged
@@ -19405,6 +19406,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 549611386}
   m_CullTransparentMesh: 1
+--- !u!114 &549611390
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 549611386}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d77d5ab14d4e91489494d29b9720fac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &551680271
 GameObject:
   m_ObjectHideFlags: 0
@@ -26746,6 +26759,7 @@ GameObject:
   - component: {fileID: 707957242}
   - component: {fileID: 707957244}
   - component: {fileID: 707957243}
+  - component: {fileID: 707957245}
   m_Layer: 6
   m_Name: Info
   m_TagString: Untagged
@@ -26870,6 +26884,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 707957241}
   m_CullTransparentMesh: 1
+--- !u!114 &707957245
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 707957241}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e4dbd076ea8abc64ab1e3688b1c6974e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &708206589
 GameObject:
   m_ObjectHideFlags: 0
@@ -36916,6 +36942,7 @@ GameObject:
   - component: {fileID: 956929541}
   - component: {fileID: 956929543}
   - component: {fileID: 956929542}
+  - component: {fileID: 956929544}
   m_Layer: 0
   m_Name: Info
   m_TagString: Untagged
@@ -36963,9 +36990,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: The song you've selected either has no lyrics or we couldn't find any synced
-    lyrics for it. If this song has lyrics and you'd like to add them, <b>use the
-    Add Lyrics button</b> located in the menu.
+  m_text: '-'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: d7b32db4901769e4188bd82a9e439b3e, type: 2}
   m_sharedMaterial: {fileID: -2273542556847416566, guid: d7b32db4901769e4188bd82a9e439b3e, type: 2}
@@ -36992,7 +37017,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 24.95
+  m_fontSize: 72
   m_fontSizeBase: 30
   m_fontWeight: 400
   m_enableAutoSizing: 1
@@ -37042,6 +37067,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 956929540}
   m_CullTransparentMesh: 1
+--- !u!114 &956929544
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 956929540}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d77d5ab14d4e91489494d29b9720fac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &959612404
 GameObject:
   m_ObjectHideFlags: 0
@@ -37560,6 +37597,7 @@ GameObject:
   - component: {fileID: 996375140}
   - component: {fileID: 996375142}
   - component: {fileID: 996375141}
+  - component: {fileID: 996375143}
   m_Layer: 0
   m_Name: Info
   m_TagString: Untagged
@@ -37685,6 +37723,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 996375139}
   m_CullTransparentMesh: 1
+--- !u!114 &996375143
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 996375139}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d77d5ab14d4e91489494d29b9720fac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &999728934
 GameObject:
   m_ObjectHideFlags: 0
@@ -59253,6 +59303,7 @@ GameObject:
   - component: {fileID: 1458993174}
   - component: {fileID: 1458993176}
   - component: {fileID: 1458993175}
+  - component: {fileID: 1458993177}
   m_Layer: 0
   m_Name: Info
   m_TagString: Untagged
@@ -59378,6 +59429,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1458993173}
   m_CullTransparentMesh: 1
+--- !u!114 &1458993177
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1458993173}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d77d5ab14d4e91489494d29b9720fac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1001 &1462476386
 PrefabInstance:
   m_ObjectHideFlags: 0

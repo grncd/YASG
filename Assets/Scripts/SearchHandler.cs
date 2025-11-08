@@ -378,7 +378,7 @@ public class SearchHandler : MonoBehaviour
     {
         if(accessToken == null)
         {
-            AlertManager.Instance.ShowError("Failed to retrieve access token.", "Please head to github.com/grncd/YASG/wiki/How-to-fix-%22Failed-to-retrieve-access-token.%22 for info on how to fix this.", "Dismiss");
+            AlertManager.Instance.ShowError("Failed to retrieve access token.", "Please head to <link=\"https://github.com/grncd/YASG/wiki/How-to-fix-%22Failed-to-retrieve-access-token.%22\"><u>github.com/grncd/YASG/wiki/How-to-fix-%22Failed-to-retrieve-access-token.%22</u></link> for info on how to fix this. (click it)", "Dismiss");
             StopCoroutine(GetSpotifyAlbum(search));
         }
         string url = GenerateSpotifySearchUrl(search);
