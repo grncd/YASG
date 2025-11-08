@@ -27,6 +27,8 @@ public class SetupManager : MonoBehaviour
     public TextMeshProUGUI statusTextLogin;
     public Slider loginProgress;
     public SetupPage loginPage;
+    public SetupPage manualLoginPage;
+    public Button manualLoginPageButton;
     public TextMeshProUGUI statusTextPreinstall;
     public Slider preinstallProgress;
     public SetupPage preinstallPage;
@@ -55,7 +57,7 @@ public class SetupManager : MonoBehaviour
 
     void Update()
     {
-        
+
         // This runs on the main thread every frame.
         // It checks if there are any tasks in the queue and executes them.
         // This is the key to making UI updates from background processes work reliably.
@@ -67,7 +69,7 @@ public class SetupManager : MonoBehaviour
                 executionQueue.Dequeue().Invoke();
             }
         }
-        
+
     }
 
     /// <summary>
@@ -156,9 +158,9 @@ public class SetupManager : MonoBehaviour
         yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/getlyrics.bat", Path.Combine(dataPath, "getlyrics.bat")));
         yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/downloadsong.bat", Path.Combine(dataPath, "downloadsong.bat")));
         Directory.CreateDirectory(Path.Combine(dataPath, "vocalremover", "input"));
-        yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/main.py", Path.Combine(dataPath,"vocalremover", "main.py")));
-        yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/vr.py", Path.Combine(dataPath,"vocalremover", "vr.py")));
-        
+        yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/main.py", Path.Combine(dataPath, "vocalremover", "main.py")));
+        yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/vr.py", Path.Combine(dataPath, "vocalremover", "vr.py")));
+
         StartCoroutine(RunProcessCoroutine());
     }
 
@@ -189,7 +191,20 @@ public class SetupManager : MonoBehaviour
         }
     }
 
-    private void Start() {
+    public static void ClearFolder(string path)
+    {
+        foreach (string file in Directory.GetFiles(path))
+        {
+            File.Delete(file);
+        }
+        foreach (string dir in Directory.GetDirectories(path))
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    private void Start()
+    {
         // Ensure there's a sensible default (Unity game's data folder) if none set
         string defaultPath = PlayerPrefs.GetString("dataPath");
         if (string.IsNullOrEmpty(defaultPath))
@@ -215,6 +230,10 @@ public class SetupManager : MonoBehaviour
             }
 
             PlayerPrefs.SetString("dataPath", defaultPath);
+        }
+        else
+        {
+            ClearFolder(defaultPath);
         }
 
         // Update UI to show current/default path before opening selector
@@ -285,7 +304,7 @@ public class SetupManager : MonoBehaviour
             }
             activeProcess.StartInfo.FileName = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
             activeProcess.StartInfo.Arguments = $" -u \"{scriptPath}\" {(method == "demucs" ? "true" : "false")}";
-            if(method == "demucs")
+            if (method == "demucs")
             {
                 PlayerPrefs.SetInt("demucsInstalled", 1);
                 SettingsManager.Instance.SetSetting("VocalProcessingMethod", 1);
@@ -410,6 +429,11 @@ public class SetupManager : MonoBehaviour
         if (line.Contains("Script finished. Closing browser."))
         {
             loginPage.NextPage();
+            manualLoginPage.NextPage();
+        }
+        else if (line.Contains("Still on create page after app creation attempt."))
+        {
+            loginPage.NextPage();
         }
         if (line.Contains("Please log in")) { statusTextLogin.text = "Waiting for you to log into Spotify..."; }
         else if (line.Contains("Redirected to open.spotify.com")) { statusTextLogin.text = "Login successful! Retrieving cookie..."; }
@@ -491,7 +515,7 @@ public class SetupManager : MonoBehaviour
         {
             UnityEngine.Debug.LogWarning($"[FinalInstall] No match for line: {line}");
         }
-        if(line.Contains("Setup Complete!"))
+        if (line.Contains("Setup Complete!"))
         {
             finalInstallPage.NextPage();
             completeFX.Play();
@@ -641,5 +665,22 @@ public class SetupManager : MonoBehaviour
         UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
     }
 
-    
+    public void ManualAPIKey(string key)
+    {
+        PlayerPrefs.SetString("APIKEY", key);
+        if ((PlayerPrefs.GetString("APIKEY").Length == 32 || PlayerPrefs.GetString("APIKEY").Length == 16) && (PlayerPrefs.GetString("CLIENTID").Length == 32 || PlayerPrefs.GetString("CLIENTID").Length == 16))
+        {
+            manualLoginPageButton.interactable = true;
+        }
+    }
+
+    public void ManualClientID(string id)
+    {
+        PlayerPrefs.SetString("CLIENTID", id);
+        if ((PlayerPrefs.GetString("APIKEY").Length == 32 || PlayerPrefs.GetString("APIKEY").Length == 16) && (PlayerPrefs.GetString("CLIENTID").Length == 32 || PlayerPrefs.GetString("CLIENTID").Length == 16))
+        {
+            manualLoginPageButton.interactable = true;
+        }
+    }
+
 }
