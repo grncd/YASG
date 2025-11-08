@@ -1817,37 +1817,76 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     private async void RunUpdateCheckSilently()
     {
-        string dataPath = PlayerPrefs.GetString("dataPath");
-        string pythonExe = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
-        string scriptPath = Path.Combine(dataPath, "setuputilities", "updatechecker.py");
-        if (!File.Exists(pythonExe) || !File.Exists(scriptPath))
-        {
-            // Optionally log missing files, but do nothing else
-            Debug.LogWarning("Update check: Python or script not found.");
-            return;
-        }
-
-        var psi = new ProcessStartInfo
-        {
-            FileName = pythonExe,
-            Arguments = $" -u \"{scriptPath}\"",
-            WorkingDirectory = Path.GetDirectoryName(scriptPath),
-            CreateNoWindow = true,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            WindowStyle = ProcessWindowStyle.Hidden
-        };
-
+        // Check for updates by downloading README.md and comparing versions
         try
         {
+            using (UnityWebRequest request = UnityWebRequest.Get("https://raw.githubusercontent.com/grncd/YASG/refs/heads/main/README.md"))
+            {
+                await request.SendWebRequest();
+
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    Debug.LogWarning($"Update check failed: {request.error}");
+                    return;
+                }
+
+                string readmeContent = request.downloadHandler.text;
+
+                // Extract version using regex: v\d+\.\d+\.\d+[a-z]?
+                Match versionMatch = Regex.Match(readmeContent, @"v\d+\.\d+\.\d+[a-z]?");
+
+                if (!versionMatch.Success)
+                {
+                    Debug.LogWarning("Update check: Could not find version in README.md");
+                    return;
+                }
+
+                // Remove the "v" prefix
+                string latestVersion = versionMatch.Value.Substring(1);
+                string currentVersion = Application.version;
+
+                Debug.Log($"Update check: Current version = {currentVersion}, Latest version = {latestVersion}");
+
+                // Compare versions
+                if (latestVersion != currentVersion)
+                {
+                    AlertManager.Instance.ShowInfo(
+                        "There is a new version of YASG available!",
+                        "Please visit <link=\"https://github.com/grncd/YASG/releases\"><u>https://github.com/grncd/YASG/releases</u></link> to download it.",
+                        "Dismiss"
+                    );
+                }
+            }
+
+            string dataPath = PlayerPrefs.GetString("dataPath");
+            string pythonExe = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
+            string scriptPath = Path.Combine(dataPath, "setuputilities", "updatechecker.py");
+            if (!File.Exists(pythonExe) || !File.Exists(scriptPath))
+            {
+                // Optionally log missing files, but do nothing else
+                Debug.LogWarning("Update check: Python or script not found.");
+                return;
+            }
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = pythonExe,
+                Arguments = $" -u \"{scriptPath}\"",
+                WorkingDirectory = Path.GetDirectoryName(scriptPath),
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            };
+
             using (var process = new Process { StartInfo = psi })
             {
-                process.OutputDataReceived += (sender, args) =>
-                {
-                    if (!string.IsNullOrEmpty(args.Data))
-                        Debug.Log($"[UpChkr] {args.Data}");
-                };
+                //process.OutputDataReceived += (sender, args) =>
+                //{
+                    //if (!string.IsNullOrEmpty(args.Data))
+                        //Debug.Log($"[UpChkr] {args.Data}");
+                //};
                 process.ErrorDataReceived += (sender, args) =>
                 {
                     if (!string.IsNullOrEmpty(args.Data))
