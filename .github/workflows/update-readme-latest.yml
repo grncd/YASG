@@ -1,0 +1,41 @@
+name: Update README with Latest Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Get latest release tag
+        id: get_release
+        uses: octokit/request-action@v2.x
+        with:
+          route: GET /repos/${{ github.repository }}/releases/latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract tag name
+        run: |
+          echo "LATEST_TAG=${{ fromJson(steps.get_release.outputs.data).tag_name }}" >> $GITHUB_ENV
+
+      - name: Update README.md with latest tag
+        run: |
+          sed -i -E "s#(releases/download/)v[0-9]+\.[0-9]+\.[0-9]+[a-z]*#\1${LATEST_TAG}#g" README.md
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Update README with latest release tag: ${LATEST_TAG}"
+            git push
+          fi
