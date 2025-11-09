@@ -2,7 +2,10 @@ name: Update README with Latest Release
 on:
   release:
     types: [published]
-  workflow_dispatch:  # Permite execução manual
+  workflow_dispatch:
+
+permissions:
+  contents: write  # Adicione esta seção
 
 jobs:
   update-readme:
