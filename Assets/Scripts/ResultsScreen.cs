@@ -459,6 +459,15 @@ public class ResultsScreen : MonoBehaviour
             SceneManager.LoadSceneAsync("Menu", LoadSceneMode.Single);
         }
     }
+
+    public async void RetrySong()
+    {
+        resultsOutAnimator.Play("ResultsOut");
+        resultsOutFX.Play();
+        StartCoroutine(ChangeVolumeRoutine(backgroundMusic, 0f, 0.6f));
+        await Task.Delay(700);
+        SceneManager.LoadSceneAsync("Main");
+    }
     
     private IEnumerator ChangeVolumeRoutine(AudioSource audioSource, float targetVolume, float duration)
     {
