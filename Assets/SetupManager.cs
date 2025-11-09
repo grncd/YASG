@@ -541,6 +541,7 @@ public class SetupManager : MonoBehaviour
         else if (currentProcessType == ActiveProcessType.Login && statusTextLogin != null)
         {
             statusTextLogin.text = "An error occurred. You might need to use another account.";
+            loginPage.NextPage();
         }
         else if (currentProcessType == ActiveProcessType.FinalInstall && statusTextFinalInstall != null)
         {
