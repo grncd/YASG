@@ -1,17 +1,16 @@
 name: Update README with Latest Release
-
 on:
   release:
     types: [published]
-
 jobs:
   update-readme:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
-
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      
       - name: Get latest release tag
         id: get_release
         uses: octokit/request-action@v2.x
@@ -19,15 +18,15 @@ jobs:
           route: GET /repos/${{ github.repository }}/releases/latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+      
       - name: Extract tag name
         run: |
           echo "LATEST_TAG=${{ fromJson(steps.get_release.outputs.data).tag_name }}" >> $GITHUB_ENV
-
+      
       - name: Update README.md with latest tag
         run: |
           sed -i -E "s#(releases/download/)v[0-9]+\.[0-9]+\.[0-9]+[a-z]*#\1${LATEST_TAG}#g" README.md
-
+      
       - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
