@@ -1031,7 +1031,15 @@ public class LevelResourcesCompiler : MonoBehaviour
             }
 
             if (File.Exists(expectedAudioPath)) File.Delete(expectedAudioPath);
-            File.Move(downloadedMp3, expectedAudioPath);
+            try
+            {
+                File.Move(downloadedMp3, expectedAudioPath);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Failed to move downloaded file '{downloadedMp3}' to '{expectedAudioPath}': {ex.Message}");
+                success = false;
+            }
 
             UnityEngine.Debug.Log($"Moved downloaded file to: {expectedAudioPath}");
 
@@ -1279,7 +1287,15 @@ public class LevelResourcesCompiler : MonoBehaviour
                     }
 
                     if (File.Exists(expectedAudioPath)) File.Delete(expectedAudioPath);
-                    File.Move(downloadedMp3, expectedAudioPath);
+                    try
+                    {
+                        File.Move(downloadedMp3, expectedAudioPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"Failed to move downloaded file '{downloadedMp3}' to '{expectedAudioPath}': {ex.Message}");
+                        success = false;
+                    }
 
                     UnityEngine.Debug.Log($"Moved downloaded file to: {expectedAudioPath}");
                 }
@@ -1781,11 +1797,11 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             if (string.IsNullOrEmpty(args.Data)) return;
             UnityEngine.Debug.LogError("Error: " + args.Data);
-            if (args.Data.Contains("Traceback"))
-            {
-                fail = true;
-                if (!process.HasExited) process.Kill();
-            }
+            // if (args.Data.Contains("Traceback"))
+            //{
+                //fail = true;
+                //if (!process.HasExited) process.Kill();
+            //}
             if (args.Data.Contains("KeyError:"))
             {
                 fail = true;
