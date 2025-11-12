@@ -31,16 +31,15 @@ At the moment, YASG supports up to 4 players **locally**. Online mode is still b
 
 ---
 
-# 🔽 [DOWNLOAD HERE](https://github.com/grncd/YASG/releases/download/v0.0.2a/Build.zip)
-> **Currently Windows-only**
+## ℹ️ Information
+- Holding **ESC** at the menu exits the game
+- Pressing **Ctrl+I** at the menu allows you to **import custom songs using .zip files**
+- Upon creating a custom song, the .zip will be saved to %APPDATA%/YASG/YASG/customSongs
 
 ---
 
-## ⚙️ Installation
-
-1. Download the latest release from the [Releases page](https://github.com/grncd/YASG/releases).  
-2. Extract the contents of **Build.zip**.  
-3. Run **YASG.exe** — the game will handle everything automatically.
+# 🔽 [DOWNLOAD HERE](https://github.com/grncd/YASG/releases/download/v0.0.2a/Build.zip)
+> **Currently Windows-only**
 
 ---
 
