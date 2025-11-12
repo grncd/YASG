@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine.Networking;
@@ -68,6 +69,13 @@ public class EditorManager : MonoBehaviour
         Instance = this;
         player = GetComponent<MusicPlayer>();
         tabs = transform.GetChild(0).GetChild(1).gameObject;
+
+        // Ensure FileDropHandler is attached for importing custom songs
+        if (GetComponent<FileDropHandler>() == null)
+        {
+            gameObject.AddComponent<FileDropHandler>();
+            Debug.Log("FileDropHandler component added automatically.");
+        }
 
         string dataPath = PlayerPrefs.GetString("dataPath");
         if (string.IsNullOrEmpty(dataPath)) { return; }
@@ -609,6 +617,9 @@ public class EditorManager : MonoBehaviour
             File.Delete(syncedLyricsFilePath);
             File.WriteAllText(syncedLyricsFilePath, formattedSyncedLyrics);
 
+            // Export custom song to zip
+            ExportCustomSongToZip(trackName, artistName);
+
             AlertManager.Instance.ShowSuccess("Lyrics successfully created.","You can now play this song by accessing your Downloaded Songs.","Dismiss");
             FavoritesManager.AddDownload(trackName,artistName,FormatTime(duration),"",GenerateRandomString(16));
         }
@@ -812,5 +823,252 @@ public class EditorManager : MonoBehaviour
         string charactersToRemovePattern = @"[/\\:*?""<>|]";
         return System.Text.RegularExpressions.Regex.Replace(name, charactersToRemovePattern, string.Empty);
     }
+
+    private void ExportCustomSongToZip(string trackName, string artistName)
+    {
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        if (string.IsNullOrEmpty(dataPath))
+        {
+            Debug.LogError("dataPath is not set in PlayerPrefs!");
+            return;
+        }
+
+        // Define source file paths
+        string fullSongPath = Path.Combine(dataPath, "downloads", $"{artistName} - {trackName}.mp3");
+        string vocalPath = Path.Combine(dataPath, "output", "htdemucs", $"{artistName} - {trackName} [vocals].mp3");
+        string lyricsPath = Path.Combine(dataPath, "downloads", $"{trackName}.txt");
+
+        // Check if all files exist
+        if (!File.Exists(fullSongPath))
+        {
+            Debug.LogError($"Full song file not found: {fullSongPath}");
+            return;
+        }
+        if (!File.Exists(vocalPath))
+        {
+            Debug.LogError($"Vocal file not found: {vocalPath}");
+            return;
+        }
+        if (!File.Exists(lyricsPath))
+        {
+            Debug.LogError($"Lyrics file not found: {lyricsPath}");
+            return;
+        }
+
+        // Create exportedSongs folder if it doesn't exist
+        string exportedSongsPath = Path.Combine(dataPath, "exportedSongs");
+        if (!Directory.Exists(exportedSongsPath))
+        {
+            Directory.CreateDirectory(exportedSongsPath);
+            Debug.Log($"Created exportedSongs directory at: {exportedSongsPath}");
+        }
+
+        // Create zip file path
+        string zipFileName = $"{artistName} - {trackName}.zip";
+        string zipFilePath = Path.Combine(exportedSongsPath, zipFileName);
+
+        // Delete existing zip if it exists
+        if (File.Exists(zipFilePath))
+        {
+            File.Delete(zipFilePath);
+            Debug.Log($"Deleted existing zip file: {zipFilePath}");
+        }
+
+        try
+        {
+            // Create the zip file
+            using (FileStream zipToOpen = new FileStream(zipFilePath, FileMode.Create))
+            {
+                using (ZipArchive archive = new ZipArchive(zipToOpen, ZipArchiveMode.Create))
+                {
+                    // Add full song mp3
+                    archive.CreateEntryFromFile(fullSongPath, $"{artistName} - {trackName}.mp3");
+
+                    // Add vocal mp3
+                    archive.CreateEntryFromFile(vocalPath, $"{artistName} - {trackName} [vocals].mp3");
+
+                    // Add lyrics file
+                    archive.CreateEntryFromFile(lyricsPath, $"{trackName}.txt");
+                }
+            }
+
+            Debug.Log($"Successfully exported custom song to: {zipFilePath}");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Error creating zip file: {ex.Message}");
+        }
+    }
+
+    private void ImportCustomSongZip(string zipFilePath)
+    {
+        if (!File.Exists(zipFilePath))
+        {
+            Debug.LogError($"Zip file not found: {zipFilePath}");
+            AlertManager.Instance.ShowError("Import Failed", "The selected zip file could not be found.", "OK");
+            return;
+        }
+
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        if (string.IsNullOrEmpty(dataPath))
+        {
+            Debug.LogError("dataPath is not set in PlayerPrefs!");
+            AlertManager.Instance.ShowError("Import Failed", "Data path is not configured.", "OK");
+            return;
+        }
+
+        try
+        {
+            // Create a temporary extraction directory
+            string tempExtractPath = Path.Combine(Path.GetTempPath(), $"YASG_Import_{System.Guid.NewGuid()}");
+            Directory.CreateDirectory(tempExtractPath);
+
+            // Extract the zip file
+            ZipFile.ExtractToDirectory(zipFilePath, tempExtractPath);
+
+            // Find the files in the extracted content
+            string[] mp3Files = Directory.GetFiles(tempExtractPath, "*.mp3", SearchOption.AllDirectories);
+            string[] txtFiles = Directory.GetFiles(tempExtractPath, "*.txt", SearchOption.AllDirectories);
+
+            if (mp3Files.Length < 2)
+            {
+                throw new Exception("Zip file must contain at least 2 MP3 files (full song and vocals).");
+            }
+
+            if (txtFiles.Length < 1)
+            {
+                throw new Exception("Zip file must contain a lyrics file (.txt).");
+            }
+
+            // Identify files based on naming convention
+            string fullSongFile = null;
+            string vocalFile = null;
+            string lyricsFile = txtFiles[0];
+
+            foreach (string mp3 in mp3Files)
+            {
+                string fileName = Path.GetFileName(mp3);
+                if (fileName.Contains("[vocals]") || fileName.Contains("vocals"))
+                {
+                    vocalFile = mp3;
+                }
+                else
+                {
+                    fullSongFile = mp3;
+                }
+            }
+
+            if (string.IsNullOrEmpty(fullSongFile) || string.IsNullOrEmpty(vocalFile))
+            {
+                throw new Exception("Could not identify full song and vocal files. Ensure one file contains '[vocals]' in its name.");
+            }
+
+            // Parse song information from filename
+            string fullSongFileName = Path.GetFileNameWithoutExtension(fullSongFile);
+            string[] parts = fullSongFileName.Split(new[] { " - " }, StringSplitOptions.None);
+
+            string artistName;
+            string trackName;
+
+            if (parts.Length >= 2)
+            {
+                artistName = parts[0].Trim();
+                trackName = parts[1].Trim();
+            }
+            else
+            {
+                // Fallback if format is different
+                artistName = "Unknown Artist";
+                trackName = fullSongFileName;
+            }
+
+            // Copy files to appropriate locations
+            string downloadsPath = Path.Combine(dataPath, "downloads");
+            string vocalsOutputPath = Path.Combine(dataPath, "output", "htdemucs");
+
+            Directory.CreateDirectory(downloadsPath);
+            Directory.CreateDirectory(vocalsOutputPath);
+
+            string destinationFullSong = Path.Combine(downloadsPath, $"{artistName} - {trackName}.mp3");
+            string destinationVocals = Path.Combine(vocalsOutputPath, $"{artistName} - {trackName} [vocals].mp3");
+            string destinationLyrics = Path.Combine(downloadsPath, $"{trackName}.txt");
+
+            // Copy the files
+            File.Copy(fullSongFile, destinationFullSong, true);
+            File.Copy(vocalFile, destinationVocals, true);
+            File.Copy(lyricsFile, destinationLyrics, true);
+
+            // Calculate duration from lyrics file
+            float duration = CalculateDurationFromLyrics(destinationLyrics);
+            string formattedDuration = FormatTime(duration);
+
+            // Add to downloaded songs
+            string randomUrl = GenerateRandomString(16);
+            FavoritesManager.AddDownload(trackName, artistName, formattedDuration, "", randomUrl, (int)(duration * 1000));
+
+            // Cleanup temp directory
+            Directory.Delete(tempExtractPath, true);
+
+            Debug.Log($"Successfully imported custom song: {artistName} - {trackName}");
+            AlertManager.Instance.ShowSuccess("Import Successful", $"Successfully imported '{trackName}' by {artistName}.", "OK");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Error importing zip file: {ex.Message}");
+            AlertManager.Instance.ShowError("Import Failed", $"Failed to import custom song: {ex.Message}", "OK");
+        }
+    }
+
+    private float CalculateDurationFromLyrics(string lyricsFilePath)
+    {
+        try
+        {
+            if (!File.Exists(lyricsFilePath))
+                return 180f; // Default 3 minutes
+
+            string[] lines = File.ReadAllLines(lyricsFilePath);
+            float maxTime = 0f;
+
+            foreach (string line in lines)
+            {
+                if (line.Contains("[") && line.Contains("]"))
+                {
+                    try
+                    {
+                        string[] lineParts = line.Split(new[] { ']' }, 2);
+                        string timestampStr = lineParts[0].TrimStart('[').Replace("[0", "[");
+
+                        // Parse timestamp in format [m:ss.ff]
+                        TimeSpan timeSpan = TimeSpan.ParseExact(timestampStr, "m\\:ss\\.ff", System.Globalization.CultureInfo.InvariantCulture);
+                        float time = (float)timeSpan.TotalSeconds;
+
+                        if (time > maxTime)
+                            maxTime = time;
+                    }
+                    catch
+                    {
+                        // Ignore malformed timestamps
+                    }
+                }
+            }
+
+            // Add 10 seconds buffer to the last timestamp
+            return maxTime > 0 ? maxTime + 10f : 180f;
+        }
+        catch
+        {
+            return 180f; // Default 3 minutes
+        }
+    }
+
+    public void ImportZipFile()
+    {
+        var paths = StandaloneFileBrowser.OpenFilePanel("Select Custom Song ZIP", "", "zip", false);
+        if (paths.Length > 0 && !string.IsNullOrEmpty(paths[0]))
+        {
+            ImportCustomSongZip(paths[0]);
+        }
+    }
+
     #endregion
 }

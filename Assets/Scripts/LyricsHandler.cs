@@ -177,6 +177,10 @@ public class LyricsHandler : MonoBehaviour
 
     void Update()
     {
+        if (progressTime.value == 1f)
+        {
+            canPause = false;
+        }
         if (Input.GetKeyDown(KeyCode.Escape) && canPause && PlayerPrefs.GetInt("multiplayer") == 0)
         {
             Pause();
