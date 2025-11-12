@@ -702,7 +702,7 @@ public class EditorManager : MonoBehaviour
         }
         else
         {
-            File.Copy(vocalPath, Path.Combine(PlayerPrefs.GetString("dataPath"), "output", "htdemucs",Path.GetFileNameWithoutExtension(vocalPath)+" [vocals].mp3"));
+            File.Copy(vocalPath, Path.Combine(PlayerPrefs.GetString("dataPath"), "output", "htdemucs", $"{artist} - {track} [vocals].mp3"));
         }
 
         trackName = track;
