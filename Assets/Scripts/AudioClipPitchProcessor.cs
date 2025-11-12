@@ -11,6 +11,7 @@ using UnityEngine.Audio;
 using System.IO; // For file operations
 using System.Text; // For MD5 hashing
 using System.Security.Cryptography; // For MD5 hashing
+using System.Globalization; // For InvariantCulture
 
 // --- JOB SYSTEM & BURST ADDITIONS START ---
 using Unity.Collections; // For NativeArray
@@ -277,8 +278,8 @@ public class AudioClipPitchProcessor : MonoBehaviour
     private void Start()
     {
         Application.targetFrameRate = -1;
-        dynamicVolumeThresholdDbBoost = Mathf.Clamp(float.Parse(SettingsManager.Instance.GetSetting<string>("DynamicVolumeThreshold")), -10f, 10f);
-        AUDIO_TRIM_TIME = Mathf.Clamp(float.Parse(SettingsManager.Instance.GetSetting<string>("SongOffset")), 0f, 1.5f);
+        dynamicVolumeThresholdDbBoost = Mathf.Clamp(float.Parse(SettingsManager.Instance.GetSetting<string>("DynamicVolumeThreshold"), CultureInfo.InvariantCulture), -10f, 10f);
+        AUDIO_TRIM_TIME = Mathf.Clamp(float.Parse(SettingsManager.Instance.GetSetting<string>("SongOffset"), CultureInfo.InvariantCulture), 0f, 1.5f);
 
         if (PlayerPrefs.GetInt("Player1") == 0) GameObject.Find("Player1GPitch").gameObject.SetActive(false);
         if (PlayerPrefs.GetInt("Player2") == 0) GameObject.Find("Player2GPitch").gameObject.SetActive(false);
