@@ -130,6 +130,7 @@ public class RealTimePitchDetector : MonoBehaviour
     private bool _isInitialized = false;
     private bool _isRecording = false;
     private bool _scoreIncrementInitialized = false;
+    private bool _scoreSaved = false;
     private int harmonicUsed = 0;
 
 
@@ -226,6 +227,7 @@ public class RealTimePitchDetector : MonoBehaviour
         audioBuffer = new float[analysisWindowSize];
 
         score = 0f; // Reset score
+        _scoreSaved = false; // Reset score saved flag
         if (scoreDisplay != null)
         {
             scoreDisplay.text = "0"; // Initialize display
@@ -919,21 +921,23 @@ public class RealTimePitchDetector : MonoBehaviour
             }
         }
 
-        if (LyricsHandler.Instance != null && LyricsHandler.Instance.songOver)
+        if (LyricsHandler.Instance != null && LyricsHandler.Instance.songOver && !_scoreSaved)
         {
-            // --- THIS IS THE CHANGE ---
             if (PlayerPrefs.GetInt("multiplayer") == 0)
             {
-                // This offline logic is fine, it can stay.
+                // Save score even if it's 0 to overwrite previous scores
                 PlayerPrefs.SetInt(gameObject.name + "Score", Mathf.RoundToInt(score));
                 PlayerPrefs.SetInt(gameObject.name + "Placement", placement);
+                PlayerPrefs.Save(); // Force immediate save to disk
+                _scoreSaved = true;
+                Debug.Log($"[RealTimePitchDetector] Score saved: {Mathf.RoundToInt(score)} for {gameObject.name}");
             }
             else
             {
                 // In multiplayer, we no longer need to do anything here.
                 // The final CurrentGameScore has already been synced to the server.
                 // The server will calculate and sync the final placement.
-                // We can disable this component now that the song is over for this player.
+                _scoreSaved = true;
                 this.enabled = false;
             }
         }
@@ -950,6 +954,17 @@ public class RealTimePitchDetector : MonoBehaviour
     void OnDisable()
     {
         if (!_isInitialized) return;
+
+        // Save score if not already saved (backup in case scene changes before song ends)
+        if (!_scoreSaved && PlayerPrefs.GetInt("multiplayer") == 0)
+        {
+            PlayerPrefs.SetInt(gameObject.name + "Score", Mathf.RoundToInt(score));
+            PlayerPrefs.SetInt(gameObject.name + "Placement", placement);
+            PlayerPrefs.Save(); // Force immediate save to disk
+            _scoreSaved = true;
+            Debug.Log($"[RealTimePitchDetector] Score saved in OnDisable: {Mathf.RoundToInt(score)} for {gameObject.name}");
+        }
+
         pitchDetectionJobHandle.Complete();
         if (nativeAudioBuffer.IsCreated) nativeAudioBuffer.Dispose();
         if (nativeWindowedSamples.IsCreated) nativeWindowedSamples.Dispose();
