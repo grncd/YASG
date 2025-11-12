@@ -806,7 +806,7 @@ public class RealTimePitchDetector : MonoBehaviour
 
             if (currentPitch * 2 < 450f)
             {
-                leniencyThreshold = (AudioClipPitchProcessor.Instance.currentPitch < 170f) ? (12f * valuingCoefficient * currentLeniencyCoefficient) : (15f * valuingCoefficient * currentLeniencyCoefficient);
+                leniencyThreshold = (AudioClipPitchProcessor.Instance.currentPitch < 170f) ? (13.5f * valuingCoefficient * currentLeniencyCoefficient) : (15f * valuingCoefficient * currentLeniencyCoefficient);
             }
             else
             {
