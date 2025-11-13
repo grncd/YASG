@@ -1905,7 +1905,7 @@ public class LevelResourcesCompiler : MonoBehaviour
                 //};
                 process.ErrorDataReceived += (sender, args) =>
                 {
-                    if (!string.IsNullOrEmpty(args.Data))
+                    if (!string.IsNullOrEmpty(args.Data) && !args.Data.Contains("pip"))
                         Debug.LogError($"[UpdateChecker STDERR] {args.Data}");
                 };
 

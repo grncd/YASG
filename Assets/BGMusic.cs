@@ -7,6 +7,7 @@ using UnityEngine.Networking;
 using TMPro;
 using UnityEngine.SceneManagement;
 
+[RequireComponent(typeof(AudioSource))]
 public class BGMusic : MonoBehaviour
 {
     public AudioClip menuMusicClip;
@@ -141,6 +142,17 @@ public class BGMusic : MonoBehaviour
     {
         if (!killSwitch)
         {
+            // Ensure audioSource is initialized
+            if (audioSource == null)
+            {
+                audioSource = GetComponent<AudioSource>();
+                if (audioSource == null)
+                {
+                    Debug.LogWarning("BGMusic: AudioSource component not found. Exiting coroutine.");
+                    yield break;
+                }
+            }
+
             lastMenuMusicValue = SettingsManager.Instance.GetSetting<int>("MenuMusic");
 
             while (true)
