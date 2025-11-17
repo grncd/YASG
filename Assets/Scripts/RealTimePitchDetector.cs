@@ -582,17 +582,7 @@ public class RealTimePitchDetector : MonoBehaviour
             return;
         }
 
-        if (currentPitch * 2 < 500f)
-        {
-            float baseDetectedPitch = currentPitch;
-            if (AudioClipPitchProcessor.Instance.currentPitch > 135f && AudioClipPitchProcessor.Instance.currentPitch < 190f) baseDetectedPitch *= 1.05f;
-            else if (AudioClipPitchProcessor.Instance.currentPitch <= 135f) baseDetectedPitch *= 1.25f;
-            vocalArrow = baseDetectedPitch;
-        }
-        else
-        {
-            vocalArrow = currentPitch;
-        }
+        vocalArrow = currentPitch;
         vocalArrow2 = vocalArrow * 2f;
         vocalArrow3 = vocalArrow / 2f;
         vocalArrow4 = vocalArrow * 4f;
