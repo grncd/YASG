@@ -30,7 +30,7 @@ jobs:
       
       - name: Update README.md with latest tag
         run: |
-          sed -i -E "s#(releases/download/)v[0-9]+\.[0-9]+\.[0-9]+[a-z]*#\1${LATEST_TAG}#g" README.md
+          sed -i -E "s#(releases/tag/)[^ )]+#\1${LATEST_TAG}#g" README.md
       
       - name: Commit and push if changed
         run: |
