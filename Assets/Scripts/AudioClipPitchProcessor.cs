@@ -59,7 +59,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
 
     [Tooltip("The overall average RMS value (e.g., from an energetic song) at which maxVolumeThresholdFactor is applied.")]
     [Range(0.1f, 0.5f)]
-    public float maxOverallAverageRMSForFactorMapping = 0.1266f; 
+    public float maxOverallAverageRMSForFactorMapping = 0.1266f;
 
     [Tooltip("The scaling factor applied to overallAverageRMS when the song is at minOverallAverageRMSForFactorMapping.")]
     [Range(0.01f, 1.0f)] // Factor should generally be <= 1
@@ -132,7 +132,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        if(PlayerPrefs.GetInt("multiplayer") == 1)
+        if (PlayerPrefs.GetInt("multiplayer") == 1)
         {
             foreach (Transform child in playersParent)
             {
@@ -154,13 +154,13 @@ public class AudioClipPitchProcessor : MonoBehaviour
                 analysisWindowSize = 4096;
                 break;
         }
-        if(SettingsManager.Instance.GetSetting<int>("InGameBG") == 0)
+        if (SettingsManager.Instance.GetSetting<int>("InGameBG") == 0)
         {
             BG.gameObject.SetActive(false);
         }
         else
         {
-            BG.material = backgrounds[SettingsManager.Instance.GetSetting<int>("InGameBG")-1];
+            BG.material = backgrounds[SettingsManager.Instance.GetSetting<int>("InGameBG") - 1];
             darken.color = backgroundDarkens[SettingsManager.Instance.GetSetting<int>("InGameBG") - 1];
         }
         showPitch = SettingsManager.Instance.GetSetting<bool>("ShowDetectedPitch");
@@ -225,7 +225,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
         }
 
         if (validTransitions == 0) return 0f;
-        UnityEngine.Debug.Log("[AnalyzeOverallSongPitchActivity] "+ sumOfAbsoluteDifferences / validTransitions);
+        UnityEngine.Debug.Log("[AnalyzeOverallSongPitchActivity] " + sumOfAbsoluteDifferences / validTransitions);
         return sumOfAbsoluteDifferences / validTransitions;
     }
 
@@ -366,7 +366,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
             if (wwwVocal.result != UnityWebRequest.Result.Success)
             {
                 UnityEngine.Debug.LogError($"Failed to load vocal audio: {wwwVocal.error} from path: {urlVocal}");
-                processingProgress = 1f; 
+                processingProgress = 1f;
                 PlayerPrefs.SetInt("ERR", 1);
                 UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
                 StartCoroutine(FadeOutLoadingScreen());
@@ -435,7 +435,8 @@ public class AudioClipPitchProcessor : MonoBehaviour
     {
         float phaseStartProgress = AUDIO_LOADING_PHASE_END_PROGRESS;
         float phaseSpan = 1.0f - phaseStartProgress;
-        Action<float> SetPhaseProgress = (localProgress) => { // localProgress is 0.0 to 1.0 for this phase
+        Action<float> SetPhaseProgress = (localProgress) =>
+        { // localProgress is 0.0 to 1.0 for this phase
             processingProgress = phaseStartProgress + (localProgress * phaseSpan);
         };
 
@@ -484,7 +485,8 @@ public class AudioClipPitchProcessor : MonoBehaviour
             sampleRate,
             analysisWindowSize,
             hopSize,
-            (progress) => {
+            (progress) =>
+            {
                 // Map the 0-1 progress of this calculation phase to the overall loading progress
                 processingProgress = phaseStartProgressForDynamicThreshold +
                                      (progress * (phaseEndProgressForDynamicThreshold - phaseStartProgressForDynamicThreshold));
@@ -644,7 +646,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
 
         AudioClip trimmedClip = TrimAudioClip(audioClipFull, AUDIO_TRIM_TIME);
         if (trimmedClip == null) trimmedClip = audioClipFull;
-        audioSource.clip = trimmedClip;;
+        audioSource.clip = trimmedClip; ;
 
         loadingFX.SetActive(false);
         progressBar.value = 1f;
@@ -671,7 +673,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
         StartCoroutine(FadeOutLoadingScreen());
 
         await Task.Delay(TimeSpan.FromSeconds(1.2f));
-        if(PlayerPrefs.GetInt("multiplayer") == 1)
+        if (PlayerPrefs.GetInt("multiplayer") == 1)
         {
             UnityEngine.Debug.Log("Audio processing finished. Reporting GameReady status to the server.");
             if (PlayerData.LocalPlayerInstance != null)
@@ -797,6 +799,12 @@ public class AudioClipPitchProcessor : MonoBehaviour
         }
 
         jobHandle.Complete(); // Ensures job is truly finished and syncs results.
+
+        // --- POST-PROCESSING: SMOOTHING ---
+        // Apply median filter to remove noise/glitches
+        SmoothPitches(outputPitchesNative, 5);
+        // ----------------------------------
+
 
         // Populate pitchOverTime (class member) from the job output
         if (outputPitchesNative.IsCreated && outputPitchesNative.Length > 0)
@@ -976,12 +984,12 @@ public class AudioClipPitchProcessor : MonoBehaviour
 
     [BurstCompile]
     public static float DetectPitch_MPM_Burst(
-        NativeSlice<float> samples, 
+        NativeSlice<float> samples,
         NativeArray<float> hannWindow,
-        int sampleRate, 
+        int sampleRate,
         float volumeThreshold,
-        int minLag, 
-        int maxLag, 
+        int minLag,
+        int maxLag,
         out float clarity,                 // <-- MOVED: Required parameter now comes first
         float clarityThreshold = 0.8f)   // <-- MOVED: Optional parameter is now last
     {
@@ -1021,45 +1029,58 @@ public class AudioClipPitchProcessor : MonoBehaviour
             {
                 m_lag += windowedSamples[i + lag] * windowedSamples[i + lag];
             }
-            
+
             float denominator = m0 + m_lag;
-            if (denominator > 1e-9f) {
+            if (denominator > 1e-9f)
+            {
                 nsdf[lag] = 2 * acf[lag] / denominator;
-            } else {
+            }
+            else
+            {
                 nsdf[lag] = 0;
             }
         }
 
-        // --- Step 4: Peak Picking ---
-        int period = 0;
-        float maxVal = 0f;
+        // --- Step 4: Peak Picking (IMPROVED) ---
+        // Instead of a greedy global max, we find the global max first,
+        // then pick the FIRST peak that is close enough to that max.
+        // This favors higher frequencies (shorter lags) and effectively prevents octave dropping.
 
+        float overallMaxVal = 0f;
+
+        // Pass 1: Find Global Max
         for (int lag = minLag + 1; lag < maxLag; lag++)
         {
             if (nsdf[lag] > nsdf[lag - 1] && nsdf[lag] > nsdf[lag + 1])
             {
-                if (period == 0)
-                {
-                    if (nsdf[lag] > 0.1f) 
-                    {
-                        period = lag;
-                        maxVal = nsdf[lag];
-                    }
-                }
-                else if (nsdf[lag] > maxVal)
-                {
-                    period = lag;
-                    maxVal = nsdf[lag];
-                }
+                if (nsdf[lag] > overallMaxVal) overallMaxVal = nsdf[lag];
             }
         }
-        
-        clarity = maxVal;
+
+        clarity = overallMaxVal;
 
         // --- Step 5: Sibilance/Noise Rejection using Clarity ---
         if (clarity < clarityThreshold)
         {
             return 0f;
+        }
+
+        // Pass 2: Select First Strong Peak
+        // k = 0.90 is a standard constant for this method (MPM / YINish)
+        float k = 0.90f;
+        float threshold = overallMaxVal * k;
+        int period = 0;
+
+        for (int lag = minLag + 1; lag < maxLag; lag++)
+        {
+            if (nsdf[lag] > nsdf[lag - 1] && nsdf[lag] > nsdf[lag + 1])
+            {
+                if (nsdf[lag] >= threshold)
+                {
+                    period = lag;
+                    break; // Found the first strong peak (highest frequency), stop searching!
+                }
+            }
         }
 
         if (period == 0) return 0f;
@@ -1086,6 +1107,66 @@ public class AudioClipPitchProcessor : MonoBehaviour
 
         if (finalLag <= 0) return 0f;
         return (float)sampleRate / finalLag;
+    }
+
+    [BurstCompile]
+    public static void SmoothPitches(NativeArray<float> pitches, int filterSize)
+    {
+        if (pitches.Length == 0 || filterSize < 3) return;
+
+        // Create a temporary copy to read from while writing to the original
+        NativeArray<float> source = new NativeArray<float>(pitches, Allocator.Temp);
+        int halfSize = filterSize / 2;
+
+        for (int i = 0; i < pitches.Length; i++)
+        {
+            // Collect window
+            // Since we can't allocate arrays inside the loop easily with Burst without disposal,
+            // and we need to sort, a small fixed-size buffer stack approach is best or just a simple insertion sort.
+            // For filterSize 5, stack allocation is trivial.
+
+            // To be safe and simple with arbitrary filterSize up to say 9:
+            // We'll just hardcode a small max size or use a stack buffer.
+            // Given burst, let's stick to a robust standard Median-5 implementation.
+
+            // Actually, let's just do Median-5 hardcoded for now or use a small loop with insertion sort.
+            // Since filterSize is passed, let's respect it but cap it at a reasonable stack size if possible.
+            // But C# 9 span/stackalloc is nice. Let's try to keep it general.
+
+            int start = math.max(0, i - halfSize);
+            int end = math.min(pitches.Length - 1, i + halfSize);
+            int count = end - start + 1;
+
+            // Simple bubble/insertion sort on a temporary stack buffer
+            // Max filter size supported = 9
+            if (count > 9) count = 9; // Safety cap
+
+            Span<float> window = stackalloc float[count];
+            int idx = 0;
+            for (int j = start; j <= end && idx < count; j++)
+            {
+                window[idx++] = source[j];
+            }
+
+            // Sort
+            for (int a = 0; a < count - 1; a++)
+            {
+                for (int b = 0; b < count - 1 - a; b++)
+                {
+                    if (window[b] > window[b + 1])
+                    {
+                        float temp = window[b];
+                        window[b] = window[b + 1];
+                        window[b + 1] = temp;
+                    }
+                }
+            }
+
+            // Median
+            pitches[i] = window[count / 2];
+        }
+
+        source.Dispose();
     }
 
 
@@ -1155,7 +1236,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
                         var shape = ps.shape;
                         // Use future pitch for positioning note particles
                         shape.position = new Vector3(0f, Mathf.Clamp(futurePitchForVisuals, minFrequency, maxFrequency) * 0.0032f, 0f);
-                        
+
                     }
                 }
 
