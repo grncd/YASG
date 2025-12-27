@@ -56,17 +56,17 @@ When reporting a bug, include:
 
 ---
 
-## 🖥️ Building from Source (for contributors)
+## Building from Source (for contributors)
 
 To build YASG from source:
 
 1. Clone this repository.  
 2. Open the project in **Unity 2021.3.21f1** or newer.  
-3. That’s it — no additional setup is required.
+3. That’s it, no additional setup is required.
 
 ---
 
-## 📜 Disclaimer
+## Disclaimer
 
 YASG relies on several open-source projects to function.  
 These tools are not included with the game but are automatically installed within the game’s Python environment.
