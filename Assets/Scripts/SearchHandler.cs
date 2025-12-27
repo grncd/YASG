@@ -132,7 +132,8 @@ public class SearchHandler : MonoBehaviour
                 {
                     if (PlayerPrefs.GetInt("editing") == 0)
                     {
-                        button.onClick.AddListener(delegate {
+                        button.onClick.AddListener(delegate
+                        {
                             // Use currentFavSong.length for the formatted duration string,
                             // and currentAdaptedTrack for the full (adapted) Track object.
                             LRC.PreCompile(currentFavSong.url, currentFavSong.name, currentFavSong.artist, currentFavSong.length, currentAdaptedTrack);
@@ -140,7 +141,8 @@ public class SearchHandler : MonoBehaviour
                     }
                     else
                     {
-                        button.onClick.AddListener(delegate {
+                        button.onClick.AddListener(delegate
+                        {
                             // LRC.PreCompile will receive the original source URL (e.g., Spotify URL)
                             // for the 'urlToPlay' parameter.
                             EditorManager.Instance.StartEditing(currentFavSong.name, currentFavSong.artist, currentAdaptedTrack.album.name, currentAdaptedTrack.duration_ms, currentFavSong.url);
@@ -149,7 +151,8 @@ public class SearchHandler : MonoBehaviour
                 }
                 else
                 {
-                    button.onClick.AddListener(delegate {
+                    button.onClick.AddListener(delegate
+                    {
                         // 1. Create a new SongData struct with the selected song's info.
                         SongData newSong = new SongData(
                             currentFavSong.name,
@@ -172,7 +175,7 @@ public class SearchHandler : MonoBehaviour
                     });
                 }
 
-               
+
             }
 
             // Populate UI elements (adjust child indices if your prefab layout differs)
@@ -247,11 +250,12 @@ public class SearchHandler : MonoBehaviour
                 Song currentSong = downloadedSong; // Changed variable name
                 SearchHandler.Track currentAdaptedTrack = adaptedTrack;
 
-                if(PlayerPrefs.GetInt("multiplayer") == 0)
+                if (PlayerPrefs.GetInt("multiplayer") == 0)
                 {
-                    if(PlayerPrefs.GetInt("editing") == 0)
+                    if (PlayerPrefs.GetInt("editing") == 0)
                     {
-                        button.onClick.AddListener(delegate {
+                        button.onClick.AddListener(delegate
+                        {
                             // LRC.PreCompile will receive the original source URL (e.g., Spotify URL)
                             // for the 'urlToPlay' parameter.
                             LRC.PreCompile(currentSong.url, currentSong.name, currentSong.artist, currentSong.length, currentAdaptedTrack);
@@ -259,7 +263,8 @@ public class SearchHandler : MonoBehaviour
                     }
                     else
                     {
-                        button.onClick.AddListener(delegate {
+                        button.onClick.AddListener(delegate
+                        {
                             // LRC.PreCompile will receive the original source URL (e.g., Spotify URL)
                             // for the 'urlToPlay' parameter.
                             EditorManager.Instance.StartEditing(currentSong.name, currentSong.artist, currentAdaptedTrack.album.name, currentAdaptedTrack.duration_ms, currentSong.url);
@@ -268,7 +273,8 @@ public class SearchHandler : MonoBehaviour
                 }
                 else
                 {
-                    button.onClick.AddListener(delegate {
+                    button.onClick.AddListener(delegate
+                    {
                         // 1. Create a new SongData struct with the selected song's info.
                         SongData newSong = new SongData(
                             currentSong.name,
@@ -369,14 +375,14 @@ public class SearchHandler : MonoBehaviour
             else
             {
                 Debug.LogError("Token Error: " + request.error);
-                
+
             }
         }
     }
 
     IEnumerator GetSpotifyAlbum(string search)
     {
-        if(accessToken == null)
+        if (accessToken == null)
         {
             AlertManager.Instance.ShowError("Failed to retrieve access token.", "Please head to <link=\"https://github.com/grncd/YASG/wiki/How-to-fix-%22Failed-to-retrieve-access-token.%22\"><u>github.com/grncd/YASG/wiki/How-to-fix-%22Failed-to-retrieve-access-token.%22</u></link> for info on how to fix this. (click it)", "Dismiss");
             StopCoroutine(GetSpotifyAlbum(search));
@@ -391,7 +397,6 @@ public class SearchHandler : MonoBehaviour
             if (request.result == UnityWebRequest.Result.Success)
             {
                 string json = request.downloadHandler.text;
-                Debug.Log("Spotify API response: " + json);
 
                 // Deserialize the JSON into the SearchResponse object.
                 SearchResponse searchResponse = JsonUtility.FromJson<SearchResponse>(json);
@@ -406,20 +411,23 @@ public class SearchHandler : MonoBehaviour
                         {
                             if (PlayerPrefs.GetInt("editing") == 0)
                             {
-                                temp.GetComponent<UnityEngine.UI.Button>().onClick.AddListener(delegate {
+                                temp.GetComponent<UnityEngine.UI.Button>().onClick.AddListener(delegate
+                                {
                                     LRC.PreCompile(track.external_urls.spotify, track.name, track.artists[0].name, ConvertDuration(track.duration_ms), track);
                                 });
                             }
                             else
                             {
-                                temp.GetComponent<UnityEngine.UI.Button>().onClick.AddListener(delegate {
+                                temp.GetComponent<UnityEngine.UI.Button>().onClick.AddListener(delegate
+                                {
                                     EditorManager.Instance.StartEditing(track.name, track.artists[0].name, track.album.name, track.duration_ms, track.external_urls.spotify);
                                 });
                             }
                         }
                         else
                         {
-                            temp.GetComponent<UnityEngine.UI.Button>().onClick.AddListener(delegate {
+                            temp.GetComponent<UnityEngine.UI.Button>().onClick.AddListener(delegate
+                            {
                                 // 1. Create a new SongData struct with the selected song's info.
                                 SongData newSong = new SongData(
                                     track.name,
@@ -461,7 +469,7 @@ public class SearchHandler : MonoBehaviour
         }
     }
 
-    
+
 
     public void SetAlbumCoverFromTrack(Track track, MPImage image, MPImage image2)
     {
@@ -482,7 +490,7 @@ public class SearchHandler : MonoBehaviour
         }
 
         // Start the coroutine to download and apply the image
-        StartCoroutine(DownloadAlbumCover(highestResImage.url,image,image2));
+        StartCoroutine(DownloadAlbumCover(highestResImage.url, image, image2));
     }
 
     private IEnumerator DownloadAlbumCover(string imageUrl, MPImage image, MPImage image2)
