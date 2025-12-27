@@ -2887,9 +2887,11 @@ document.addEventListener('DOMContentLoaded', function() {
         try
         {
             
+            bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+            string scriptName = isLinux ? "getlyrics.sh" : "getlyrics.bat";
             ProcessStartInfo psi = new ProcessStartInfo
             {
-                FileName = Path.Combine(dataPath, "getlyrics.bat"),
+                FileName = Path.Combine(dataPath, scriptName),
                 Arguments = $"{spotifyUrl} {dataPath}",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,

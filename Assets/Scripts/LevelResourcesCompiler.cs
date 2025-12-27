@@ -335,7 +335,7 @@ public class LevelResourcesCompiler : MonoBehaviour
                 }
             }
         }
-        
+
         if (lyricsError)
         {
             alertManager.ShowError("This song does not have lyrics.", "The song you've selected either has no lyrics or we couldn't find any synced lyrics for it. If this song has lyrics and you'd like to add them, <b>use the Add Lyrics button</b> located in the menu.", "Dismiss");
@@ -647,7 +647,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             success = false;
         }
-        
+
         if (!success)
         {
             alertManager.ShowError("An error occured downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
@@ -670,7 +670,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
             string newFileName = $"{sanitizedArtistName} - {sanitizedSongName}.mp3";
             string newFilePath = Path.Combine(dataPath, "downloads", newFileName);
-            
+
 
             if (File.Exists(newFilePath))
             {
@@ -692,7 +692,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     public async Task SplitSong(string filePath)
     {
-        if (File.Exists(Path.Combine(PlayerPrefs.GetString("dataPath"),"output","htdemucs",Path.GetFileNameWithoutExtension(filePath)+" [vocals].mp3")))
+        if (File.Exists(Path.Combine(PlayerPrefs.GetString("dataPath"), "output", "htdemucs", Path.GetFileNameWithoutExtension(filePath) + " [vocals].mp3")))
         {
             return;
         }
@@ -761,10 +761,10 @@ public class LevelResourcesCompiler : MonoBehaviour
                 WebServerManager.Instance.SetProcessing(false);
                 return;
             }
-            
+
             // Create a new cancellation token source for this background compile operation
             backgroundCompileCancellationSource = new CancellationTokenSource();
-            
+
             try
             {
                 await BackgroundCompile(currentTrack.url, currentTrack.name, currentTrack.artist, currentTrack.length, currentTrack.cover, backgroundCompileCancellationSource.Token);
@@ -798,7 +798,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             PlayerPrefs.SetInt($"Player{i}", 1);
         }
 
-        
+
 
         dataPath = PlayerPrefs.GetString("dataPath");
         UnityEngine.Debug.Log($"STARTING: {url}, {name}, {artist}, {length}, {cover}");
@@ -809,9 +809,9 @@ public class LevelResourcesCompiler : MonoBehaviour
         string sanitizedName = SanitizeFileName(name);
         if (!CheckFile(sanitizedName + ".txt"))
         {
-            File.Move(Path.Combine(dataPath,"downloads",sanitizedName + ".lrc"),Path.Combine(dataPath,"downloads",sanitizedName + ".txt") );
+            File.Move(Path.Combine(dataPath, "downloads", sanitizedName + ".lrc"), Path.Combine(dataPath, "downloads", sanitizedName + ".txt"));
         }
-        
+
         transitionAnim.Play("TransitionSaved");
         await Task.Delay(1450);
         if (WebServerManager.Instance != null && WebServerManager.Instance.mainQueue.Count > 0)
@@ -835,7 +835,7 @@ public class LevelResourcesCompiler : MonoBehaviour
                 string vocalLocation = Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedFilePath) + " [vocals].mp3");
                 PlayerPrefs.SetString("vocalLocation", vocalLocation);
                 PlayerPrefs.SetString("fullLocation", expectedFilePath);
-                partyModeStartAllowed = true; 
+                partyModeStartAllowed = true;
                 if (PlayerPrefs.GetInt("multiplayer") == 0) LoadMain();
                 return;
             }
@@ -927,9 +927,11 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         stage1.transform.GetChild(1).gameObject.SetActive(true);
 
+        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+        string scriptName = isLinux ? "getlyrics.sh" : "getlyrics.bat";
         ProcessStartInfo psi = new ProcessStartInfo
         {
-            FileName = dataPath + "\\getlyrics.bat",
+            FileName = Path.Combine(dataPath, scriptName),
             Arguments = url + " " + dataPath,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -938,11 +940,11 @@ public class LevelResourcesCompiler : MonoBehaviour
         };
 
         Process process = new Process { StartInfo = psi };
-        process.OutputDataReceived += (sender, args) =>
+        process.ErrorDataReceived += (sender, args) =>
         {
             if (string.IsNullOrEmpty(args.Data)) return;
-            UnityEngine.Debug.Log("Output: " + args.Data);
-            if (args.Data.Contains("some tracks"))
+            UnityEngine.Debug.Log("Error Output: " + args.Data);
+            if (args.Data.Contains("some tracks") || args.Data.Contains("Your application has"))
             {
                 lyricsError2 = true; // Set flag to try fallback
             }
@@ -951,7 +953,33 @@ public class LevelResourcesCompiler : MonoBehaviour
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        await Task.Run(() => process.WaitForExit());
+        // Wait for process completion or cancellation with timeout
+        int timeoutSeconds = 7;
+        if (SettingsManager.Instance != null)
+        {
+            if (!int.TryParse(SettingsManager.Instance.GetSetting<string>("SyricsTimeout", "7"), out timeoutSeconds)) UnityEngine.Debug.LogError("Error parsing SyricsTimeout");
+        }
+        UnityEngine.Debug.Log($"Lyrics Process Limit (Main): {timeoutSeconds} seconds.");
+        var timeoutLimit = DateTime.Now.AddSeconds(timeoutSeconds);
+
+        await Task.Run(() =>
+        {
+            while (!process.HasExited)
+            {
+                if (DateTime.Now > timeoutLimit)
+                {
+                    try
+                    {
+                        process.Kill();
+                        UnityEngine.Debug.LogWarning($"Lyrics process (Main) timed out HARD after {timeoutSeconds}s.");
+                        lyricsError2 = true;
+                    }
+                    catch (Exception e) { UnityEngine.Debug.LogError($"Error killing timed-out process: {e.Message}"); }
+                    break;
+                }
+                Thread.Sleep(500); // Check every 0.5s
+            }
+        });
         UnityEngine.Debug.Log("Lyrics script finished.");
 
         // --- FALLBACK LOGIC ---
@@ -1124,7 +1152,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             }
             return; // No need to proceed if the file already exists
         }
-        
+
         // Check for cancellation before proceeding
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -1163,9 +1191,12 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
         compiling = true;
 
+        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+        string scriptName = isLinux ? "getlyrics.sh" : "getlyrics.bat";
+
         ProcessStartInfo psi = new ProcessStartInfo
         {
-            FileName = dataPath + "\\getlyrics.bat",
+            FileName = Path.Combine(dataPath, scriptName),
             Arguments = url + " " + dataPath,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -1178,7 +1209,16 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             if (string.IsNullOrEmpty(args.Data)) return;
             UnityEngine.Debug.Log("Output: " + args.Data);
-            if (args.Data.Contains("some tracks"))
+            if (args.Data.Contains("some tracks") || args.Data.Contains("Your application has"))
+            {
+                lyricsError2 = true; // Set flag to try fallback
+            }
+        };
+        process.ErrorDataReceived += (sender, args) =>
+        {
+            if (string.IsNullOrEmpty(args.Data)) return;
+            UnityEngine.Debug.Log("Error Output: " + args.Data);
+            if (args.Data.Contains("some tracks") || args.Data.Contains("Your application has"))
             {
                 lyricsError2 = true; // Set flag to try fallback
             }
@@ -1188,32 +1228,44 @@ public class LevelResourcesCompiler : MonoBehaviour
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
-        // Wait for process completion or cancellation
+        // Wait for process completion or cancellation with timeout
+        int timeoutSeconds = 7;
+        if (SettingsManager.Instance != null)
+        {
+            if (!int.TryParse(SettingsManager.Instance.GetSetting<string>("SyricsTimeout", "7"), out timeoutSeconds)) UnityEngine.Debug.LogError("Error parsing SyricsTimeout");
+        }
+        UnityEngine.Debug.Log($"Lyrics Process Limit: {timeoutSeconds} seconds.");
+        var timeoutLimit = DateTime.Now.AddSeconds(timeoutSeconds);
+
         await Task.Run(() =>
         {
-            while (!process.HasExited && !cancellationToken.IsCancellationRequested)
+            while (!process.HasExited)
             {
-                Thread.Sleep(100);
-            }
-            
-            if (cancellationToken.IsCancellationRequested && !process.HasExited)
-            {
-                try
+                if (cancellationToken.IsCancellationRequested)
                 {
-                    process.Kill();
-                    Debug.Log("Killed lyrics process due to cancellation.");
+                    try { process.Kill(); } catch { }
+                    break;
                 }
-                catch (Exception ex)
+
+                if (DateTime.Now > timeoutLimit)
                 {
-                    Debug.LogWarning($"Failed to kill lyrics process: {ex.Message}");
+                    try
+                    {
+                        process.Kill();
+                        UnityEngine.Debug.LogWarning($"Lyrics process timed out HARD after {timeoutSeconds}s.");
+                        lyricsError2 = true;
+                    }
+                    catch (Exception e) { UnityEngine.Debug.LogError($"Error killing timed-out process: {e.Message}"); }
+                    break;
                 }
+                Thread.Sleep(500); // Check every 0.5s
             }
         }, cancellationToken);
         UnityEngine.Debug.Log("Lyrics script finished.");
 
         // Check for cancellation after lyrics fetch
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         // --- FALLBACK LOGIC ---
         if (lyricsError2)
         {
@@ -1256,7 +1308,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             WebServerManager.Instance.SetCurrentStatus("Downloading song...");
         }
-        
+
         // Check for cancellation before download
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -1304,17 +1356,17 @@ public class LevelResourcesCompiler : MonoBehaviour
                     success = false;
                 }
             }
-            await Task.Delay(1500, cancellationToken); 
+            await Task.Delay(1500, cancellationToken);
         }
 
         if (WebServerManager.Instance != null)
         {
             WebServerManager.Instance.SetCurrentStatus("Splitting vocals...");
         }
-        
+
         // Check for cancellation before vocal splitting
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         splittingVocals = true;
 
         await RunPythonDirectly(expectedAudioPath, cancellationToken);
@@ -1408,7 +1460,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(audioFilePath) + " [vocals].mp3"));
 
         string pythonArgs;
-        if(SettingsManager.Instance.GetSetting<int>("VocalProcessingMethod") == 0)
+        if (SettingsManager.Instance.GetSetting<int>("VocalProcessingMethod") == 0)
         {
             pythonArgs = $"-u \"vr.py\"";
         }
@@ -1416,13 +1468,22 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             pythonArgs = $"-u \"main.py\"";
         }
-        string pythonExe = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
+        string pythonExe;
+        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+        if (isLinux)
+        {
+            pythonExe = Path.Combine(dataPath, "venv", "bin", "python3");
+        }
+        else
+        {
+            pythonExe = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
+        }
         string workingDir = Path.Combine(dataPath, "vocalremover");
         await RunProcessAsync(pythonExe, pythonArgs, workingDir, cancellationToken);
         UnityEngine.Debug.Log("Python inference finished!");
     }
 
-    
+
 
     public float ParseTime(string timeString)
     {
@@ -1529,7 +1590,15 @@ public class LevelResourcesCompiler : MonoBehaviour
             processIsRunning = false;
             yield break;
         }
-        activeProcess.StartInfo.FileName = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
+        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+        if (isLinux)
+        {
+            activeProcess.StartInfo.FileName = Path.Combine(dataPath, "venv", "bin", "python3");
+        }
+        else
+        {
+            activeProcess.StartInfo.FileName = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
+        }
         activeProcess.StartInfo.Arguments = $" -u \"{scriptPath}\" true";
 
         activeProcess.StartInfo.UseShellExecute = false;
@@ -1622,7 +1691,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         if (line.Contains("WARNING: You are using pip version") || line.Contains("install --upgrade pip") || line.Contains("A new release of pip available"))
         {
             Debug.Log($"[Ignored Warning] {line}");
-            return; 
+            return;
         }
 
         Debug.LogError($"[Process Error] {line}");
@@ -1748,7 +1817,7 @@ public class LevelResourcesCompiler : MonoBehaviour
                 {
                     Thread.Sleep(100);
                 }
-                
+
                 if (cancellationToken.IsCancellationRequested && !process.HasExited)
                 {
                     try
@@ -1768,9 +1837,11 @@ public class LevelResourcesCompiler : MonoBehaviour
     public async Task<bool> AttemptDownload(string url)
     {
         bool fail = false;
+        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+        string scriptName = isLinux ? "downloadsong.sh" : "downloadsong.bat";
         ProcessStartInfo psi = new ProcessStartInfo
         {
-            FileName = dataPath + "\\downloadsong.bat",
+            FileName = Path.Combine(dataPath, scriptName),
             Arguments = url + " " + dataPath,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -1799,8 +1870,8 @@ public class LevelResourcesCompiler : MonoBehaviour
             UnityEngine.Debug.LogError("Error: " + args.Data);
             // if (args.Data.Contains("Traceback"))
             //{
-                //fail = true;
-                //if (!process.HasExited) process.Kill();
+            //fail = true;
+            //if (!process.HasExited) process.Kill();
             //}
             if (args.Data.Contains("KeyError:"))
             {
@@ -1875,7 +1946,16 @@ public class LevelResourcesCompiler : MonoBehaviour
             }
 
             string dataPath = PlayerPrefs.GetString("dataPath");
-            string pythonExe = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
+            string pythonExe;
+            bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+            if (isLinux)
+            {
+                pythonExe = Path.Combine(dataPath, "venv", "bin", "python3");
+            }
+            else
+            {
+                pythonExe = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
+            }
             string scriptPath = Path.Combine(dataPath, "setuputilities", "updatechecker.py");
             if (!File.Exists(pythonExe) || !File.Exists(scriptPath))
             {
@@ -1900,8 +1980,8 @@ public class LevelResourcesCompiler : MonoBehaviour
             {
                 //process.OutputDataReceived += (sender, args) =>
                 //{
-                    //if (!string.IsNullOrEmpty(args.Data))
-                        //Debug.Log($"[UpChkr] {args.Data}");
+                //if (!string.IsNullOrEmpty(args.Data))
+                //Debug.Log($"[UpChkr] {args.Data}");
                 //};
                 process.ErrorDataReceived += (sender, args) =>
                 {
