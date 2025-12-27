@@ -102,15 +102,23 @@ public class LyricsHandler : MonoBehaviour
             temp.GetChild(3).GetComponent<TextMeshProUGUI>().text = PlayerPrefs.GetString("Player4Name");
             //temp.GetComponent<RealTimePitchDetector>().device = PlayerPrefs.GetInt("MicPlayer4");
         }
-        if (!File.Exists($"{PlayerPrefs.GetString("dataPath")}\\downloads\\" + currentSong + ".txt"))
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        string downloadsPath = Path.Combine(dataPath, "downloads");
+        string txtPath = Path.Combine(downloadsPath, currentSong + ".txt");
+        string lrcPath = Path.Combine(downloadsPath, currentSong + ".lrc");
+
+        if (!File.Exists(txtPath))
         {
-            System.IO.File.Move($"{PlayerPrefs.GetString("dataPath")}\\downloads\\" + currentSong + ".lrc", $"{PlayerPrefs.GetString("dataPath")}\\downloads\\" + currentSong + ".txt");
+            if (File.Exists(lrcPath))
+            {
+                System.IO.File.Move(lrcPath, txtPath);
+            }
         }
         if(PlayerPrefs.GetInt("saved") == 1)
         {
             stagesGO.SetActive(false);
         }
-        LoadTextFile($"{PlayerPrefs.GetString("dataPath")}\\downloads\\" + currentSong + ".txt");
+        LoadTextFile(txtPath);
         ParseLyrics();
     }
 
@@ -256,7 +264,7 @@ public class LyricsHandler : MonoBehaviour
         lineDurations.Clear();
 
         string[] lines = lyrics.Split('\n');
-        Regex regex = new Regex(@"\[(\d{2}):(\d{2}\.\d{2})\](.*)");
+        Regex regex = new Regex(@"\[(\d+):(\d+(?:\.\d+)?)\](.*)");
 
         float previousTime = 0f;
         foreach (string line in lines)

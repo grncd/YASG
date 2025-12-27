@@ -181,6 +181,8 @@ public class SettingsManager : MonoBehaviour
             { "PitchDetectionQuality", new Setting { Value = 2, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Real-Time Pitch Detection Quality", Description = "Turn this down if your FPS is dropping when singing in game. Only recommended to turn this up if you have a very low pitched voice or want precise pitch detection.", DropdownOptions = new List<string> { "Low", "Medium", "High", "Very High" } } },
             // DONE
             { "VocalProcessingMethod", new Setting { Value = 0, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Vocal Processing Method", Description = "Method used to extract vocals from the song. Only use vocalremover.org if you don't have a (good) GPU. Otherwise, use Demucs.", DropdownOptions = new List<string> { "VocalRemover.org", "Demucs" } } },
+            
+            { "SyricsTimeout", new Setting { Value = "7", Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.TextInput, FormalName = "Lyrics Search Timeout", Description = "Time in seconds to wait for the lyrics search script (syrics) to finish before falling back to LRCLib. Default is 7s." } },
 
             // Misc
             // DONE

@@ -26,6 +26,7 @@ public class SetupManager : MonoBehaviour
     [Header("UI Elements")]
     public TextMeshProUGUI statusTextLogin;
     public Slider loginProgress;
+    public SetupPage preLoginPage;
     public SetupPage loginPage;
     public SetupPage manualLoginPage;
     public Button manualLoginPageButton;
@@ -67,6 +68,19 @@ public class SetupManager : MonoBehaviour
             {
                 // Dequeue the action and invoke it.
                 executionQueue.Dequeue().Invoke();
+            }
+        }
+
+        // Shortcut: Ctrl+L on PreLoginPage to skip to Manual Login
+        if (preLoginPage != null && preLoginPage.gameObject.activeInHierarchy)
+        {
+            if ((Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) && Input.GetKeyDown(KeyCode.L))
+            {
+                UnityEngine.Debug.Log("Shortcut detected: Skipping to Manual Login.");
+                preLoginPage.gameObject.SetActive(false);
+                if (manualLoginPage != null) manualLoginPage.gameObject.SetActive(true);
+                // Ensure other pages are off just in case
+                if (loginPage != null) loginPage.gameObject.SetActive(false);
             }
         }
 
@@ -142,26 +156,65 @@ public class SetupManager : MonoBehaviour
             yield break;
         }
 
-        string batUrl = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/pyinstall.bat";
+        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+        string scriptExt = isLinux ? ".sh" : ".bat";
+
+        string batUrl = $"https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/pyinstall{scriptExt}";
         string pyUrl = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/spotifydc.py";
         string py2Url = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/fullinstall.py";
         string py3Url = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/updatechecker.py";
-        string batPath = Path.Combine(setupUtilitiesPath, "pyinstall.bat");
+
+        string batPath = Path.Combine(setupUtilitiesPath, $"pyinstall{scriptExt}");
+        // Note: For Python scripts, the filename remains .py
         string pyPath = Path.Combine(setupUtilitiesPath, "spotifydc.py");
         string py2Path = Path.Combine(setupUtilitiesPath, "fullinstall.py");
         string py3Path = Path.Combine(setupUtilitiesPath, "updatechecker.py");
+
         statusTextPreinstall.text = "Downloading setup files...";
         yield return StartCoroutine(DownloadFile(batUrl, batPath));
         yield return StartCoroutine(DownloadFile(pyUrl, pyPath));
         yield return StartCoroutine(DownloadFile(py2Url, py2Path));
         yield return StartCoroutine(DownloadFile(py3Url, py3Path));
-        yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/getlyrics.bat", Path.Combine(dataPath, "getlyrics.bat")));
-        yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/downloadsong.bat", Path.Combine(dataPath, "downloadsong.bat")));
+
+        string lyricsScript = $"getlyrics{scriptExt}";
+        string songScript = $"downloadsong{scriptExt}";
+
+        string lyricsPath = Path.Combine(dataPath, lyricsScript);
+        string songPath = Path.Combine(dataPath, songScript);
+
+        yield return StartCoroutine(DownloadFile($"https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/{lyricsScript}", lyricsPath));
+        yield return StartCoroutine(DownloadFile($"https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/{songScript}", songPath));
+
         Directory.CreateDirectory(Path.Combine(dataPath, "vocalremover", "input"));
         yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/main.py", Path.Combine(dataPath, "vocalremover", "main.py")));
         yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/vr.py", Path.Combine(dataPath, "vocalremover", "vr.py")));
 
+        if (isLinux)
+        {
+            GrantExecutePermission(batPath);
+            GrantExecutePermission(lyricsPath);
+            GrantExecutePermission(songPath);
+        }
+
         StartCoroutine(RunProcessCoroutine());
+    }
+
+    private void GrantExecutePermission(string path)
+    {
+        try
+        {
+            Process chmod = new Process();
+            chmod.StartInfo.FileName = "chmod";
+            chmod.StartInfo.Arguments = $"+x \"{path}\"";
+            chmod.StartInfo.UseShellExecute = false;
+            chmod.StartInfo.CreateNoWindow = true;
+            chmod.Start();
+            chmod.WaitForExit();
+        }
+        catch (Exception e)
+        {
+            UnityEngine.Debug.LogError($"Failed to chmod {path}: {e.Message}");
+        }
     }
 
     private IEnumerator DownloadFile(string url, string path)
@@ -193,6 +246,8 @@ public class SetupManager : MonoBehaviour
 
     public static void ClearFolder(string path)
     {
+        if (!Directory.Exists(path)) return; // Prevent crash if folder doesn't exist
+
         foreach (string file in Directory.GetFiles(path))
         {
             File.Delete(file);
@@ -207,17 +262,42 @@ public class SetupManager : MonoBehaviour
     {
         // Ensure there's a sensible default (Unity game's data folder) if none set
         string defaultPath = PlayerPrefs.GetString("dataPath");
+
+        // Debugging Linux path issues
+        UnityEngine.Debug.Log($"Platform: {Application.platform}, Current DataPath: {defaultPath}");
+
+        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+
+        // Fix for Linux users stuck with .config path in PlayerPrefs
+        if (isLinux && !string.IsNullOrEmpty(defaultPath) && defaultPath.Contains(".config"))
+        {
+            UnityEngine.Debug.Log("Detected incorrect .config path on Linux. Forcing migration to .local/share.");
+            defaultPath = ""; // Force recalculation
+        }
+
         if (string.IsNullOrEmpty(defaultPath))
         {
-            // Use the user's Roaming AppData folder so the path works regardless of username.
-            string roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            if (string.IsNullOrEmpty(roaming))
+            string baseFolder;
+            if (Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor)
             {
-                // Fallback: construct a plausible Roaming path from the user profile.
+                // Explicitly force ~/.local/share/YASG/YASG to prevent ambiguity or switching to .config
                 string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-                roaming = Path.Combine(userProfile ?? @"C:\Users\Default", "AppData", "Roaming");
+                baseFolder = Path.Combine(userProfile, ".local", "share", "YASG");
             }
-            defaultPath = Path.Combine(roaming, "YASG", "YASG");
+            else
+            {
+                // Use the user's Roaming AppData folder so the path works regardless of username.
+                string roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                if (string.IsNullOrEmpty(roaming))
+                {
+                    // Fallback: construct a plausible Roaming path from the user profile.
+                    string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                    roaming = Path.Combine(userProfile ?? @"C:\Users\Default", "AppData", "Roaming");
+                }
+                baseFolder = Path.Combine(roaming, "YASG");
+            }
+
+            defaultPath = Path.Combine(baseFolder, "YASG");
 
             // Ensure the folder exists and persist it to PlayerPrefs.
             try
@@ -265,11 +345,15 @@ public class SetupManager : MonoBehaviour
 
         activeProcess = new Process();
         string dataPath = PlayerPrefs.GetString("dataPath");
+        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+
+        string pythonExe = isLinux ? Path.Combine(dataPath, "venv", "bin", "python3") : Path.Combine(dataPath, "venv", "Scripts", "python.exe");
 
         // Configure the process based on which button was pressed
         if (currentProcessType == ActiveProcessType.Preinstall)
         {
-            string scriptPath = Path.Combine(dataPath, "setuputilities", "pyinstall.bat");
+            string scriptName = isLinux ? "pyinstall.sh" : "pyinstall.bat";
+            string scriptPath = Path.Combine(dataPath, "setuputilities", scriptName);
             if (!File.Exists(scriptPath))
             {
                 UnityEngine.Debug.LogError($"Script not found at: {scriptPath}");
@@ -289,7 +373,7 @@ public class SetupManager : MonoBehaviour
                 processIsRunning = false;
                 yield break;
             }
-            activeProcess.StartInfo.FileName = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
+            activeProcess.StartInfo.FileName = pythonExe;
             activeProcess.StartInfo.Arguments = $"-u \"{scriptPath}\"";
         }
         else if (currentProcessType == ActiveProcessType.FinalInstall)
@@ -302,7 +386,7 @@ public class SetupManager : MonoBehaviour
                 processIsRunning = false;
                 yield break;
             }
-            activeProcess.StartInfo.FileName = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
+            activeProcess.StartInfo.FileName = pythonExe;
             activeProcess.StartInfo.Arguments = $" -u \"{scriptPath}\" {(method == "demucs" ? "true" : "false")}";
             if (method == "demucs")
             {
@@ -316,6 +400,7 @@ public class SetupManager : MonoBehaviour
         }
 
         // Common process settings
+        activeProcess.StartInfo.WorkingDirectory = dataPath;
         activeProcess.StartInfo.UseShellExecute = false;
         activeProcess.StartInfo.CreateNoWindow = true;
         activeProcess.StartInfo.RedirectStandardOutput = true;
@@ -426,7 +511,7 @@ public class SetupManager : MonoBehaviour
 
         // Robustness Check: Ensure UI elements are valid before updating
         if (statusTextLogin == null || loginProgress == null) return;
-        if (line.Contains("Script finished. Closing browser."))
+        if (line.Contains("Script finished. Closing browser.") || line.Contains("Script finished successfully!"))
         {
             loginPage.NextPage();
             manualLoginPage.NextPage();
