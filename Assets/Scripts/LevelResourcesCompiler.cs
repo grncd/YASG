@@ -507,7 +507,12 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         songInfo.transform.GetChild(4).GetChild(0).GetChild(0).GetComponent<TextMeshProUGUI>().text = name;
         songInfo.transform.GetChild(4).GetChild(0).GetChild(1).GetComponent<TextMeshProUGUI>().text = artist;
-        songInfo.transform.GetChild(4).GetChild(0).GetChild(3).GetComponent<TextMeshProUGUI>().text = "Song Length: " + length;
+        string lengthText = "Song Length: " + length;
+        if (FavoritesManager.IsDownloaded(url))
+        {
+            lengthText += " <color=#5dff4d>(Downloaded)</color>";
+        }
+        songInfo.transform.GetChild(4).GetChild(0).GetChild(3).GetComponent<TextMeshProUGUI>().text = lengthText;
 
         var playButton = songInfo.transform.GetChild(4).GetChild(0).GetChild(4).GetComponent<Button>();
         var favButton = songInfo.transform.GetChild(4).GetChild(0).GetChild(5).GetComponent<Button>();
@@ -1999,6 +2004,126 @@ public class LevelResourcesCompiler : MonoBehaviour
         catch (Exception e)
         {
             Debug.LogWarning($"Update check failed: {e.Message}");
+        }
+    }
+
+    public void DeletePitch()
+    {
+        if (selectedTrack == null)
+        {
+            alertManager.ShowError("No Song Selected", "Please select a song first.", "Dismiss");
+            return;
+        }
+        string artistName = (selectedTrack.artists != null && selectedTrack.artists.Count > 0) ? selectedTrack.artists[0].name : "Unknown Artist";
+        DeletePitch(selectedTrack.name, artistName);
+    }
+
+    public void DeletePitch(string name, string artist)
+    {
+        string expectedAudioPath = GetExpectedAudioFilePath(artist, name);
+        // Pitch data is hashed from the VOCALS path, not the original download path.
+        // We must reconstruct the vocal path to find the correct cache file.
+        string baseName = Path.GetFileNameWithoutExtension(expectedAudioPath);
+        string vocalPath = Path.Combine(dataPath, "output", "htdemucs", baseName + " [vocals].mp3");
+
+        string cachePath = AudioClipPitchProcessor.GetCacheFilePath(vocalPath);
+        if (string.IsNullOrEmpty(cachePath) || !File.Exists(cachePath))
+        {
+            alertManager.ShowError("Pitch Data Not Found", "This song hasn't been processed yet or has no pitch data.", "Dismiss");
+            return;
+        }
+
+        // Use static method directly - no need for Instance check
+        AudioClipPitchProcessor.DeletePitchData(vocalPath);
+        alertManager.ShowSuccess($"Pitch data deleted for {name}", "Reprocess the song to regenerate it.", "OK", true);
+    }
+
+    public void DeleteSong()
+    {
+        if (selectedTrack == null)
+        {
+            alertManager.ShowError("No Song Selected", "Please select a song first.", "Dismiss");
+            return;
+        }
+        string artistName = (selectedTrack.artists != null && selectedTrack.artists.Count > 0) ? selectedTrack.artists[0].name : "Unknown Artist";
+        string url = (selectedTrack.external_urls != null) ? selectedTrack.external_urls.spotify : "";
+
+        DeleteSong(selectedTrack.name, artistName, url);
+    }
+
+    public void DeleteSong(string name, string artist, string url)
+    {
+        if (!FavoritesManager.IsDownloaded(url))
+        {
+            alertManager.ShowError("Song Not Found", "You haven't downloaded this song yet.", "Dismiss");
+            return;
+        }
+
+        try
+        {
+            string expectedAudioPath = GetExpectedAudioFilePath(artist, name);
+            string baseName = Path.GetFileNameWithoutExtension(expectedAudioPath);
+
+            // 1. Delete Audio File
+            if (File.Exists(expectedAudioPath)) File.Delete(expectedAudioPath);
+
+            // 2. Delete Lyrics (.txt and .lrc)
+            // Try "SongName.txt" (Current standard)
+            string sanitizedSongName = SanitizeFileName(name);
+            string simpleLyricsTxt = Path.Combine(dataPath, "downloads", sanitizedSongName + ".txt");
+            string simpleLyricsLrc = Path.Combine(dataPath, "downloads", sanitizedSongName + ".lrc");
+            if (File.Exists(simpleLyricsTxt)) File.Delete(simpleLyricsTxt);
+            if (File.Exists(simpleLyricsLrc)) File.Delete(simpleLyricsLrc);
+
+            // Try "Artist - SongName.txt" (Potential legacy or alternative format)
+            string lyricsTxt = Path.Combine(dataPath, "downloads", baseName + ".txt");
+            string lyricsLrc = Path.Combine(dataPath, "downloads", baseName + ".lrc");
+            if (File.Exists(lyricsTxt)) File.Delete(lyricsTxt);
+            if (File.Exists(lyricsLrc)) File.Delete(lyricsLrc);
+
+            // 3. Delete Vocals
+            string vocalsPath = Path.Combine(dataPath, "output", "htdemucs", baseName + " [vocals].mp3");
+            if (File.Exists(vocalsPath)) File.Delete(vocalsPath);
+
+            // 4. Delete Pitch Data (Silent delete, no alert)
+            AudioClipPitchProcessor.DeletePitchData(vocalsPath);
+            //if (AudioClipPitchProcessor.Instance != null)
+            //{
+            //    AudioClipPitchProcessor.Instance.DeletePitchData(vocalsPath);
+            //}
+
+            // 5. Remove from Downloads List
+            FavoritesManager.RemoveDownloadByUrl(url);
+
+            // 6. Update UI: PreCompile Window
+            if (songInfo != null && songInfo.activeInHierarchy)
+            {
+                // Verify if this is the song we just deleted (by checking if the text has the tag)
+                var lengthTextObj = songInfo.transform.GetChild(4).GetChild(0).GetChild(3).GetComponent<TextMeshProUGUI>();
+                if (lengthTextObj != null)
+                {
+                    string currentText = lengthTextObj.text;
+                    if (currentText.Contains("<color=#5dff4d>(Downloaded)</color>"))
+                    {
+                        currentText = currentText.Replace(" <color=#5dff4d>(Downloaded)</color>", "");
+                        lengthTextObj.text = currentText;
+                    }
+                }
+            }
+
+            // 7. Update UI: Search Handler
+            SearchHandler sh = FindObjectOfType<SearchHandler>();
+            if (sh != null)
+            {
+                sh.Refresh();
+            }
+
+            alertManager.ShowSuccess($"Deleted {name}", "Song data and files have been removed.", "OK", true);
+        }
+        catch (Exception ex)
+        {
+            UnityEngine.Debug.LogError($"Error deleting song {name}: {ex.Message}");
+            alertManager.ShowError("Deletion Failed", $"Could not delete all files: {ex.Message}", "Dismiss");
         }
     }
 }

@@ -8,6 +8,7 @@ using MPUIKIT;
 using UnityEngine.UI;
 using static LevelResourcesCompiler;
 using UnityEngine.UIElements;
+using System.Linq;
 
 public class SearchHandler : MonoBehaviour
 {
@@ -19,6 +20,11 @@ public class SearchHandler : MonoBehaviour
     public LevelResourcesCompiler LRC;
     public AlertManager alertManager;
     public GameObject selectorMenu;
+    public GameObject actionsMenu;
+
+    public enum SearchType { None, Search, Favorites, Downloads }
+    private SearchType currentSearchType = SearchType.None;
+    private string currentSearchQuery = "";
 
     void Start()
     {
@@ -27,8 +33,26 @@ public class SearchHandler : MonoBehaviour
         StartCoroutine(TokenAndRequestRoutine());
     }
 
+    public void Refresh()
+    {
+        switch (currentSearchType)
+        {
+            case SearchType.Search:
+                if (!string.IsNullOrEmpty(currentSearchQuery)) Search(currentSearchQuery);
+                break;
+            case SearchType.Favorites:
+                DisplayFavoriteSongs();
+                break;
+            case SearchType.Downloads:
+                DisplayDownloadedSongs();
+                break;
+        }
+    }
+
     public void Search(string search)
     {
+        currentSearchType = SearchType.Search;
+        currentSearchQuery = search;
         foreach (Transform child in trackParent.transform)
         {
             Destroy(child.gameObject);
@@ -79,6 +103,7 @@ public class SearchHandler : MonoBehaviour
 
     public void DisplayFavoriteSongs()
     {
+        currentSearchType = SearchType.Favorites;
         // 1. Clear existing items
         foreach (Transform child in trackParent)
         {
@@ -93,6 +118,9 @@ public class SearchHandler : MonoBehaviour
             alertManager.ShowInfo("No favorites found.", "You haven't added any favorite song yet! You can do so by clicking the heart icon next to the play button in any song.", "Dismiss");
             return;
         }
+
+        // Create a set of downloaded URLs for efficient lookup
+        HashSet<string> downloadedUrls = new HashSet<string>(FavoritesManager.GetAllDownloads().Select(d => d.url));
 
         // 3. Iterate and populate UI
         foreach (Song favSong in favoriteSongs)
@@ -182,7 +210,13 @@ public class SearchHandler : MonoBehaviour
             temp.transform.GetChild(1).GetComponent<TextMeshProUGUI>().text = favSong.name;
             temp.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = favSong.artist;
             temp.transform.GetChild(5).GetComponent<TextMeshProUGUI>().text = favSong.url; // Or spotifyTrackId if more appropriate for display
-            temp.transform.GetChild(4).GetComponent<TextMeshProUGUI>().text = "Song Length: " + favSong.length;
+
+            string lengthText = "Song Length: " + favSong.length;
+            if (downloadedUrls.Contains(favSong.url))
+            {
+                lengthText += " <color=#5dff4d>(Downloaded)</color>";
+            }
+            temp.transform.GetChild(4).GetComponent<TextMeshProUGUI>().text = lengthText;
 
             // Cover art - using your existing LoadImageFromUrl which is good
             MPImage coverImageComponent = temp.transform.GetChild(3).GetComponent<MPImage>();
@@ -203,6 +237,7 @@ public class SearchHandler : MonoBehaviour
 
     public void DisplayDownloadedSongs()
     {
+        currentSearchType = SearchType.Downloads;
         // 1. Clear existing items
         foreach (Transform child in trackParent)
         {
@@ -303,7 +338,7 @@ public class SearchHandler : MonoBehaviour
             temp.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = downloadedSong.artist;
             // Child 5 displays the original source URL. You could also add a " (Downloaded)" suffix if desired.
             temp.transform.GetChild(5).GetComponent<TextMeshProUGUI>().text = downloadedSong.url;
-            temp.transform.GetChild(4).GetComponent<TextMeshProUGUI>().text = "Song Length: " + downloadedSong.length;
+            temp.transform.GetChild(4).GetComponent<TextMeshProUGUI>().text = "Song Length: " + downloadedSong.length + " <color=#5dff4d>(Downloaded)</color>";
 
             // Cover art
             MPImage coverImageComponent = temp.transform.GetChild(3).GetComponent<MPImage>();
@@ -404,6 +439,9 @@ public class SearchHandler : MonoBehaviour
                 // Check if the albums section exists and iterate over each album.
                 if (searchResponse.tracks != null && searchResponse.tracks.items != null)
                 {
+                    // Cache downloaded URLs for efficient lookup
+                    HashSet<string> downloadedUrls = new HashSet<string>(FavoritesManager.GetAllDownloads().Select(d => d.url));
+
                     foreach (Track track in searchResponse.tracks.items)
                     {
                         GameObject temp = Instantiate(trackGUI, trackParent);
@@ -453,7 +491,14 @@ public class SearchHandler : MonoBehaviour
                         temp.transform.GetChild(1).GetComponent<TextMeshProUGUI>().text = track.name;
                         temp.transform.GetChild(2).GetComponent<TextMeshProUGUI>().text = track.artists[0].name;
                         temp.transform.GetChild(5).GetComponent<TextMeshProUGUI>().text = track.external_urls.spotify;
-                        temp.transform.GetChild(4).GetComponent<TextMeshProUGUI>().text = "Song Length: " + ConvertDuration(track.duration_ms);
+
+                        string lengthText = "Song Length: " + ConvertDuration(track.duration_ms);
+                        if (downloadedUrls.Contains(track.external_urls.spotify))
+                        {
+                            lengthText += " <color=#5dff4d>(Downloaded)</color>";
+                        }
+                        temp.transform.GetChild(4).GetComponent<TextMeshProUGUI>().text = lengthText;
+
                         SetAlbumCoverFromTrack(track, temp.transform.GetChild(3).GetComponent<MPImage>(), temp.transform.GetChild(0).GetComponent<MPImage>());
                     }
                 }

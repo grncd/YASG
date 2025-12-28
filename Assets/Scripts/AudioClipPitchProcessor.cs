@@ -167,7 +167,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
 
     }
 
-    private string GetCacheFilePath(string audioClipPath)
+    public static string GetCacheFilePath(string audioClipPath)
     {
         string dataPath = PlayerPrefs.GetString("dataPath");
         if (string.IsNullOrEmpty(dataPath))
@@ -180,7 +180,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
         return Path.Combine(pitchDataFolder, fileName);
     }
 
-    private string GenerateMD5(string input)
+    public static string GenerateMD5(string input)
     {
         using (MD5 md5 = MD5.Create())
         {
@@ -189,6 +189,27 @@ public class AudioClipPitchProcessor : MonoBehaviour
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < hashBytes.Length; i++) sb.Append(hashBytes[i].ToString("x2"));
             return sb.ToString();
+        }
+    }
+
+    public static void DeletePitchData(string audioClipPath)
+    {
+        string filePath = GetCacheFilePath(audioClipPath);
+        if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+        {
+            try
+            {
+                File.Delete(filePath);
+                UnityEngine.Debug.Log($"[AudioClipPitchProcessor] Deleted pitch data for: {audioClipPath}");
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"[AudioClipPitchProcessor] Failed to delete pitch data: {ex.Message}");
+            }
+        }
+        else
+        {
+            UnityEngine.Debug.LogWarning($"[AudioClipPitchProcessor] Pitch data not found for: {audioClipPath}");
         }
     }
 
