@@ -116,7 +116,7 @@ public class AlertManager : MonoBehaviour
     {
         if (PlayerPrefs.GetInt("ERR") == 1)
         {
-            ShowError("An error occurred.", "Please try playing the song again. If the issue persists, open an issue in our GitHub page.", "Close");
+            ShowError("An error occurred.", "Please try playing the song again or performing a full reset (Settings > Misc > Full Reset). If the issue persists, open an issue in our GitHub page.", "Close");
             PlayerPrefs.SetInt("ERR", 0);
         }
     }
