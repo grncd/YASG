@@ -114,7 +114,7 @@ public class LyricsHandler : MonoBehaviour
                 System.IO.File.Move(lrcPath, txtPath);
             }
         }
-        if(PlayerPrefs.GetInt("saved") == 1)
+        if (PlayerPrefs.GetInt("saved") == 1)
         {
             stagesGO.SetActive(false);
         }
@@ -194,7 +194,7 @@ public class LyricsHandler : MonoBehaviour
             Pause();
         }
         float elapsedTime = Time.time - startTime;
-        
+
         if (isPlaying)
         {
             progressTime.value = Math.Clamp(elapsedTime / processedAudioLength, 0.005f, 1f);
@@ -272,7 +272,7 @@ public class LyricsHandler : MonoBehaviour
             Match match = regex.Match(line);
             if (match.Success)
             {
-                Debug.Log("Parsing line: " + line);
+                // Debug.Log("Parsing line: " + line);
                 int minutes = int.Parse(match.Groups[1].Value);
                 float seconds = float.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
                 string lyricLine = match.Groups[3].Value.Trim();
@@ -300,7 +300,7 @@ public class LyricsHandler : MonoBehaviour
         {
             if (elapsedTime >= parsedLyrics[i].time)
             {
-                
+
                 if (i != currentLineIndex || (firstLine == false && i == 0))
                 {
                     firstLine = true;
@@ -322,7 +322,7 @@ public class LyricsHandler : MonoBehaviour
     {
         for (int i = parsedLyrics.Count - 1; i >= 0; i--)
         {
-            if (elapsedTime+lyricsDelay >= parsedLyrics[i].time)
+            if (elapsedTime + lyricsDelay >= parsedLyrics[i].time)
             {
                 if (prevIndex != i)
                 {

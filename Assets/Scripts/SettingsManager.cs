@@ -181,7 +181,7 @@ public class SettingsManager : MonoBehaviour
             { "PitchDetectionQuality", new Setting { Value = 2, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Real-Time Pitch Detection Quality", Description = "Turn this down if your FPS is dropping when singing in game. Only recommended to turn this up if you have a very low pitched voice or want precise pitch detection.", DropdownOptions = new List<string> { "Low", "Medium", "High", "Very High" } } },
             // DONE
             { "VocalProcessingMethod", new Setting { Value = 0, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Vocal Processing Method", Description = "Method used to extract vocals from the song. Only use vocalremover.org if you don't have a (good) GPU. Otherwise, use Demucs.", DropdownOptions = new List<string> { "VocalRemover.org", "Demucs" } } },
-            
+
             { "SyricsTimeout", new Setting { Value = "7", Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.TextInput, FormalName = "Lyrics Search Timeout", Description = "Time in seconds to wait for the lyrics search script (syrics) to finish before falling back to LRCLib. Default is 7s." } },
 
             // Misc
@@ -195,7 +195,8 @@ public class SettingsManager : MonoBehaviour
             { "AudioReactiveBGInGame", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Background", Description = "Defines if the background will be audio-reactive or not. Currently, this only works if you are using the Rainbow Tunnel BG."  } },
 
             { "ApiKey", new Setting { Value = PlayerPrefs.GetString("APIKEY", ""), Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.TextInput, FormalName = "API Key", Description = "Manually change your API key for Spotify integration."  } },
-            { "ClientId", new Setting { Value = PlayerPrefs.GetString("CLIENTID", ""), Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.TextInput, FormalName = "Client ID", Description = "Manually change your Client ID for Spotify integration."  } }
+            { "ClientId", new Setting { Value = PlayerPrefs.GetString("CLIENTID", ""), Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.TextInput, FormalName = "Client ID", Description = "Manually change your Client ID for Spotify integration."  } },
+            { "FullReset", new Setting { Value = false, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "FULL RESET", Description = "Turn this on and REOPEN THE GAME to go back to the setup screen. THIS WILL DELETE ALL OF YOUR YASG DATA."  } }
         };
     }
 
@@ -237,24 +238,35 @@ public class SettingsManager : MonoBehaviour
     {
         if (_settings.TryGetValue(key, out Setting setting))
         {
-            if(key == "VocalProcessingMethod")
+            if (key == "VocalProcessingMethod")
             {
-                if(PlayerPrefs.GetInt("demucsInstalled") != 1 && Convert.ToInt32(value) == 1 && PlayerPrefs.GetInt("setupDone") == 1)
+                if (PlayerPrefs.GetInt("demucsInstalled") != 1 && Convert.ToInt32(value) == 1 && PlayerPrefs.GetInt("setupDone") == 1)
                 {
                     LevelResourcesCompiler.Instance.RunFullInstall();
                 }
             }
-            else if(key == "ApiKey")
+            else if (key == "ApiKey")
             {
                 PlayerPrefs.SetString("APIKEY", value.ToString());
                 PlayerPrefs.Save();
                 ReloadMenuScene();
             }
-            else if(key == "ClientId")
+            else if (key == "ClientId")
             {
                 PlayerPrefs.SetString("CLIENTID", value.ToString());
                 PlayerPrefs.Save();
                 ReloadMenuScene();
+            }
+            else if (key == "FullReset")
+            {
+                if (Convert.ToBoolean(value) == true)
+                {
+                    PlayerPrefs.SetInt("setupDone", 0);
+                }
+                else
+                {
+                    PlayerPrefs.SetInt("setupDone", 1);
+                }
             }
             setting.Value = value;
         }
