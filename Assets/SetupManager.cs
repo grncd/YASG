@@ -596,13 +596,58 @@ public class SetupManager : MonoBehaviour
         }
         else
         {
-            UnityEngine.Debug.LogWarning($"[FinalInstall] No match for line: {line}");
+            if (line.StartsWith("SETUP_FFMPEG_PATH:"))
+            {
+                string newPath = line.Split(new[] { ':' }, 2)[1].Trim();
+                UpdateProcessPath(newPath);
+            }
+            else
+            {
+                UnityEngine.Debug.LogWarning($"[FinalInstall] No match for line: {line}");
+            }
         }
         if (line.Contains("Setup Complete!"))
         {
             finalInstallPage.NextPage();
             completeFX.Play();
             UnityEngine.Debug.Log("Final installation completed successfully.");
+        }
+    }
+
+    private void UpdateProcessPath(string newPath)
+    {
+        try
+        {
+            string currentPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Process);
+            if (string.IsNullOrEmpty(currentPath))
+            {
+                currentPath = "";
+            }
+
+            // Determine if we should use case-insensitive comparison (Windows)
+            bool isWindows = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
+            StringComparison comparison = isWindows ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+            string[] paths = currentPath.Split(Path.PathSeparator);
+            foreach (string p in paths)
+            {
+                if (string.Equals(p.Trim(), newPath.Trim(), comparison))
+                {
+                    UnityEngine.Debug.Log($"[EnvUpdate] Path already contained: {newPath}");
+                    return;
+                }
+            }
+
+            string separator = Path.PathSeparator.ToString();
+            // Ensure we don't start with a separator if current path is empty
+            string updatedPath = string.IsNullOrEmpty(currentPath) ? newPath : currentPath + separator + newPath;
+
+            Environment.SetEnvironmentVariable("PATH", updatedPath, EnvironmentVariableTarget.Process);
+            UnityEngine.Debug.Log($"[EnvUpdate] Successfully added to PATH: {newPath}");
+        }
+        catch (Exception e)
+        {
+            UnityEngine.Debug.LogError($"[EnvUpdate] Failed to update PATH: {e.Message}");
         }
     }
 
