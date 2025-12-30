@@ -940,22 +940,15 @@ public class SetupManager : MonoBehaviour
     public async void CompleteSetup()
     {
         PlayerPrefs.SetInt("setupDone", 1);
-        transitionAnim.Play("Outro");
-        if (audioSource != null && audioSource.isPlaying)
-        {
-            float startVolume = audioSource.volume;
-            float duration = 2.5f;
-            float elapsed = 0f;
-            while (elapsed < duration)
-            {
-                elapsed += Time.deltaTime;
-                audioSource.volume = Mathf.Lerp(startVolume, 0f, elapsed / duration);
-                await Task.Yield();
-            }
-            audioSource.volume = 0f;
-        }
-        await Task.Delay(TimeSpan.FromSeconds(4f));
-        UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
+        PlayerPrefs.Save();
+
+        UnityEngine.Debug.Log("Setup complete. Quitting application.");
+
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
     }
 
     public void ManualAPIKey(string key)
