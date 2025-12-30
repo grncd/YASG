@@ -197,7 +197,8 @@ public class BGMusic : MonoBehaviour
                                         audioSource.loop = false;
                                         audioSource.Play();
                                         songName.text = Path.GetFileNameWithoutExtension(randomFile);
-                                        yield return new WaitForSeconds(clip.length);
+                                        // Wait until the song actually finishes playing
+                                        yield return new WaitWhile(() => audioSource.isPlaying);
                                     }
                                 }
                             }
@@ -212,7 +213,8 @@ public class BGMusic : MonoBehaviour
                                     songName.text = "grncd - YASG Menu";
                                 }
                             }
-                        }else
+                        }
+                        else
                         {
                             if (!audioSource.isPlaying)
                             {
@@ -237,7 +239,7 @@ public class BGMusic : MonoBehaviour
         {
             int trackIndex = trackId.LastIndexOf('/') + 1;
             trackId = trackId.Substring(trackIndex);
-            
+
             int queryIndex = trackId.IndexOf('?');
             if (queryIndex != -1)
             {
@@ -261,11 +263,7 @@ public class BGMusic : MonoBehaviour
             previewSongCoroutine = null;
         }
 
-        // Immediately stop preview audio to avoid overlapping with BG music
-        if (previewAudioSource != null && previewAudioSource.isPlaying)
-        {
-            previewAudioSource.Stop();
-        }
+
 
         // Start fade/cleanup routine (will handle nulls safely)
         StartCoroutine(StopPreviewCoroutine());
@@ -337,10 +335,10 @@ public class BGMusic : MonoBehaviour
             }
 
             yield return StartCoroutine(FadeAudio(previewAudioSource, 0.5f, 0f));
-            
+
             previewAudioSource.time = 0f;
             previewAudioSource.Play();
-            
+
             yield return StartCoroutine(FadeAudio(previewAudioSource, 0.5f, 0.26f));
         }
     }

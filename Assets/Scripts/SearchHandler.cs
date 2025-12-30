@@ -26,6 +26,8 @@ public class SearchHandler : MonoBehaviour
     private SearchType currentSearchType = SearchType.None;
     private string currentSearchQuery = "";
 
+
+
     void Start()
     {
         clientId = PlayerPrefs.GetString("CLIENTID");
@@ -234,6 +236,7 @@ public class SearchHandler : MonoBehaviour
             }
         }
     }
+
 
     public void DisplayDownloadedSongs()
     {
