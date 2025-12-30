@@ -318,7 +318,14 @@ public class SetupManager : MonoBehaviour
             }
             else
             {
-                ClearFolder(defaultPath);
+                try
+                {
+                    ClearFolder(defaultPath);
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogWarning($"Failed to clear folder {defaultPath}: {e.Message}");
+                }
             }
 
             // Update UI to show current/default path before opening selector
