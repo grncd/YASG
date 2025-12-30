@@ -28,11 +28,13 @@ public class SetupManager : MonoBehaviour
     public Slider loginProgress;
     public SetupPage preLoginPage;
     public SetupPage loginPage;
+    public ConsoleLogHandler loginConsole;
     public SetupPage manualLoginPage;
     public Button manualLoginPageButton;
     public TextMeshProUGUI statusTextPreinstall;
     public Slider preinstallProgress;
     public SetupPage preinstallPage;
+    public ConsoleLogHandler preinstallConsole;
     public TextMeshProUGUI selectedDataPath;
     public Button selectDataPathButton;
     public Button selectMethodButton;
@@ -41,6 +43,7 @@ public class SetupManager : MonoBehaviour
     public TextMeshProUGUI statusTextFinalInstall;
     public Slider finalInstallProgress;
     public SetupPage finalInstallPage;
+    public ConsoleLogHandler finalInstallConsole;
     public AudioSource audioSource;
     public AudioSource completeFX;
 
@@ -108,7 +111,7 @@ public class SetupManager : MonoBehaviour
 
     private void Awake()
     {
-        if (PlayerPrefs.GetInt("setupDone") == 1)
+        if (PlayerPrefs.GetInt("setupDone") == 1 && !Application.isEditor)
         {
             UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
         }
@@ -260,65 +263,68 @@ public class SetupManager : MonoBehaviour
 
     private void Start()
     {
-        // Ensure there's a sensible default (Unity game's data folder) if none set
-        string defaultPath = PlayerPrefs.GetString("dataPath");
-
-        // Debugging Linux path issues
-        UnityEngine.Debug.Log($"Platform: {Application.platform}, Current DataPath: {defaultPath}");
-
-        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
-
-        // Fix for Linux users stuck with .config path in PlayerPrefs
-        if (isLinux && !string.IsNullOrEmpty(defaultPath) && defaultPath.Contains(".config"))
+        if (!Application.isEditor)
         {
-            UnityEngine.Debug.Log("Detected incorrect .config path on Linux. Forcing migration to .local/share.");
-            defaultPath = ""; // Force recalculation
-        }
+            // Ensure there's a sensible default (Unity game's data folder) if none set
+            string defaultPath = PlayerPrefs.GetString("dataPath");
 
-        if (string.IsNullOrEmpty(defaultPath))
-        {
-            string baseFolder;
-            if (Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor)
+            // Debugging Linux path issues
+            UnityEngine.Debug.Log($"Platform: {Application.platform}, Current DataPath: {defaultPath}");
+
+            bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+
+            // Fix for Linux users stuck with .config path in PlayerPrefs
+            if (isLinux && !string.IsNullOrEmpty(defaultPath) && defaultPath.Contains(".config"))
             {
-                // Explicitly force ~/.local/share/YASG/YASG to prevent ambiguity or switching to .config
-                string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-                baseFolder = Path.Combine(userProfile, ".local", "share", "YASG");
+                UnityEngine.Debug.Log("Detected incorrect .config path on Linux. Forcing migration to .local/share.");
+                defaultPath = ""; // Force recalculation
+            }
+
+            if (string.IsNullOrEmpty(defaultPath))
+            {
+                string baseFolder;
+                if (Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor)
+                {
+                    // Explicitly force ~/.local/share/YASG/YASG to prevent ambiguity or switching to .config
+                    string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                    baseFolder = Path.Combine(userProfile, ".local", "share", "YASG");
+                }
+                else
+                {
+                    // Use the user's Roaming AppData folder so the path works regardless of username.
+                    string roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                    if (string.IsNullOrEmpty(roaming))
+                    {
+                        // Fallback: construct a plausible Roaming path from the user profile.
+                        string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                        roaming = Path.Combine(userProfile ?? @"C:\Users\Default", "AppData", "Roaming");
+                    }
+                    baseFolder = Path.Combine(roaming, "YASG");
+                }
+
+                defaultPath = Path.Combine(baseFolder, "YASG");
+
+                // Ensure the folder exists and persist it to PlayerPrefs.
+                try
+                {
+                    Directory.CreateDirectory(defaultPath);
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogWarning($"Could not create default data path '{defaultPath}': {e.Message}");
+                }
+
+                PlayerPrefs.SetString("dataPath", defaultPath);
             }
             else
             {
-                // Use the user's Roaming AppData folder so the path works regardless of username.
-                string roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                if (string.IsNullOrEmpty(roaming))
-                {
-                    // Fallback: construct a plausible Roaming path from the user profile.
-                    string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-                    roaming = Path.Combine(userProfile ?? @"C:\Users\Default", "AppData", "Roaming");
-                }
-                baseFolder = Path.Combine(roaming, "YASG");
+                ClearFolder(defaultPath);
             }
 
-            defaultPath = Path.Combine(baseFolder, "YASG");
-
-            // Ensure the folder exists and persist it to PlayerPrefs.
-            try
-            {
-                Directory.CreateDirectory(defaultPath);
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogWarning($"Could not create default data path '{defaultPath}': {e.Message}");
-            }
-
-            PlayerPrefs.SetString("dataPath", defaultPath);
+            // Update UI to show current/default path before opening selector
+            if (selectedDataPath != null) selectedDataPath.text = defaultPath;
+            selectDataPathButton.interactable = true;
         }
-        else
-        {
-            ClearFolder(defaultPath);
-        }
-
-        // Update UI to show current/default path before opening selector
-        if (selectedDataPath != null) selectedDataPath.text = defaultPath;
-        selectDataPathButton.interactable = true;
     }
 
     public void StartLogin()
@@ -466,14 +472,17 @@ public class SetupManager : MonoBehaviour
         // Route to the correct parser based on the active process
         if (currentProcessType == ActiveProcessType.Preinstall)
         {
+            if (preinstallConsole != null) preinstallConsole.AddLog(line);
             ParsePreinstallOutputLine(line);
         }
         else if (currentProcessType == ActiveProcessType.Login)
         {
+            if (loginConsole != null) loginConsole.AddLog(line);
             ParseLoginOutputLine(line);
         }
         else if (currentProcessType == ActiveProcessType.FinalInstall)
         {
+            if (finalInstallConsole != null) finalInstallConsole.AddLog(line);
             ParseFinalInstallOutputLine(line);
         }
     }
@@ -653,6 +662,20 @@ public class SetupManager : MonoBehaviour
 
     private void ProcessErrorLine(string line)
     {
+        // Add all error lines to the console
+        if (currentProcessType == ActiveProcessType.Preinstall && preinstallConsole != null)
+        {
+            preinstallConsole.AddLog(line);
+        }
+        else if (currentProcessType == ActiveProcessType.Login && loginConsole != null)
+        {
+            loginConsole.AddLog(line);
+        }
+        else if (currentProcessType == ActiveProcessType.FinalInstall && finalInstallConsole != null)
+        {
+            finalInstallConsole.AddLog(line);
+        }
+
         // Filter for the multi-line pip warning.
         if (line.Contains("WARNING: You are using pip version") || line.Contains("install --upgrade pip") || line.Contains("A new release of pip is available"))
         {
