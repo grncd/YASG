@@ -10642,6 +10642,14 @@ MonoBehaviour:
   finalInstallConsole: {fileID: 1446167938}
   audioSource: {fileID: 2104947866}
   completeFX: {fileID: 1231633833}
+  welcomePage: {fileID: 5272268402965215067}
+  tosPage: {fileID: 5038827113046294712}
+  pathButton: {fileID: 1942300648}
+  welcomeNextButton: {fileID: 7280890984134321140}
+  tosAgreeButton: {fileID: 1434613244}
+  useSharedApiButton: {fileID: 1606151132}
+  goToMenuButton: {fileID: 828950602}
+  demucsNextButton: {fileID: 2072201693}
 --- !u!4 &1089105783
 Transform:
   m_ObjectHideFlags: 0
