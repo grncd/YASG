@@ -1023,6 +1023,28 @@ public class LevelResourcesCompiler : MonoBehaviour
         });
         UnityEngine.Debug.Log("Lyrics script finished.");
 
+        // Check if a lyrics file was actually created recently
+        string downloadsCheckPath = Path.Combine(dataPath, "downloads");
+        bool recentLyricsFound = false;
+        if (Directory.Exists(downloadsCheckPath))
+        {
+            var directoryInfo = new DirectoryInfo(downloadsCheckPath);
+            var recentFiles = directoryInfo.GetFiles("*.*")
+                                           .Where(f => (f.Extension == ".lrc" || f.Extension == ".txt") &&
+                                                       (DateTime.Now - f.CreationTime).TotalSeconds < 20)
+                                           .ToArray();
+            if (recentFiles.Length > 0)
+            {
+                recentLyricsFound = true;
+            }
+        }
+
+        if (!recentLyricsFound && !lyricsError2)
+        {
+            UnityEngine.Debug.LogWarning("Syrics finished but no new lyrics file found. Forcing fallback.");
+            lyricsError2 = true;
+        }
+
         // --- FALLBACK LOGIC ---
         if (lyricsError2)
         {
@@ -1304,6 +1326,28 @@ public class LevelResourcesCompiler : MonoBehaviour
         }, cancellationToken);
         UnityEngine.Debug.Log("Lyrics script finished.");
 
+        // Check if a lyrics file was actually created recently
+        string downloadsCheckPath = Path.Combine(dataPath, "downloads");
+        bool recentLyricsFound = false;
+        if (Directory.Exists(downloadsCheckPath))
+        {
+            var directoryInfo = new DirectoryInfo(downloadsCheckPath);
+            var recentFiles = directoryInfo.GetFiles("*.*")
+                                           .Where(f => (f.Extension == ".lrc" || f.Extension == ".txt") &&
+                                                       (DateTime.Now - f.CreationTime).TotalSeconds < 20)
+                                           .ToArray();
+            if (recentFiles.Length > 0)
+            {
+                recentLyricsFound = true;
+            }
+        }
+
+        if (!recentLyricsFound && !lyricsError2)
+        {
+            UnityEngine.Debug.LogWarning("Syrics finished but no new lyrics file found. Forcing fallback.");
+            lyricsError2 = true;
+        }
+
         // Check for cancellation after lyrics fetch
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -1467,9 +1511,14 @@ public class LevelResourcesCompiler : MonoBehaviour
             // Save the lyrics to file, mimicking the original script's output
             string sanitizedName = SanitizeFileName(track.name);
             string lyricsFilePath = Path.Combine(dataPath, "downloads", $"{sanitizedName}.txt");
+            string directoryPath = Path.GetDirectoryName(lyricsFilePath);
 
             try
             {
+                if (!Directory.Exists(directoryPath))
+                {
+                    Directory.CreateDirectory(directoryPath);
+                }
                 await File.WriteAllTextAsync(lyricsFilePath, response.syncedLyrics);
                 UnityEngine.Debug.Log($"Successfully fetched and saved lyrics from LRCLib to {lyricsFilePath}");
                 return true;
