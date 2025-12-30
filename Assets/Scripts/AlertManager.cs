@@ -119,6 +119,11 @@ public class AlertManager : MonoBehaviour
             ShowError("An error occurred.", "Please try playing the song again or performing a full reset (Settings > Misc > Full Reset). If the issue persists, open an issue in our GitHub page.", "Close");
             PlayerPrefs.SetInt("ERR", 0);
         }
+        else if (PlayerPrefs.GetInt("ERR") == 2)
+        {
+            ShowError("Your microphone couldn't be initialized.", "Please ensure your microphone is properly connected and that it works as expected. Check that no other application has exclusive control over it.", "Close");
+            PlayerPrefs.SetInt("ERR", 0);
+        }
     }
 
 
