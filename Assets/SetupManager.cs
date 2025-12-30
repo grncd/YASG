@@ -47,6 +47,16 @@ public class SetupManager : MonoBehaviour
     public AudioSource audioSource;
     public AudioSource completeFX;
 
+    [Header("Auto-Setup UI References (for testing builds)")]
+    public SetupPage welcomePage;
+    public SetupPage tosPage;
+    public Button pathButton;
+    public Button welcomeNextButton;
+    public Button tosAgreeButton;
+    public Button useSharedApiButton;
+    public Button goToMenuButton;
+    public Button demucsNextButton;
+
 
     // --- Private members for handling the process ---
     private Process activeProcess;
@@ -111,7 +121,7 @@ public class SetupManager : MonoBehaviour
 
     private void Awake()
     {
-        if (PlayerPrefs.GetInt("setupDone") == 1 && !Application.isEditor)
+        if (PlayerPrefs.GetInt("setupDone") == 1 && !Application.isEditor && !Application.version.StartsWith("T"))
         {
             UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
         }
@@ -331,6 +341,93 @@ public class SetupManager : MonoBehaviour
             // Update UI to show current/default path before opening selector
             if (selectedDataPath != null) selectedDataPath.text = defaultPath;
             selectDataPathButton.interactable = true;
+        }
+
+        // Start auto-setup if this is a testing build (version starts with 'T')
+        if (Application.version.StartsWith("T"))
+        {
+            // Delete all PlayerPrefs for a fresh start
+            PlayerPrefs.DeleteAll();
+            PlayerPrefs.Save();
+            UnityEngine.Debug.Log("[AutoSetup] Deleted all PlayerPrefs for testing.");
+
+            // Re-set the default data path since we just deleted it
+            bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+            string baseFolder;
+            if (isLinux)
+            {
+                string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                baseFolder = Path.Combine(userProfile, ".local", "share", "YASG");
+            }
+            else
+            {
+                string roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                if (string.IsNullOrEmpty(roaming))
+                {
+                    string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                    roaming = Path.Combine(userProfile ?? @"C:\Users\Default", "AppData", "Roaming");
+                }
+                baseFolder = Path.Combine(roaming, "YASG");
+            }
+            string defaultPath = Path.Combine(baseFolder, "YASG");
+
+            // Delete everything inside dataPath to ensure a clean state
+            if (Directory.Exists(defaultPath))
+            {
+                try
+                {
+                    // Delete all files
+                    foreach (string file in Directory.GetFiles(defaultPath, "*", SearchOption.AllDirectories))
+                    {
+                        try { File.Delete(file); } catch { }
+                    }
+                    // Delete all subdirectories
+                    foreach (string dir in Directory.GetDirectories(defaultPath))
+                    {
+                        try { Directory.Delete(dir, true); } catch { }
+                    }
+                    UnityEngine.Debug.Log($"[AutoSetup] Cleared all contents of dataPath: {defaultPath}");
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogWarning($"[AutoSetup] Failed to fully clear dataPath: {e.Message}");
+                }
+            }
+
+            try { Directory.CreateDirectory(defaultPath); } catch { }
+            PlayerPrefs.SetString("dataPath", defaultPath);
+            PlayerPrefs.Save();
+            if (selectedDataPath != null) selectedDataPath.text = defaultPath;
+            UnityEngine.Debug.Log($"[AutoSetup] Re-set dataPath to: {defaultPath}");
+
+            // Set up file logging
+            string logPath = Path.Combine(Path.GetDirectoryName(Application.dataPath), "log.txt");
+            try
+            {
+                // Clear existing log file
+                File.WriteAllText(logPath, $"=== YASG Test Build Log - {DateTime.Now} ===\n\n");
+                Application.logMessageReceived += (logString, stackTrace, type) =>
+                {
+                    try
+                    {
+                        string logEntry = $"[{DateTime.Now:HH:mm:ss}] [{type}] {logString}\n";
+                        if (type == LogType.Exception || type == LogType.Error)
+                        {
+                            logEntry += $"  Stack: {stackTrace}\n";
+                        }
+                        File.AppendAllText(logPath, logEntry);
+                    }
+                    catch { } // Silently ignore logging errors
+                };
+                UnityEngine.Debug.Log($"[AutoSetup] File logging enabled at: {logPath}");
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogWarning($"[AutoSetup] Failed to set up file logging: {e.Message}");
+            }
+
+            UnityEngine.Debug.Log("[AutoSetup] Testing build detected. Starting automatic setup.");
+            StartCoroutine(AutoSetupCoroutine());
         }
     }
 
@@ -842,4 +939,98 @@ public class SetupManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Runs through the entire setup automatically for testing builds.
+    /// Only called when Application.version starts with 'T'.
+    /// </summary>
+    private IEnumerator AutoSetupCoroutine()
+    {
+        UnityEngine.Debug.Log("[AutoSetup] Step 1: Clicking Next on welcome page");
+        yield return new WaitForSeconds(0.5f);
+
+        // Step 1: Click Next on first page
+        if (welcomeNextButton != null)
+        {
+            welcomeNextButton.onClick.Invoke();
+        }
+        else if (welcomePage != null)
+        {
+            welcomePage.NextPage();
+        }
+
+        yield return new WaitForSeconds(0.5f);
+
+        // Step 2: Click Agree on TOS page
+        UnityEngine.Debug.Log("[AutoSetup] Step 2: Clicking Agree on TOS page");
+        if (tosAgreeButton != null)
+        {
+            tosAgreeButton.onClick.Invoke();
+        }
+        else if (tosPage != null)
+        {
+            tosPage.NextPage();
+        }
+
+        yield return new WaitForSeconds(0.5f);
+
+        // Step 2.5: Click path button to confirm data path
+        UnityEngine.Debug.Log("[AutoSetup] Step 2.5: Clicking path button");
+        if (pathButton != null)
+        {
+            pathButton.onClick.Invoke();
+        }
+
+        // Step 3: Wait for preinstall to finish
+        UnityEngine.Debug.Log("[AutoSetup] Step 3: Waiting for preinstall to complete");
+        yield return new WaitUntil(() => preinstallProgress != null && preinstallProgress.value >= 0.99f);
+        yield return new WaitForSeconds(1f); // Extra buffer for page transition
+
+        // Step 4: Simulate Ctrl+L to skip to manual login page
+        UnityEngine.Debug.Log("[AutoSetup] Step 4: Skipping to manual login page (simulating Ctrl+L)");
+        if (preLoginPage != null) preLoginPage.gameObject.SetActive(false);
+        if (manualLoginPage != null) manualLoginPage.gameObject.SetActive(true);
+        if (loginPage != null) loginPage.gameObject.SetActive(false);
+
+        yield return new WaitForSeconds(0.5f);
+
+        // Step 5: Click "Use shared API key" and click Next
+        UnityEngine.Debug.Log("[AutoSetup] Step 5: Clicking 'Use shared API key' and Next");
+        if (useSharedApiButton != null)
+        {
+            useSharedApiButton.onClick.Invoke();
+        }
+        yield return new WaitForSeconds(0.3f);
+
+        // Advance to next page after using shared API
+        if (manualLoginPage != null)
+        {
+            manualLoginPage.NextPage();
+        }
+
+        yield return new WaitForSeconds(0.5f);
+
+        // Step 6: Select Demucs and click Next
+        UnityEngine.Debug.Log("[AutoSetup] Step 6: Selecting Demucs and starting final install");
+        ToggleDemucs();
+        demucsNextButton.onClick.Invoke();
+        yield return new WaitForSeconds(0.3f);
+
+        // Step 7: Wait for final install to complete
+        UnityEngine.Debug.Log("[AutoSetup] Step 7: Waiting for final install to complete");
+        yield return new WaitUntil(() => finalInstallProgress != null && finalInstallProgress.value >= 0.99f);
+        yield return new WaitForSeconds(1f); // Extra buffer for completion animation
+
+        // Step 8: Click "Go to menu"
+        UnityEngine.Debug.Log("[AutoSetup] Step 8: Clicking 'Go to menu'");
+        if (goToMenuButton != null)
+        {
+            goToMenuButton.onClick.Invoke();
+        }
+        else
+        {
+            CompleteSetup();
+        }
+
+        UnityEngine.Debug.Log("[AutoSetup] Automatic setup completed!");
+    }
 }

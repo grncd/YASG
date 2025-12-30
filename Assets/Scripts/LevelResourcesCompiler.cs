@@ -154,6 +154,42 @@ public class LevelResourcesCompiler : MonoBehaviour
         // compileExecutionQueue.Add(mainQueue[0].track); // Moved to WebServerManager
         ProcessFirstOnQueue();
         */
+
+        // T Mode: Automatically start compile for testing
+        if (Application.version.StartsWith("T"))
+        {
+            Debug.Log("[T Mode] Auto-compile starting...");
+            StartCoroutine(TModeAutoCompile());
+        }
+    }
+
+    private IEnumerator TModeAutoCompile()
+    {
+        // Wait a frame for everything to initialize
+        yield return new WaitForSeconds(1f);
+
+        Debug.Log("[T Mode] Triggering StartCompile with test song...");
+
+        // Create a mock Track object so LRCLib fallback works
+        selectedTrack = new SearchHandler.Track
+        {
+            name = "Don't Forget",
+            artists = new List<SearchHandler.Artist> { new SearchHandler.Artist { name = "Toby Fox" } },
+            duration_ms = 51000,
+            album = new SearchHandler.Album
+            {
+                images = new List<SearchHandler.Image> { new SearchHandler.Image { url = "https://i.scdn.co/image/ab67616d0000b2732f2eeee9b405f4d00428d84c", width = 640, height = 640 } }
+            }
+        };
+
+        // Call StartCompile with the test parameters
+        _ = StartCompile(
+            "https://open.spotify.com/track/7y6NbGuLZuNW0lVaPnYx22",
+            "Don't Forget",
+            "Toby Fox",
+            "0:51",
+            "https://i.scdn.co/image/ab67616d0000b2732f2eeee9b405f4d00428d84c"
+        );
     }
 
 
@@ -1896,7 +1932,66 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     public void LoadMain()
     {
+        // In T mode, verify outputs instead of loading Main scene
+        if (Application.version.StartsWith("T"))
+        {
+            VerifyTModeOutputs();
+            return;
+        }
         SceneManager.LoadScene("Main");
+    }
+
+    private void VerifyTModeOutputs()
+    {
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        string executableDir = Path.GetDirectoryName(Application.dataPath);
+        bool allFilesExist = true;
+
+        Debug.Log("[T Mode Verification] Starting output verification...");
+
+        // Check 1: .mp3 under dataPath/downloads
+        string downloadsPath = Path.Combine(dataPath, "downloads");
+        bool hasMp3InDownloads = Directory.Exists(downloadsPath) && Directory.GetFiles(downloadsPath, "*.mp3").Length > 0;
+        Debug.Log($"[T Mode] Check 1 - MP3 in downloads: {hasMp3InDownloads}");
+        if (!hasMp3InDownloads) allFilesExist = false;
+
+        // Check 2: .lrc or .txt under dataPath/downloads
+        bool hasLyricsInDownloads = Directory.Exists(downloadsPath) &&
+            (Directory.GetFiles(downloadsPath, "*.lrc").Length > 0 || Directory.GetFiles(downloadsPath, "*.txt").Length > 0);
+        Debug.Log($"[T Mode] Check 2 - Lyrics in downloads: {hasLyricsInDownloads}");
+        if (!hasLyricsInDownloads) allFilesExist = false;
+
+        // Check 3: .mp3 under dataPath/output/htdemucs
+        string htdemucsPath = Path.Combine(dataPath, "output", "htdemucs");
+        bool hasMp3InHtdemucs = Directory.Exists(htdemucsPath) && Directory.GetFiles(htdemucsPath, "*.mp3").Length > 0;
+        Debug.Log($"[T Mode] Check 3 - MP3 in htdemucs: {hasMp3InHtdemucs}");
+        if (!hasMp3InHtdemucs) allFilesExist = false;
+
+        // Create result file
+        string resultFile = allFilesExist ? "success.txt" : "fail.txt";
+        string resultPath = Path.Combine(executableDir, resultFile);
+
+        try
+        {
+            string content = $"=== YASG T Mode Verification Result ===\n";
+            content += $"Time: {DateTime.Now}\n\n";
+            content += $"MP3 in downloads: {hasMp3InDownloads}\n";
+            content += $"Lyrics in downloads: {hasLyricsInDownloads}\n";
+            content += $"MP3 in htdemucs: {hasMp3InHtdemucs}\n\n";
+            content += $"Overall Result: {(allFilesExist ? "SUCCESS" : "FAIL")}\n";
+
+            File.WriteAllText(resultPath, content);
+            Debug.Log($"[T Mode] Created result file: {resultPath}");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[T Mode] Failed to create result file: {e.Message}");
+        }
+
+        Debug.Log($"[T Mode Verification] Complete. Result: {(allFilesExist ? "SUCCESS" : "FAIL")}");
+
+        // Quit the application after verification
+        Application.Quit();
     }
 
     // --- SERIALIZABLE CLASSES ---
