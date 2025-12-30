@@ -239,7 +239,7 @@ public class RealTimePitchDetector : MonoBehaviour
         }
 
         _isInitialized = true;
-        if(PlayerPrefs.GetInt("multiplayer") == 0)
+        if (PlayerPrefs.GetInt("multiplayer") == 0)
         {
             ActivateAndStartMicrophone();
             Debug.Log("Start function called");
@@ -418,7 +418,7 @@ public class RealTimePitchDetector : MonoBehaviour
                 }
             }
         }
-        
+
         // Final fallback to default if still null
         if (string.IsNullOrEmpty(micNameToUse))
         {
@@ -430,7 +430,7 @@ public class RealTimePitchDetector : MonoBehaviour
 
         // 2. Attempt to Start Microphone with Exception Handling and Fallback
         bool success = false;
-        
+
         // Attempt 1: Selected Device
         try
         {
@@ -448,21 +448,21 @@ public class RealTimePitchDetector : MonoBehaviour
 
         if (micClip != null && Microphone.IsRecording(selectedDevice))
         {
-             // Verify position advances
+            // Verify position advances
             int waitCount = 0;
             while (Microphone.GetPosition(selectedDevice) <= 0 && waitCount < 50)
             {
                 yield return new WaitForSeconds(0.01f);
                 waitCount++;
             }
-            
+
             if (Microphone.GetPosition(selectedDevice) > 0)
             {
                 success = true;
             }
             else
             {
-                 Debug.LogWarning($"[RealTimePitchDetector] Microphone '{selectedDevice}' reported recording but position did not advance.");
+                Debug.LogWarning($"[RealTimePitchDetector] Microphone '{selectedDevice}' reported recording but position did not advance.");
             }
         }
 
@@ -471,7 +471,7 @@ public class RealTimePitchDetector : MonoBehaviour
         if (!success)
         {
             Debug.LogWarning($"[RealTimePitchDetector] Primary microphone attempt failed for '{selectedDevice}'. Attempting fallback to system default (passing null).");
-            
+
             // Allow a moment for the audio system to reset if needed
             yield return new WaitForSeconds(0.2f);
 
@@ -480,7 +480,7 @@ public class RealTimePitchDetector : MonoBehaviour
                 // Passing null to Microphone.Start uses the system default device
                 micClip = Microphone.Start(null, true, bufferLengthSeconds, sampleRate);
                 // Update selectedDevice to reflect we are using system default (though Microphone.Start(null) usually maps to devices[0] conceptually, we track it as null or "Default")
-                selectedDevice = null; 
+                selectedDevice = null;
             }
             catch (Exception e)
             {
@@ -488,7 +488,7 @@ public class RealTimePitchDetector : MonoBehaviour
                 micClip = null;
             }
 
-             if (micClip != null && Microphone.IsRecording(null))
+            if (micClip != null && Microphone.IsRecording(null))
             {
                 int waitCount = 0;
                 while (Microphone.GetPosition(null) <= 0 && waitCount < 50)
@@ -510,8 +510,16 @@ public class RealTimePitchDetector : MonoBehaviour
         {
             Debug.LogError("[RealTimePitchDetector] FATAL: Could not initialize any microphone.");
             if (tempDebug != null) tempDebug.text = "Mic Start Fail!";
+
+            // Set error flag for AlertManager in Menu scene
+            PlayerPrefs.SetInt("ERR", 2);
+            PlayerPrefs.Save();
+
             _isRecording = false;
             this.enabled = false;
+
+            // Return to Menu scene
+            UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
             yield break;
         }
 
@@ -670,7 +678,7 @@ public class RealTimePitchDetector : MonoBehaviour
         else if (diffIndex == 1) // normal
         {
             currentLeniencyCoefficient *= 1.25f;
-        } 
+        }
         else if (diffIndex == 2)
         {
             currentLeniencyCoefficient *= 1.0f;
@@ -706,7 +714,7 @@ public class RealTimePitchDetector : MonoBehaviour
             mashGracePeriodElapsed = 0f;
         }
         */
-        
+
         if (enableAdvancedAntiMonotony && AudioClipPitchProcessor.Instance != null && AudioClipPitchProcessor.Instance.pitchOverTime != null && AudioClipPitchProcessor.Instance.pitchOverTime.Count > 0 &&
         AudioClipPitchProcessor.Instance.audioSource != null && AudioClipPitchProcessor.Instance.audioSource.isPlaying && _scoreIncrementInitialized && LyricsHandler.Instance != null && !LyricsHandler.Instance.songOver)
         {
