@@ -374,6 +374,7 @@ public class RealTimePitchDetector : MonoBehaviour
             yield break;
         }
 
+        // 1. Determine which device name to use
         string micNameToUse = null;
         if (this.device >= 0 && this.device < Microphone.devices.Length)
         {
@@ -404,7 +405,7 @@ public class RealTimePitchDetector : MonoBehaviour
                 {
                     playerPrefsKeyForIndex = "Player1Mic";
                 }
-                Debug.Log(playerPrefsKeyForIndex);
+                //Debug.Log(playerPrefsKeyForIndex);
                 if (PlayerPrefs.HasKey(playerPrefsKeyForIndex))
                 {
                     int prefsDeviceIndex = PlayerPrefs.GetInt(playerPrefsKeyForIndex);
@@ -417,6 +418,8 @@ public class RealTimePitchDetector : MonoBehaviour
                 }
             }
         }
+        
+        // Final fallback to default if still null
         if (string.IsNullOrEmpty(micNameToUse))
         {
             micNameToUse = Microphone.devices[0];
@@ -424,24 +427,95 @@ public class RealTimePitchDetector : MonoBehaviour
         }
         selectedDevice = micNameToUse;
 
-        micClip = Microphone.Start(selectedDevice, true, bufferLengthSeconds, sampleRate);
-        _isRecording = true;
 
-        int delay = 0;
-        while (!(Microphone.GetPosition(selectedDevice) > 0) && delay < 100)
+        // 2. Attempt to Start Microphone with Exception Handling and Fallback
+        bool success = false;
+        
+        // Attempt 1: Selected Device
+        try
         {
-            yield return new WaitForSeconds(0.01f);
-            delay++;
+            Debug.Log($"[RealTimePitchDetector] Attempting to start microphone: '{selectedDevice}'");
+            micClip = Microphone.Start(selectedDevice, true, bufferLengthSeconds, sampleRate);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[RealTimePitchDetector] Failed to start microphone '{selectedDevice}': {e.Message}");
+            micClip = null;
         }
 
-        if (micClip == null || !(Microphone.GetPosition(selectedDevice) > 0))
+        // Wait briefly to see if it actually started recording
+        yield return new WaitForSeconds(0.1f);
+
+        if (micClip != null && Microphone.IsRecording(selectedDevice))
         {
-            Debug.LogError("[RealTimePitchDetector] Microphone did not start recording for device: " + selectedDevice);
+             // Verify position advances
+            int waitCount = 0;
+            while (Microphone.GetPosition(selectedDevice) <= 0 && waitCount < 50)
+            {
+                yield return new WaitForSeconds(0.01f);
+                waitCount++;
+            }
+            
+            if (Microphone.GetPosition(selectedDevice) > 0)
+            {
+                success = true;
+            }
+            else
+            {
+                 Debug.LogWarning($"[RealTimePitchDetector] Microphone '{selectedDevice}' reported recording but position did not advance.");
+            }
+        }
+
+
+        // Attempt 2: Fallback to System Default (null) if the specific device failed
+        if (!success)
+        {
+            Debug.LogWarning($"[RealTimePitchDetector] Primary microphone attempt failed for '{selectedDevice}'. Attempting fallback to system default (passing null).");
+            
+            // Allow a moment for the audio system to reset if needed
+            yield return new WaitForSeconds(0.2f);
+
+            try
+            {
+                // Passing null to Microphone.Start uses the system default device
+                micClip = Microphone.Start(null, true, bufferLengthSeconds, sampleRate);
+                // Update selectedDevice to reflect we are using system default (though Microphone.Start(null) usually maps to devices[0] conceptually, we track it as null or "Default")
+                selectedDevice = null; 
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[RealTimePitchDetector] Failed to start system default microphone: {e.Message}");
+                micClip = null;
+            }
+
+             if (micClip != null && Microphone.IsRecording(null))
+            {
+                int waitCount = 0;
+                while (Microphone.GetPosition(null) <= 0 && waitCount < 50)
+                {
+                    yield return new WaitForSeconds(0.01f);
+                    waitCount++;
+                }
+
+                if (Microphone.GetPosition(null) > 0)
+                {
+                    success = true;
+                    Debug.Log("[RealTimePitchDetector] Fallback to system default microphone successful.");
+                }
+            }
+        }
+
+        // 3. Final Result Check
+        if (!success)
+        {
+            Debug.LogError("[RealTimePitchDetector] FATAL: Could not initialize any microphone.");
             if (tempDebug != null) tempDebug.text = "Mic Start Fail!";
             _isRecording = false;
             this.enabled = false;
             yield break;
         }
+
+        _isRecording = true;
 
         Debug.Log("[RealTimePitchDetector] Microphone started: " + selectedDevice + " | Sample Rate: " + sampleRate + " | Window: " + analysisWindowSize);
 
