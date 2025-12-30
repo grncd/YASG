@@ -443,6 +443,11 @@ public class SetupManager : MonoBehaviour
         if (statusTextLogin != null) statusTextLogin.text = "Starting...";
         if (loginProgress != null) loginProgress.value = 0;
 
+        // Reset credentials to ensure clean state
+        apikey = "";
+        clientID = "";
+        spdc = "";
+
         currentProcessType = ActiveProcessType.Login;
         StartCoroutine(RunProcessCoroutine());
     }
@@ -562,6 +567,15 @@ public class SetupManager : MonoBehaviour
 
         UnityEngine.Debug.Log($"Process finished with exit code: {activeProcess.ExitCode}.");
 
+        if (currentProcessType == ActiveProcessType.Login)
+        {
+            if (string.IsNullOrEmpty(apikey) || string.IsNullOrEmpty(clientID))
+            {
+                UnityEngine.Debug.Log("Login process finished without retrieving valid credentials. Switching to Manual Login.");
+                QueueForMainThread(() => SwitchToManualLogin());
+            }
+        }
+
         // Queue a final action to handle completion status
         //QueueForMainThread(() => HandleProcessCompletion(activeProcess.ExitCode));
 
@@ -621,6 +635,23 @@ public class SetupManager : MonoBehaviour
     private void ParseLoginOutputLine(string line)
     {
         UnityEngine.Debug.Log($"[Login] {line}");
+
+        if (line.Contains("Stopping process."))
+        {
+            UnityEngine.Debug.Log("['Stopping process.' detected] Killing process to trigger manual login fallback.");
+            try
+            {
+                if (activeProcess != null && !activeProcess.HasExited)
+                {
+                    activeProcess.Kill();
+                }
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogError($"Failed to kill process: {e.Message}");
+            }
+            return;
+        }
 
         // Robustness Check: Ensure UI elements are valid before updating
         if (statusTextLogin == null || loginProgress == null) return;
@@ -830,6 +861,12 @@ public class SetupManager : MonoBehaviour
                 statusTextLogin.text = "Process finished, but failed to get credentials.";
             }
         }
+    }
+
+    private void SwitchToManualLogin()
+    {
+        if (loginPage != null) loginPage.gameObject.SetActive(false);
+        if (manualLoginPage != null) manualLoginPage.gameObject.SetActive(true);
     }
 
     // --- Cleanup ---
