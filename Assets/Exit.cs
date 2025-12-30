@@ -11,6 +11,7 @@ public class Exit : MonoBehaviour
     private CanvasGroup canvasGroup;
     private Image fillImage;
     private Coroutine releaseCoroutine;
+    public List<GameObject> dismissButtons;
 
     void Start()
     {
@@ -27,7 +28,37 @@ public class Exit : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKey(KeyCode.Escape))
+        bool hasActiveButtons = false;
+        foreach (GameObject btn in dismissButtons)
+        {
+            if (btn != null && btn.activeInHierarchy)
+            {
+                hasActiveButtons = true;
+                break;
+            }
+        }
+
+        GameObject highest = null;
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            foreach (GameObject btn in dismissButtons)
+            {
+                if (btn != null && btn.activeInHierarchy)
+                {
+                    if (highest == null || IsHigherInHierarchy(btn.transform, highest.transform))
+                    {
+                        highest = btn;
+                    }
+                }
+            }
+        }
+
+        if (highest != null)
+        {
+            highest.GetComponent<UnityEngine.UI.Button>()?.onClick.Invoke();
+        }
+
+        if (Input.GetKey(KeyCode.Escape) && highest == null && !hasActiveButtons)
         {
             // Stop any release animation if ESC is pressed again
             if (releaseCoroutine != null)
@@ -112,10 +143,45 @@ public class Exit : MonoBehaviour
 
     private void ExitApplication()
     {
-        #if UNITY_EDITOR
+#if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
-        #else
-            Application.Quit();
-        #endif
+#else
+        Application.Quit();
+#endif
+    }
+    private bool IsHigherInHierarchy(Transform t1, Transform t2)
+    {
+        if (t1 == t2) return false;
+        if (t1.IsChildOf(t2)) return true; // Child is always above parent
+        if (t2.IsChildOf(t1)) return false; // Parent is always below child
+
+        // Find common root
+        Transform root1 = t1.root;
+        Transform root2 = t2.root;
+        if (root1 != root2) return false; // Different roots, can't determine (assume t1 is not higher)
+
+        // Find path from root to t1 and t2
+        List<Transform> path1 = new List<Transform>();
+        Transform curr = t1;
+        while (curr != null) { path1.Add(curr); curr = curr.parent; }
+        path1.Reverse();
+
+        List<Transform> path2 = new List<Transform>();
+        curr = t2;
+        while (curr != null) { path2.Add(curr); curr = curr.parent; }
+        path2.Reverse();
+
+        // Find first divergence
+        int count = Mathf.Min(path1.Count, path2.Count);
+        for (int i = 0; i < count; i++)
+        {
+            if (path1[i] != path2[i])
+            {
+                // Compare sibling indices
+                return path1[i].GetSiblingIndex() > path2[i].GetSiblingIndex();
+            }
+        }
+
+        return false;
     }
 }

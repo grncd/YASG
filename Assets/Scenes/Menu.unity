@@ -3749,8 +3749,8 @@ RectTransform:
   m_Children:
   - {fileID: 921022343}
   - {fileID: 720830764}
-  - {fileID: 987557867}
   - {fileID: 1515291857}
+  - {fileID: 987557867}
   - {fileID: 890573147}
   - {fileID: 274380579}
   - {fileID: 1787139337}
@@ -20908,7 +20908,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 1160376567}
   m_Direction: 2
   m_Value: 1
-  m_Size: 0.73440474
+  m_Size: 0.7344046
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -38990,7 +38990,7 @@ RectTransform:
   m_Children:
   - {fileID: 900319355}
   m_Father: {fileID: 87530076}
-  m_RootOrder: 2
+  m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
@@ -39523,6 +39523,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   holdDuration: 0.8
+  dismissButtons:
+  - {fileID: 916896816}
+  - {fileID: 252976689}
+  - {fileID: 921022342}
+  - {fileID: 1897615160}
 --- !u!225 &997986646
 CanvasGroup:
   m_ObjectHideFlags: 0
@@ -51106,7 +51111,7 @@ AudioSource:
   m_GameObject: {fileID: 1124323257}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 0}
+  OutputAudioMixerGroup: {fileID: 24300002, guid: 59bbcc131587b4449b6891e7ec84af71, type: 2}
   m_audioClip: {fileID: 0}
   m_PlayOnAwake: 0
   m_Volume: 1
@@ -62945,7 +62950,7 @@ RectTransform:
   m_Children:
   - {fileID: 1093912317}
   m_Father: {fileID: 87530076}
-  m_RootOrder: 3
+  m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
@@ -78823,7 +78828,12 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Made with <3 by grncd
+  m_text: 'Made with <3 by grncd
+
+    ESC - Dismiss/Quit
+
+    Ctrl+I - Import custom
+    song'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: d7b32db4901769e4188bd82a9e439b3e, type: 2}
   m_sharedMaterial: {fileID: -2273542556847416566, guid: d7b32db4901769e4188bd82a9e439b3e, type: 2}
