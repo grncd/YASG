@@ -494,7 +494,8 @@ public class EditorManager : MonoBehaviour
                 }
                 string plainLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_{isCustom}_plain.txt");
                 string header = $"{artistName}\n{albumName}\n{duration}\n";
-                string currentPlainLyrics = header + plainLyricsInputField.text;
+                string plainLyricsText = plainLyricsInputField.text.Trim();
+                string currentPlainLyrics = header + plainLyricsText;
                 File.WriteAllText(plainLyricsFilePath, currentPlainLyrics);
                 /*
                 string[] files = Directory.GetFiles(workingLyricsPath, $"{trackId}__{isCustom}_plain.txt");
@@ -559,9 +560,10 @@ public class EditorManager : MonoBehaviour
         Directory.CreateDirectory(workingLyricsPath);
 
         string trackId = trackUrl.Split('/').Last();
-        string plainLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_plain.txt");
+        string plainLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_{isCustom}_plain.txt");
         string header = $"{artistName}\n{albumName}\n{duration}\n";
-        string currentPlainLyrics = header + plainLyricsInputField.text;
+        string plainLyricsText = plainLyricsInputField.text.Trim();
+        string currentPlainLyrics = header + plainLyricsText;
         File.WriteAllText(plainLyricsFilePath, currentPlainLyrics);
 
         System.Text.StringBuilder lrcBuilder = new System.Text.StringBuilder();
@@ -571,7 +573,7 @@ public class EditorManager : MonoBehaviour
             string lyricText = activeLyricItems[i].lyricText.text.Trim();
 
             // Only add lines that have a timestamp and are not blank
-            if (time >= 0)
+            if (time >= 0 && !string.IsNullOrEmpty(lyricText))
             {
                 TimeSpan timeSpan = TimeSpan.FromSeconds(time);
                 string timestampStr = string.Format("{0}:{1:00}.{2:00}", timeSpan.Minutes, timeSpan.Seconds, timeSpan.Milliseconds / 10);
@@ -583,7 +585,7 @@ public class EditorManager : MonoBehaviour
 
         if (!isCustom)
         {
-            string syncedLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_synced.txt");
+            string syncedLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_{isCustom}_synced.txt");
             File.WriteAllText(syncedLyricsFilePath, finalSyncedLyrics);
             
 
