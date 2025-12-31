@@ -124,6 +124,8 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
             }
         }
 
+        string[] syncedLines = File.ReadAllLines(syncedLyricsPath);
+
         // Filter out empty lines from synced lyrics to match the filtered plain lyrics
         List<string> filteredSyncedLines = new List<string>();
         foreach (string line in syncedLines)
