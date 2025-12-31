@@ -225,7 +225,7 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
     // === PRIVATE HELPER METHODS ===
     private async Task<ChallengeResponse> GetChallengeAsync()
     {
-        using (var request = UnityWebRequest.Post("https://lrclib.net/api/request-challenge", ""))
+        using (var request = UnityWebRequest.PostWwwForm("https://lrclib.net/api/request-challenge", ""))
         {
             request.SetRequestHeader("User-Agent", "YASG-Challenge-Solver");
             var asyncOp = request.SendWebRequest();
