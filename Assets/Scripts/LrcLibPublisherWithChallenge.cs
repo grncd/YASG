@@ -103,39 +103,57 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
             return;
         }
 
-        string[] plainLines = File.ReadAllLines(plainLyricsPath);
-        string plainLyrics = string.Join("\n", plainLines.Skip(3));
-
-        // Validate plain lyrics format
-        foreach (string line in plainLyrics.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries))
+        string[] fullPlainLines = File.ReadAllLines(plainLyricsPath);
+        List<string> lyricLines = fullPlainLines.Skip(3).ToList();
+        
+        // Trim trailing empty lines from the list to avoid counting them as unsynced
+        while (lyricLines.Count > 0 && string.IsNullOrWhiteSpace(lyricLines[lyricLines.Count - 1]))
         {
-            if (!string.IsNullOrEmpty(line) && !(char.IsUpper(line[0]) || char.IsDigit(line[0]) || line[0] == '\''))
+            lyricLines.RemoveAt(lyricLines.Count - 1);
+        }
+
+        string plainLyrics = string.Join("\n", lyricLines);
+
+        // Validate plain lyrics format (on non-empty lines)
+        foreach (string line in lyricLines)
+        {
+            if (!string.IsNullOrWhiteSpace(line) && !(char.IsUpper(line[0]) || char.IsDigit(line[0]) || line[0] == '\''))
             {
                 AlertManager.Instance.ShowWarning("Invalid lyric format.", "Each lyric line must start with a capitalized letter, or an apostrophe or a number.", "Dismiss");
                 return;
             }
         }
 
-        string[] syncedLines = File.ReadAllLines(syncedLyricsPath);
-        for (int i = 0; i < syncedLines.Length; i++)
+        // Filter out empty lines from synced lyrics to match the filtered plain lyrics
+        List<string> filteredSyncedLines = new List<string>();
+        foreach (string line in syncedLines)
         {
-            if (syncedLines[i].Contains("]"))
-            {
-                syncedLines[i] = syncedLines[i].Replace("]", "] ");
-            }
-            if (syncedLines[i].Contains("["))
-            {
-                syncedLines[i] = syncedLines[i].Replace("[", "[0");
-            }
-        }
-        string formattedSyncedLyrics = string.Join("\n", syncedLines);
+            if (string.IsNullOrWhiteSpace(line)) continue;
 
-        if (!(syncedLines.Length >= plainLines.Length - 3))
+            string processedLine = line;
+            // Ensure there is a space after the timestamp bracket if missing
+            if (processedLine.Contains("]") && !processedLine.Contains("] "))
+            {
+                processedLine = processedLine.Replace("]", "] ");
+            }
+
+            // Pad single digit minutes with a zero (e.g., [5:15.00] -> [05:15.00])
+            if (processedLine.StartsWith("[") && processedLine.Length > 2 && !char.IsDigit(processedLine[2]) && processedLine[2] == ':')
+            {
+                processedLine = processedLine.Insert(1, "0");
+            }
+            filteredSyncedLines.Add(processedLine);
+        }
+        string formattedSyncedLyrics = string.Join("\n", filteredSyncedLines);
+
+        int meaningfulPlainCount = lyricLines.Count(l => !string.IsNullOrWhiteSpace(l));
+        if (filteredSyncedLines.Count < meaningfulPlainCount)
         {
             AlertManager.Instance.ShowWarning("Not all lyrics are synced!", "Please make sure to sync all the lyrics before publishing.", "Dismiss");
             return;
         }
-        if (plainLines.Length <= 4)
+
+        if (meaningfulPlainCount < 4)
         {
             AlertManager.Instance.ShowError("The lyrics are too short.", "You need to have at least 4 verses (4 lines) to be able to submit.", "Dismiss");
             return;
@@ -253,7 +271,7 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
             request.uploadHandler = new UploadHandlerRaw(bodyRaw);
             request.downloadHandler = new DownloadHandlerBuffer();
             request.SetRequestHeader("Content-Type", "application/json");
-            request.SetRequestHeader("User-Agent", "YASG (in-game lyric editor for my WIP karaoke game. will put link here when released!)");
+            request.SetRequestHeader("User-Agent", "YASG (github.com/grncd/YASG)");
             request.SetRequestHeader("X-Publish-Token", publishToken);
 
             yield return request.SendWebRequest();
