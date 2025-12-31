@@ -875,7 +875,15 @@ public class LevelResourcesCompiler : MonoBehaviour
                 UnityEngine.Debug.Log("Found corresponding file: " + expectedFilePath);
                 string vocalLocation = Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedFilePath) + " [vocals].mp3");
                 PlayerPrefs.SetString("vocalLocation", vocalLocation);
-                PlayerPrefs.SetString("fullLocation", expectedFilePath);
+                if (SettingsManager.Instance.GetSetting<bool>("PlayInstrumental"))
+                {
+                    string instrumentalLocation = Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedFilePath) + " [no_vocals].mp3");
+                    PlayerPrefs.SetString("fullLocation", instrumentalLocation);
+                }
+                else
+                {
+                    PlayerPrefs.SetString("fullLocation", expectedFilePath);
+                }
                 partyModeStartAllowed = true;
                 if (PlayerPrefs.GetInt("multiplayer") == 0) LoadMain();
                 return;
@@ -935,7 +943,15 @@ public class LevelResourcesCompiler : MonoBehaviour
                 UnityEngine.Debug.Log("Found corresponding file: " + expectedFilePath);
                 string vocalLocation = Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedFilePath) + " [vocals].mp3");
                 PlayerPrefs.SetString("vocalLocation", vocalLocation);
-                PlayerPrefs.SetString("fullLocation", expectedFilePath);
+                if (SettingsManager.Instance.GetSetting<bool>("PlayInstrumental"))
+                {
+                    string instrumentalLocation = Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedFilePath) + " [no_vocals].mp3");
+                    PlayerPrefs.SetString("fullLocation", instrumentalLocation);
+                }
+                else
+                {
+                    PlayerPrefs.SetString("fullLocation", expectedFilePath);
+                }
                 if (PlayerPrefs.GetInt("multiplayer") == 0) LoadMain();
                 return;
             }
@@ -1104,8 +1120,16 @@ public class LevelResourcesCompiler : MonoBehaviour
         if (File.Exists(expectedAudioPath))
         {
             UnityEngine.Debug.Log("Audio file already exists. Skipping download.");
-            PlayerPrefs.SetString("fullLocation", expectedAudioPath);
             PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedAudioPath) + " [vocals].mp3"));
+            if (SettingsManager.Instance.GetSetting<bool>("PlayInstrumental"))
+            {
+                string instrumentalLocation = Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedAudioPath) + " [no_vocals].mp3");
+                PlayerPrefs.SetString("fullLocation", instrumentalLocation);
+            }
+            else
+            {
+                PlayerPrefs.SetString("fullLocation", expectedAudioPath);
+            }
         }
         else
         {
@@ -1237,7 +1261,15 @@ public class LevelResourcesCompiler : MonoBehaviour
                 UnityEngine.Debug.Log("Found corresponding file: " + expectedFilePath);
                 string vocalLocation = Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedFilePath) + " [vocals].mp3");
                 PlayerPrefs.SetString("vocalLocation", vocalLocation);
-                PlayerPrefs.SetString("fullLocation", expectedFilePath);
+                if (SettingsManager.Instance.GetSetting<bool>("PlayInstrumental"))
+                {
+                    string instrumentalLocation = Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedFilePath) + " [no_vocals].mp3");
+                    PlayerPrefs.SetString("fullLocation", instrumentalLocation);
+                }
+                else
+                {
+                    PlayerPrefs.SetString("fullLocation", expectedFilePath);
+                }
                 if (PlayerPrefs.GetInt("multiplayer") == 0) LoadMain();
                 return;
             }
@@ -1546,8 +1578,16 @@ public class LevelResourcesCompiler : MonoBehaviour
         var targetPath = Path.Combine(inputFolder, Path.GetFileName(audioFilePath));
         File.Copy(audioFilePath, targetPath, true);
 
-        PlayerPrefs.SetString("fullLocation", audioFilePath);
         PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(audioFilePath) + " [vocals].mp3"));
+        if (SettingsManager.Instance.GetSetting<bool>("PlayInstrumental"))
+        {
+            string instrumentalLocation = Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(audioFilePath) + " [no_vocals].mp3");
+            PlayerPrefs.SetString("fullLocation", instrumentalLocation);
+        }
+        else
+        {
+            PlayerPrefs.SetString("fullLocation", audioFilePath);
+        }
 
         string pythonArgs;
         if (SettingsManager.Instance.GetSetting<int>("VocalProcessingMethod") == 0)

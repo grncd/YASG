@@ -168,6 +168,7 @@ public class SettingsManager : MonoBehaviour
             { "AudioReactivePlayerCircle", new Setting { Value = true, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Player Circle", Description = "If toggled on, adds a reactive glow around the judgment circle."  } },
 
             { "DynamicVolumeThreshold", new Setting { Value = "-1.2", Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.TextInput, FormalName = "Dynamic Volume Threshold", Description = "Impacts scoring heavily. Lower means you will need to sing quieter parts of the vocal track and higher means the opposite. Ranges between -10dB and 10dB. Default is -1.2dB. Only change this if you know what you're doing."  } },
+            { "PlayInstrumental", new Setting { Value = false, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Play Instrumental", Description = "If toggled on, the game will play the instrumental version of the song (no vocals) during gameplay."  } },
 
             { "LyricDisplayOffset", new Setting { Value = "1", Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.TextInput, FormalName = "Lyric Display Offset", Description = "Offset (in seconds) used to DISPLAY the lyrics, is only visual and does not affect scoring. Turn this up if you need more time to process the upcoming lyrics. Default is 1s."  } },
 
