@@ -24,14 +24,31 @@ namespace MPUIKIT.Editor
 		private static readonly FieldInfo fieldInfo =
 			editorGUIType.GetField("s_RecycledEditor", BindingFlags.NonPublic | BindingFlags.Static);
 
-		private static readonly object recycledEditor = fieldInfo.GetValue(null);
+		// fieldInfo can be null on some Unity versions; guard the GetValue call to avoid a NullReferenceException
+		private static readonly object recycledEditor = fieldInfo != null ? fieldInfo.GetValue(null) : null;
 		private static readonly GUIStyle style = EditorStyles.numberField;
 
 		public static float FloatFieldExtended(Rect _position, float _value, Rect _dragHotZone)
 		{
+			// If reflection failed to find the internal method/field (different Unity versions),
+			// fall back to the public EditorGUI.FloatField to avoid runtime exceptions.
+			if (doFloatFieldMethod == null || recycledEditor == null)
+			{
+				return EditorGUI.FloatField(_position, _value);
+			}
+
 			int controlId = GUIUtility.GetControlID("EditorTextField".GetHashCode(), FocusType.Keyboard, _position);
 			object[] parameters = {recycledEditor, _position, _dragHotZone, controlId, _value, "g7", style, true};
-			return (float) doFloatFieldMethod.Invoke(null, parameters);
+			try
+			{
+				var result = doFloatFieldMethod.Invoke(null, parameters);
+				return result is float f ? f : _value;
+			}
+			catch
+			{
+				// If invoking the internal method fails for any reason, fall back to the public API.
+				return EditorGUI.FloatField(_position, _value);
+			}
 		}
 
 //	public static float FloatField(GUIContent _content, float _value, float _inputBoxWidth, params GUILayoutOption[] _options)

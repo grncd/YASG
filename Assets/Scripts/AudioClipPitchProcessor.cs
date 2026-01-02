@@ -326,6 +326,17 @@ public class AudioClipPitchProcessor : MonoBehaviour
         string vocalPath = PlayerPrefs.GetString("vocalLocation");
         string fullPath = PlayerPrefs.GetString("fullLocation");
 
+        // Fallback: if instrumental file doesn't exist, try with [music] instead of [no_vocals]
+        if (!string.IsNullOrEmpty(fullPath) && !File.Exists(fullPath))
+        {
+            string fallbackPath = fullPath.Replace("[no_vocals]", "[music]");
+            if (File.Exists(fallbackPath))
+            {
+                fullPath = fallbackPath;
+                UnityEngine.Debug.Log($"[AudioClipPitchProcessor] Using fallback path with [music]: {fullPath}");
+            }
+        }
+
         UnityEngine.Debug.Log($"Vocal track path for analysis: {vocalPath}");
         UnityEngine.Debug.Log($"Full track path for playback: {fullPath}");
 
@@ -410,7 +421,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
         // Full track loading (10% to 20% of overall, i.e., AUDIO_LOADING_PHASE_END_PROGRESS / 2 to AUDIO_LOADING_PHASE_END_PROGRESS)
         if (string.IsNullOrEmpty(fullTrackPath))
         {
-            UnityEngine.Debug.LogWarning("Full track file path is empty! Using vocal track for playback as fallback.");
+            UnityEngine.Debug.LogError("Full track file path is empty! Using vocal track for playback as fallback.");
             audioClipFull = audioClip;
         }
         else
