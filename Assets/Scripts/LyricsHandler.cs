@@ -68,6 +68,8 @@ public class LyricsHandler : MonoBehaviour
         PlayerPrefs.SetString("currentSong", PlayerPrefs.GetString("currentSong"));
         Application.targetFrameRate = -1;
         songName = Path.GetFileNameWithoutExtension(PlayerPrefs.GetString("fullLocation"));
+        // Remove audio track suffixes from display name
+        songName = songName.Replace(" [no_vocals]", "").Replace(" [music]", "").Replace(" [vocals]", "");
         songText.text = songName;
         PlayerPrefs.SetString("currentSongDisplay", songName);
         Debug.Log(PlayerPrefs.GetInt("MicPlayer1"));
