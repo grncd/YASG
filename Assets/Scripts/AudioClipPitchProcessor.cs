@@ -1148,56 +1148,48 @@ public class AudioClipPitchProcessor : MonoBehaviour
 
         // Create a temporary copy to read from while writing to the original
         NativeArray<float> source = new NativeArray<float>(pitches, Allocator.Temp);
+        
+        // Allocate a reusable buffer for the window sorting.
+        // We use Temp allocation which is very fast.
+        int maxWindowSize = math.min(filterSize, 9); // Still capping at 9 for performance/safety as per original intent
+        NativeArray<float> windowBuffer = new NativeArray<float>(maxWindowSize, Allocator.Temp);
+
         int halfSize = filterSize / 2;
 
         for (int i = 0; i < pitches.Length; i++)
         {
-            // Collect window
-            // Since we can't allocate arrays inside the loop easily with Burst without disposal,
-            // and we need to sort, a small fixed-size buffer stack approach is best or just a simple insertion sort.
-            // For filterSize 5, stack allocation is trivial.
-
-            // To be safe and simple with arbitrary filterSize up to say 9:
-            // We'll just hardcode a small max size or use a stack buffer.
-            // Given burst, let's stick to a robust standard Median-5 implementation.
-
-            // Actually, let's just do Median-5 hardcoded for now or use a small loop with insertion sort.
-            // Since filterSize is passed, let's respect it but cap it at a reasonable stack size if possible.
-            // But C# 9 span/stackalloc is nice. Let's try to keep it general.
-
             int start = math.max(0, i - halfSize);
             int end = math.min(pitches.Length - 1, i + halfSize);
             int count = end - start + 1;
 
-            // Simple bubble/insertion sort on a temporary stack buffer
-            // Max filter size supported = 9
-            if (count > 9) count = 9; // Safety cap
+            if (count > maxWindowSize) count = maxWindowSize; 
 
-            Span<float> window = stackalloc float[count];
+            // Fill buffer
             int idx = 0;
             for (int j = start; j <= end && idx < count; j++)
             {
-                window[idx++] = source[j];
+                windowBuffer[idx++] = source[j];
             }
 
-            // Sort
+            // Sort buffer (Bubble sort is fine for very small N like 5 or 9)
             for (int a = 0; a < count - 1; a++)
             {
                 for (int b = 0; b < count - 1 - a; b++)
                 {
-                    if (window[b] > window[b + 1])
+                    if (windowBuffer[b] > windowBuffer[b + 1])
                     {
-                        float temp = window[b];
-                        window[b] = window[b + 1];
-                        window[b + 1] = temp;
+                        float temp = windowBuffer[b];
+                        windowBuffer[b] = windowBuffer[b + 1];
+                        windowBuffer[b + 1] = temp;
                     }
                 }
             }
 
             // Median
-            pitches[i] = window[count / 2];
+            pitches[i] = windowBuffer[count / 2];
         }
 
+        windowBuffer.Dispose();
         source.Dispose();
     }
 
