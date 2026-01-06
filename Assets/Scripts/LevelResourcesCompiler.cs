@@ -1714,10 +1714,13 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         void OnProgress(int percent)
         {
-            // Update progress bar if needed
+            // Update progress bar and currentPercentage
+            float normalizedProgress = percent / 100f;
+            currentPercentage = normalizedProgress;
+
             if (progressBar != null)
             {
-                progressBar.value = percent / 100f;
+                progressBar.value = normalizedProgress;
             }
         }
 
