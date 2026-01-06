@@ -1028,6 +1028,7 @@ public class LevelResourcesCompiler : MonoBehaviour
                     try
                     {
                         process.Kill();
+                        process.WaitForExit(5000); // Wait up to 5 seconds for process to fully terminate
                         UnityEngine.Debug.LogWarning($"Lyrics process (Main) timed out HARD after {timeoutSeconds}s.");
                         lyricsError2 = true;
                     }
@@ -1037,6 +1038,19 @@ public class LevelResourcesCompiler : MonoBehaviour
                 Thread.Sleep(500); // Check every 0.5s
             }
         });
+
+        // Ensure process is fully disposed
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill();
+                process.WaitForExit(5000);
+            }
+            process.Dispose();
+        }
+        catch (Exception e) { UnityEngine.Debug.LogWarning($"Error disposing lyrics process: {e.Message}"); }
+
         UnityEngine.Debug.Log("Lyrics script finished.");
 
         // Check if a lyrics file was actually created recently
@@ -1338,7 +1352,12 @@ public class LevelResourcesCompiler : MonoBehaviour
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
-                    try { process.Kill(); } catch { }
+                    try
+                    {
+                        process.Kill();
+                        process.WaitForExit(5000);
+                    }
+                    catch { }
                     break;
                 }
 
@@ -1347,6 +1366,7 @@ public class LevelResourcesCompiler : MonoBehaviour
                     try
                     {
                         process.Kill();
+                        process.WaitForExit(5000); // Wait up to 5 seconds for process to fully terminate
                         UnityEngine.Debug.LogWarning($"Lyrics process timed out HARD after {timeoutSeconds}s.");
                         lyricsError2 = true;
                     }
@@ -1356,6 +1376,19 @@ public class LevelResourcesCompiler : MonoBehaviour
                 Thread.Sleep(500); // Check every 0.5s
             }
         }, cancellationToken);
+
+        // Ensure process is fully disposed
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill();
+                process.WaitForExit(5000);
+            }
+            process.Dispose();
+        }
+        catch (Exception e) { UnityEngine.Debug.LogWarning($"Error disposing lyrics process: {e.Message}"); }
+
         UnityEngine.Debug.Log("Lyrics script finished.");
 
         // Check if a lyrics file was actually created recently
@@ -1514,53 +1547,72 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         string url = $"https://lrclib.net/api/get?track_name={trackName}&artist_name={artistName}&album_name={albumName}&duration={duration}";
 
-        using (UnityWebRequest request = UnityWebRequest.Get(url))
+        const int maxRetries = 10;
+        int attempt = 0;
+
+        while (attempt < maxRetries)
         {
-            request.SetRequestHeader("User-Agent", "YASG");
-            await request.SendWebRequest();
-
-            if (request.result != UnityWebRequest.Result.Success)
+            attempt++;
+            using (UnityWebRequest request = UnityWebRequest.Get(url))
             {
-                UnityEngine.Debug.LogError($"LRCLib Error: {request.error}");
-                return false;
-            }
+                request.SetRequestHeader("User-Agent", "YASG");
+                await request.SendWebRequest();
 
-            string jsonResponse = request.downloadHandler.text;
-            if (string.IsNullOrEmpty(jsonResponse) || jsonResponse.Trim() == "null")
-            {
-                UnityEngine.Debug.Log("LRCLib: No entry found for this track.");
-                return false;
-            }
-
-            LrcLibResponse response = JsonUtility.FromJson<LrcLibResponse>(jsonResponse);
-
-            if (string.IsNullOrEmpty(response.syncedLyrics))
-            {
-                UnityEngine.Debug.Log("LRCLib: Found an entry, but it has no synced lyrics.");
-                return false;
-            }
-
-            // Save the lyrics to file, mimicking the original script's output
-            string sanitizedName = SanitizeFileName(track.name);
-            string lyricsFilePath = Path.Combine(dataPath, "downloads", $"{sanitizedName}.txt");
-            string directoryPath = Path.GetDirectoryName(lyricsFilePath);
-
-            try
-            {
-                if (!Directory.Exists(directoryPath))
+                if (request.result != UnityWebRequest.Result.Success)
                 {
-                    Directory.CreateDirectory(directoryPath);
+                    // Check for Curl error 52 (empty reply from server) - server overloaded
+                    if (request.error.Contains("Curl error 52") || request.error.Contains("Empty reply"))
+                    {
+                        UnityEngine.Debug.LogWarning($"LRCLib Curl error 52 (server overloaded), retrying... ({attempt}/{maxRetries})");
+                        status.text = $"Retrying LRCLib... ({attempt}/{maxRetries})";
+                        await Task.Delay(1000); // Wait 1 second before retrying
+                        continue;
+                    }
+
+                    UnityEngine.Debug.LogError($"LRCLib Error: {request.error}");
+                    return false;
                 }
-                await File.WriteAllTextAsync(lyricsFilePath, response.syncedLyrics);
-                UnityEngine.Debug.Log($"Successfully fetched and saved lyrics from LRCLib to {lyricsFilePath}");
-                return true;
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogError($"Failed to write lyrics file from LRCLib: {e.Message}");
-                return false;
+
+                string jsonResponse = request.downloadHandler.text;
+                if (string.IsNullOrEmpty(jsonResponse) || jsonResponse.Trim() == "null")
+                {
+                    UnityEngine.Debug.Log("LRCLib: No entry found for this track.");
+                    return false;
+                }
+
+                LrcLibResponse response = JsonUtility.FromJson<LrcLibResponse>(jsonResponse);
+
+                if (string.IsNullOrEmpty(response.syncedLyrics))
+                {
+                    UnityEngine.Debug.Log("LRCLib: Found an entry, but it has no synced lyrics.");
+                    return false;
+                }
+
+                // Save the lyrics to file, mimicking the original script's output
+                string sanitizedName = SanitizeFileName(track.name);
+                string lyricsFilePath = Path.Combine(dataPath, "downloads", $"{sanitizedName}.txt");
+                string directoryPath = Path.GetDirectoryName(lyricsFilePath);
+
+                try
+                {
+                    if (!Directory.Exists(directoryPath))
+                    {
+                        Directory.CreateDirectory(directoryPath);
+                    }
+                    await File.WriteAllTextAsync(lyricsFilePath, response.syncedLyrics);
+                    UnityEngine.Debug.Log($"Successfully fetched and saved lyrics from LRCLib to {lyricsFilePath}");
+                    return true;
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogError($"Failed to write lyrics file from LRCLib: {e.Message}");
+                    return false;
+                }
             }
         }
+
+        UnityEngine.Debug.LogError($"LRCLib failed after {maxRetries} retries due to server overload.");
+        return false;
     }
 
 
