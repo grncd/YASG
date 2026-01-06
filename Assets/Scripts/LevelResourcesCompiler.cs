@@ -90,6 +90,8 @@ public class LevelResourcesCompiler : MonoBehaviour
     private Process currentBGProcess;
     private CancellationTokenSource backgroundCompileCancellationSource;
 
+    private VocalRemoverAPI _vocalRemoverAPI;
+
     private int _originalVSyncCount;
     private static bool _hasRunUpdateCheck = false;
 
@@ -1560,16 +1562,27 @@ public class LevelResourcesCompiler : MonoBehaviour
 
                 if (request.result != UnityWebRequest.Result.Success)
                 {
-                    // Check for Curl error 52 (empty reply from server) - server overloaded
-                    if (request.error.Contains("Curl error 52") || request.error.Contains("Empty reply"))
+                    string error = request.error ?? "";
+                    string errorLower = error.ToLowerInvariant();
+
+                    // Check for transient/retryable errors
+                    bool isRetryable = errorLower.Contains("curl error 52") ||
+                                       errorLower.Contains("empty reply") ||
+                                       errorLower.Contains("connection reset") ||
+                                       errorLower.Contains("connection refused") ||
+                                       errorLower.Contains("timed out") ||
+                                       errorLower.Contains("timeout") ||
+                                       request.result == UnityWebRequest.Result.ConnectionError;
+
+                    if (isRetryable && attempt < maxRetries)
                     {
-                        UnityEngine.Debug.LogWarning($"LRCLib Curl error 52 (server overloaded), retrying... ({attempt}/{maxRetries})");
+                        UnityEngine.Debug.LogWarning($"LRCLib transient error: {error}, retrying... ({attempt}/{maxRetries})");
                         status.text = $"Retrying LRCLib... ({attempt}/{maxRetries})";
-                        await Task.Delay(1000); // Wait 1 second before retrying
+                        await Task.Delay(1000 * attempt); // Exponential backoff
                         continue;
                     }
 
-                    UnityEngine.Debug.LogError($"LRCLib Error: {request.error}");
+                    UnityEngine.Debug.LogError($"LRCLib Error: {error}");
                     return false;
                 }
 
@@ -1626,14 +1639,13 @@ public class LevelResourcesCompiler : MonoBehaviour
             return;
         }
 
-        var inputFolder = Path.Combine(dataPath, "vocalremover", "input");
-        var targetPath = Path.Combine(inputFolder, Path.GetFileName(audioFilePath));
-        File.Copy(audioFilePath, targetPath, true);
+        var outputDir = Path.Combine(dataPath, "output", "htdemucs");
+        Directory.CreateDirectory(outputDir);
 
-        PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(audioFilePath) + " [vocals].mp3"));
+        PlayerPrefs.SetString("vocalLocation", Path.Combine(outputDir, Path.GetFileNameWithoutExtension(audioFilePath) + " [vocals].mp3"));
         if (SettingsManager.Instance.GetSetting<bool>("PlayInstrumental"))
         {
-            string instrumentalLocation = Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(audioFilePath) + " [no_vocals].mp3");
+            string instrumentalLocation = Path.Combine(outputDir, Path.GetFileNameWithoutExtension(audioFilePath) + " [no_vocals].mp3");
             PlayerPrefs.SetString("fullLocation", instrumentalLocation);
         }
         else
@@ -1641,28 +1653,90 @@ public class LevelResourcesCompiler : MonoBehaviour
             PlayerPrefs.SetString("fullLocation", audioFilePath);
         }
 
-        string pythonArgs;
+        // VocalProcessingMethod 0 = VocalRemover.org API (online)
+        // VocalProcessingMethod 1 = Demucs (local Python)
         if (SettingsManager.Instance.GetSetting<int>("VocalProcessingMethod") == 0)
         {
-            pythonArgs = $"-u \"vr.py\"";
+            // Use VocalRemover API directly
+            await RunVocalRemoverAPIAsync(audioFilePath, outputDir, cancellationToken);
+            UnityEngine.Debug.Log("VocalRemover API processing finished!");
         }
         else
         {
-            pythonArgs = $"-u \"main.py\"";
+            // Use local Python/Demucs
+            var inputFolder = Path.Combine(dataPath, "vocalremover", "input");
+            Directory.CreateDirectory(inputFolder);
+            var targetPath = Path.Combine(inputFolder, Path.GetFileName(audioFilePath));
+            File.Copy(audioFilePath, targetPath, true);
+
+            string pythonArgs = $"-u \"main.py\"";
+            string pythonExe;
+            bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+            if (isLinux)
+            {
+                pythonExe = Path.Combine(dataPath, "venv", "bin", "python3");
+            }
+            else
+            {
+                pythonExe = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
+            }
+            string workingDir = Path.Combine(dataPath, "vocalremover");
+            await RunProcessAsync(pythonExe, pythonArgs, workingDir, cancellationToken);
+            UnityEngine.Debug.Log("Python inference finished!");
         }
-        string pythonExe;
-        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
-        if (isLinux)
+    }
+
+    private Task RunVocalRemoverAPIAsync(string audioFilePath, string outputDir, CancellationToken cancellationToken)
+    {
+        var tcs = new TaskCompletionSource<bool>();
+
+        // Create or get VocalRemoverAPI component
+        if (_vocalRemoverAPI == null)
         {
-            pythonExe = Path.Combine(dataPath, "venv", "bin", "python3");
+            _vocalRemoverAPI = gameObject.AddComponent<VocalRemoverAPI>();
         }
-        else
+
+        // Set up completion handler
+        void OnComplete(bool success, string message)
         {
-            pythonExe = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
+            _vocalRemoverAPI.OnProcessingComplete -= OnComplete;
+            _vocalRemoverAPI.OnProgressChanged -= OnProgress;
+
+            if (success)
+            {
+                tcs.TrySetResult(true);
+            }
+            else
+            {
+                tcs.TrySetException(new Exception($"VocalRemover API failed: {message}"));
+            }
         }
-        string workingDir = Path.Combine(dataPath, "vocalremover");
-        await RunProcessAsync(pythonExe, pythonArgs, workingDir, cancellationToken);
-        UnityEngine.Debug.Log("Python inference finished!");
+
+        void OnProgress(int percent)
+        {
+            // Update progress bar if needed
+            if (progressBar != null)
+            {
+                progressBar.value = percent / 100f;
+            }
+        }
+
+        _vocalRemoverAPI.OnProcessingComplete += OnComplete;
+        _vocalRemoverAPI.OnProgressChanged += OnProgress;
+
+        // Handle cancellation
+        cancellationToken.Register(() =>
+        {
+            _vocalRemoverAPI.OnProcessingComplete -= OnComplete;
+            _vocalRemoverAPI.OnProgressChanged -= OnProgress;
+            _vocalRemoverAPI.StopAllCoroutines();
+            tcs.TrySetCanceled();
+        });
+
+        // Start processing
+        _vocalRemoverAPI.ProcessFile(audioFilePath, outputDir);
+
+        return tcs.Task;
     }
 
 
