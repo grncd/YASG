@@ -19,7 +19,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
         run: |
           Write-Host "Fetching latest release from grncd/YASGsetuputilities..."
-          gh release download --repo grncd/YASGsetuputilities --pattern "YASG_Windows.zip" --dir "downloads"
+          gh release download --repo grncd/YASGsetuputilities --pattern "YASG_Windows.zip" --dir "downloads --clobber"
           Write-Host "Download complete."
 
       - name: Extract Game
