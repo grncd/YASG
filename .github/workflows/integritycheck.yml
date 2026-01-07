@@ -1,67 +1,98 @@
 name: Integrity Test
 
-#on:
-  #workflow_dispatch:
-  #push:
-    #branches: [ "main" ]
+on:
+  workflow_dispatch:
+  schedule:
+    # 13:00 UTC = 10:00 AM UTC-3
+    # 23:00 UTC = 08:00 PM UTC-3
+    - cron: '0 13,23 * * *'
 
 jobs:
   run-yasg:
-    runs-on: windows-latest
+    runs-on: self-hosted
     
-    # Permission needed to use the GitHub CLI (gh)
     permissions:
       contents: read
 
     steps:
+      - name: Clean Workspace
+        shell: powershell
+        run: |
+          Write-Host "Cleaning workspace: $env:GITHUB_WORKSPACE"
+          # Deletes all files and folders inside the work directory
+          if (Test-Path "$env:GITHUB_WORKSPACE\*") {
+              Get-ChildItem -Path "$env:GITHUB_WORKSPACE" -Recurse | Remove-Item -Recurse -Force
+              Write-Host "✅ Workspace cleaned."
+          } else {
+              Write-Host "Workspace already clean."
+          }
+
+      - name: Clean Registry
+        shell: powershell
+        run: |
+          $registryPath = "HKCU:\SOFTWARE\YASG\YASG"
+          if (Test-Path $registryPath) {
+              Write-Host "Found existing registry key at $registryPath. Deleting..."
+              Remove-Item -Path $registryPath -Recurse -Force
+              Write-Host "✅ Registry cleared."
+          } else {
+              Write-Host "Registry key not found."
+          }
+
       - name: Download Latest YASG Release
         shell: powershell
         env:
-          # This token is automatically provided by GitHub Actions
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
         run: |
+          # Re-create downloads folder after cleaning
+          New-Item -ItemType Directory -Force -Path "downloads"
           Write-Host "Fetching latest release from grncd/YASGsetuputilities..."
-          
-          # Downloads 'YASG_Windows.zip' from the latest release of the specified repo
           gh release download --repo grncd/YASGsetuputilities --pattern "YASG_Windows.zip" --dir "downloads"
-          
           Write-Host "Download complete."
 
       - name: Extract Game
         shell: powershell
         run: |
-          # Extracts the zip to a folder named 'game_dist'
-          Expand-Archive -Path "downloads\YASG_Windows.zip" -DestinationPath "game_dist"
-          
+          Expand-Archive -Path "downloads\YASG_Windows.zip" -DestinationPath "game_dist" -Force
           Write-Host "Contents of game folder:"
           Get-ChildItem -Path "game_dist"
           
-      - name: Run YASG.exe and Wait
+      - name: Run YASG.exe (Setup & Restart)
         shell: powershell
         run: |
-          # Note: Adjust path if the zip contains a subfolder (e.g., game_dist/Build/YASG.exe)
-          # For now, we assume YASG.exe is at the root of the zip.
           cd game_dist
           
-          Write-Host "Starting YASG.exe in batchmode..."
+          # --- Run 1: Setup Phase ---
+          Write-Host "🚀 Launching YASG.exe [Run 1/2: Setup Phase]..."
           
           try {
-            # -batchmode -nographics: Run without window/GPU (prevents crashes on VM)
-            # -Wait: Pauses workflow until the game closes itself
             Start-Process -FilePath ".\YASG.exe" -ArgumentList "-batchmode", "-nographics" -Wait -NoNewWindow -ErrorAction Stop
+            Write-Host "✅ Setup phase complete. Process exited."
           }
           catch {
-            Write-Warning "Process exited. Checking for results..."
+            Write-Warning "Run 1 exited unexpectedly or threw an error."
+          }
+
+          Write-Host "Waiting 5 seconds for cleanup..."
+          Start-Sleep -Seconds 5
+
+          # --- Run 2: Verification Phase ---
+          Write-Host "🚀 Launching YASG.exe [Run 2/2: Verification Phase]..."
+          
+          try {
+            Start-Process -FilePath ".\YASG.exe" -ArgumentList "-batchmode", "-nographics" -Wait -NoNewWindow -ErrorAction Stop
+            Write-Host "✅ Second run complete."
+          }
+          catch {
+             Write-Warning "Run 2 exited unexpectedly."
           }
 
       - name: Verify Success
         shell: powershell
         run: |
-          cd game_dist
-          
-          if (Test-Path "success.txt") {
+          if (Test-Path "game_dist\success.txt") {
               Write-Host "✅ success.txt found! The test passed."
-              Get-Content "success.txt"
+              Get-Content "game_dist\success.txt"
               exit 0
           } else {
               Write-Error "❌ success.txt was NOT found. The test failed."
