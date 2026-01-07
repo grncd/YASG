@@ -74,6 +74,5 @@ These tools are not included with the game but are automatically installed withi
 **Special thanks to the developers of the following projects:**
 
 * [**syrics**](https://github.com/akashrchandran/syrics) – Main source for synced lyrics.  
-* [**spotDL**](https://github.com/spotDL/spotify-downloader) – Handles song downloading.  
-* [**demucs**](https://github.com/adefossez/demucs) and [**vocalremover.org**](https://vocalremover.org/) – Used for vocal/instrumental separation.  
+*  [**demucs**](https://github.com/adefossez/demucs) and [**vocalremover.org**](https://vocalremover.org/) – Used for vocal/instrumental separation.  
 * [**LRCLib**](https://lrclib.net/) – Provides fallback and custom lyric database support.
