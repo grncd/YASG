@@ -116,7 +116,7 @@ public class SetupManager : MonoBehaviour
 
     private void Awake()
     {
-        if (PlayerPrefs.GetInt("setupDone") == 1 && !Application.isEditor && !Application.version.StartsWith("T"))
+        if (PlayerPrefs.GetInt("setupDone") == 1 && !Application.isEditor)
         {
             UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
         }
