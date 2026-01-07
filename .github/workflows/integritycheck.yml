@@ -2,8 +2,10 @@ name: Integrity Test
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ "main" ]
+  schedule:
+    # 13:00 UTC = 10:00 AM UTC-3
+    # 23:00 UTC = 08:00 PM UTC-3
+    - cron: '0 13,23 * * *'
 
 jobs:
   run-yasg:
@@ -17,9 +19,13 @@ jobs:
         shell: powershell
         run: |
           Write-Host "Cleaning workspace: $env:GITHUB_WORKSPACE"
-          # Deletes all files and folders inside the work directory without deleting the directory itself
-          Get-ChildItem -Path "$env:GITHUB_WORKSPACE" -Recurse | Remove-Item -Recurse -Force
-          Write-Host "✅ Workspace cleaned."
+          # Deletes all files and folders inside the work directory
+          if (Test-Path "$env:GITHUB_WORKSPACE\*") {
+              Get-ChildItem -Path "$env:GITHUB_WORKSPACE" -Recurse | Remove-Item -Recurse -Force
+              Write-Host "✅ Workspace cleaned."
+          } else {
+              Write-Host "Workspace already clean."
+          }
 
       - name: Clean Registry
         shell: powershell
@@ -30,7 +36,7 @@ jobs:
               Remove-Item -Path $registryPath -Recurse -Force
               Write-Host "✅ Registry cleared."
           } else {
-              Write-Host "Registry key not found. Nothing to delete."
+              Write-Host "Registry key not found."
           }
 
       - name: Download Latest YASG Release
@@ -38,6 +44,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
         run: |
+          # Re-create downloads folder after cleaning
+          New-Item -ItemType Directory -Force -Path "downloads"
           Write-Host "Fetching latest release from grncd/YASGsetuputilities..."
           gh release download --repo grncd/YASGsetuputilities --pattern "YASG_Windows.zip" --dir "downloads"
           Write-Host "Download complete."
@@ -45,7 +53,7 @@ jobs:
       - name: Extract Game
         shell: powershell
         run: |
-          Expand-Archive -Path "downloads\YASG_Windows.zip" -DestinationPath "game_dist"
+          Expand-Archive -Path "downloads\YASG_Windows.zip" -DestinationPath "game_dist" -Force
           Write-Host "Contents of game folder:"
           Get-ChildItem -Path "game_dist"
           
@@ -62,7 +70,7 @@ jobs:
             Write-Host "✅ Setup phase complete. Process exited."
           }
           catch {
-            Write-Warning "Run 1 exited unexpectedly or threw an error. Attempting to proceed..."
+            Write-Warning "Run 1 exited unexpectedly or threw an error."
           }
 
           Write-Host "Waiting 5 seconds for cleanup..."
@@ -82,11 +90,9 @@ jobs:
       - name: Verify Success
         shell: powershell
         run: |
-          cd game_dist
-          
-          if (Test-Path "success.txt") {
+          if (Test-Path "game_dist\success.txt") {
               Write-Host "✅ success.txt found! The test passed."
-              Get-Content "success.txt"
+              Get-Content "game_dist\success.txt"
               exit 0
           } else {
               Write-Error "❌ success.txt was NOT found. The test failed."
