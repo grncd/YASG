@@ -540,8 +540,9 @@ public class VocalRemoverAPI : MonoBehaviour
             }
 
             var elapsed = (int)(Time.realtimeSinceStartup - startTime);
-            // Map waiting progress to 25-50% range (upload phase completion)
-            var progress = Mathf.Min(25 + (int)(elapsed * 25f / maxWaitSeconds), 49);
+            // Expect processing to take 10-ish seconds typically
+            const int expectedProcessingSeconds = 10;
+            var progress = Mathf.Min(25 + (int)(elapsed * 25f / expectedProcessingSeconds), 49);
 
             if (progress > lastProgress)
             {
@@ -557,55 +558,125 @@ public class VocalRemoverAPI : MonoBehaviour
         callback(false);
     }
 
-    private IEnumerator DownloadTrackCoroutine(long id, string key, int server, string trackType, string outputPath, Action<bool> callback, int progressStart = 50, int progressEnd = 75)
+    private IEnumerator DownloadTrackCoroutine(long id, string key, int server, string trackType, string outputPath, Action<bool> callback, int progressStart = 50, int progressEnd = 75, int maxRetries = 3)
     {
         var url = $"https://api{server}.vocalremover.org/split/listen/{trackType}/{id}/{key}";
         Debug.Log($"-> Downloading {trackType} track from: {url}");
 
-        // Use UnityWebRequest for progress tracking
-        using (var request = UnityWebRequest.Get(url))
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
-            request.timeout = 900; // 15 minutes
-            SetHeaders(request);
-
-            var operation = request.SendWebRequest();
-
-            // Track download progress
-            while (!operation.isDone)
+            // Use UnityWebRequest for progress tracking
+            using (var request = UnityWebRequest.Get(url))
             {
-                float downloadProgress = request.downloadProgress;
-                int currentProgress = progressStart + (int)((progressEnd - progressStart) * downloadProgress);
-                OnProgressChanged?.Invoke(currentProgress);
-                yield return null;
-            }
+                request.timeout = 900; // 15 minutes
+                SetHeaders(request);
 
-            if (request.result != UnityWebRequest.Result.Success)
-            {
-                Debug.LogError($"-> Download failed: {request.error} (code: {request.responseCode})");
-                callback(false);
-                yield break;
-            }
+                var operation = request.SendWebRequest();
 
-            // Ensure directory exists
-            var dir = Path.GetDirectoryName(outputPath);
-            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-            {
-                Directory.CreateDirectory(dir);
-            }
+                // Track download progress
+                while (!operation.isDone)
+                {
+                    float downloadProgress = request.downloadProgress;
+                    int currentProgress = progressStart + (int)((progressEnd - progressStart) * downloadProgress);
+                    OnProgressChanged?.Invoke(currentProgress);
+                    yield return null;
+                }
 
-            // Write file
-            try
-            {
-                File.WriteAllBytes(outputPath, request.downloadHandler.data);
-                Debug.Log($"-> Downloaded {trackType} track: {request.downloadHandler.data.Length} bytes");
-                callback(true);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"-> Error saving file: {ex.Message}");
-                callback(false);
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    Debug.LogError($"-> Download failed (attempt {attempt}/{maxRetries}): {request.error} (code: {request.responseCode})");
+
+                    if (attempt < maxRetries)
+                    {
+                        yield return new WaitForSeconds(2f * attempt);
+                        continue;
+                    }
+
+                    callback(false);
+                    yield break;
+                }
+
+                byte[] downloadedData = request.downloadHandler.data;
+
+                // Validate Content-Length if available
+                string contentLengthHeader = request.GetResponseHeader("Content-Length");
+                if (!string.IsNullOrEmpty(contentLengthHeader))
+                {
+                    if (long.TryParse(contentLengthHeader, out long expectedLength))
+                    {
+                        if (downloadedData.Length != expectedLength)
+                        {
+                            Debug.LogError($"-> Incomplete download (attempt {attempt}/{maxRetries}): expected {expectedLength} bytes, got {downloadedData.Length} bytes");
+
+                            if (attempt < maxRetries)
+                            {
+                                yield return new WaitForSeconds(2f * attempt);
+                                continue;
+                            }
+
+                            callback(false);
+                            yield break;
+                        }
+                    }
+                }
+
+                // Minimum size check - vocal/music tracks should be at least 1MB for reasonable length songs
+                const int MIN_FILE_SIZE = 1024 * 1024; // 1 MB
+                if (downloadedData.Length < MIN_FILE_SIZE)
+                {
+                    Debug.LogWarning($"-> Downloaded file is suspiciously small ({downloadedData.Length} bytes). May be incomplete.");
+
+                    // Only retry if not the last attempt
+                    if (attempt < maxRetries)
+                    {
+                        Debug.Log($"-> Retrying download (attempt {attempt + 1}/{maxRetries})...");
+                        yield return new WaitForSeconds(2f * attempt);
+                        continue;
+                    }
+                }
+
+                // Ensure directory exists
+                var dir = Path.GetDirectoryName(outputPath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+
+                // Write file
+                bool writeSuccess = false;
+                Exception writeException = null;
+                try
+                {
+                    File.WriteAllBytes(outputPath, downloadedData);
+                    Debug.Log($"-> Downloaded {trackType} track: {downloadedData.Length} bytes");
+                    writeSuccess = true;
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"-> Error saving file: {ex.Message}");
+                    writeException = ex;
+                }
+
+                if (writeSuccess)
+                {
+                    callback(true);
+                    yield break; // Success, exit the retry loop
+                }
+                else if (attempt < maxRetries)
+                {
+                    yield return new WaitForSeconds(2f * attempt);
+                    continue;
+                }
+                else
+                {
+                    callback(false);
+                    yield break;
+                }
             }
         }
+
+        // Should not reach here, but just in case
+        callback(false);
     }
 
     private IEnumerator ConnectWebSocketCoroutine(long trackId, string trackKey)

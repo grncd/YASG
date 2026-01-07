@@ -376,6 +376,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         if (lyricsError)
         {
+            if (BGMusic.Instance != null) BGMusic.Instance.StopPreview();
             alertManager.ShowError("This song does not have lyrics.", "The song you've selected either has no lyrics or we couldn't find any synced lyrics for it. If this song has lyrics and you'd like to add them, <b>use the Add Lyrics button</b> located in the menu.", "Dismiss");
             LoadingDone();
             mainPanel.SetActive(true);
@@ -679,52 +680,33 @@ public class LevelResourcesCompiler : MonoBehaviour
         BeginLoading();
         loadingFX.SetActive(true);
         status.text = "Downloading song for playback...";
-        fakeLoading = true;
-        bool success = await AttemptDownload(url);
-        fakeLoading = false;
 
-        var downloadedMp3 = Directory.GetFiles(PlayerPrefs.GetString("dataPath"), "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
-
-        DateTime creationTime = File.GetCreationTime(downloadedMp3);
-        if (!((DateTime.Now - creationTime).TotalSeconds < 50))
+        try
         {
-            success = false;
+            // Get duration and album from selectedTrack for better matching
+            TimeSpan spotifyDuration = TimeSpan.Zero;
+            string albumName = null;
+
+            if (selectedTrack != null)
+            {
+                spotifyDuration = TimeSpan.FromMilliseconds(selectedTrack.duration_ms);
+                albumName = selectedTrack.album?.name;
+            }
+            else if (lastPrecompiledTrack != null)
+            {
+                spotifyDuration = TimeSpan.FromMilliseconds(lastPrecompiledTrack.duration_ms);
+                albumName = lastPrecompiledTrack.album?.name;
+            }
+
+            await SpotifyToYoutubeDownloader.DownloadClosestMatch(artist, name, spotifyDuration, expectedAudioPath, albumName);
         }
-
-        if (!success)
+        catch (Exception ex)
         {
-            alertManager.ShowError("An error occured downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
+            UnityEngine.Debug.LogError($"YouTube download failed: {ex.Message}");
+            alertManager.ShowError("An error occurred downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
             LoadingDone();
             loadingFX.SetActive(false);
             mainPanel.SetActive(true);
-            return;
-        }
-
-        var dataPath = PlayerPrefs.GetString("dataPath");
-        var mp3Path = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
-
-        if (mp3Path != null && PlayerPrefs.GetInt("editing") == 1)
-        {
-            string songName = PlayerPrefs.GetString("currentSong");
-            string artistName = PlayerPrefs.GetString("currentArtist");
-
-            string sanitizedSongName = SanitizeFileName(songName);
-            string sanitizedArtistName = SanitizeFileName(artistName);
-
-            string newFileName = $"{sanitizedArtistName} - {sanitizedSongName}.mp3";
-            string newFilePath = Path.Combine(dataPath, "downloads", newFileName);
-
-
-            if (File.Exists(newFilePath))
-            {
-                File.Delete(newFilePath);
-            }
-            File.Move(mp3Path, newFilePath);
-            UnityEngine.Debug.Log($"Renamed and moved downloaded file to: {newFilePath}");
-        }
-        else if (mp3Path == null)
-        {
-            UnityEngine.Debug.LogError("No MP3 found!");
             return;
         }
 
@@ -986,95 +968,109 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         stage1.transform.GetChild(1).gameObject.SetActive(true);
 
-        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
-        string scriptName = isLinux ? "getlyrics.sh" : "getlyrics.bat";
-        ProcessStartInfo psi = new ProcessStartInfo
-        {
-            FileName = Path.Combine(dataPath, scriptName),
-            Arguments = url + " " + dataPath,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
+        // Check LyricsSource setting: 0 = Syrics (with LRCLib fallback), 1 = LRCLib only
+        int lyricsSource = SettingsManager.Instance?.GetSetting<int>("LyricsSource") ?? 0;
 
-        Process process = new Process { StartInfo = psi };
-        process.ErrorDataReceived += (sender, args) =>
+        if (lyricsSource == 0)
         {
-            if (string.IsNullOrEmpty(args.Data)) return;
-            UnityEngine.Debug.Log("Error Output: " + args.Data);
-            if (args.Data.Contains("some tracks") || args.Data.Contains("Your application has"))
+            // --- SYRICS LOGIC ---
+            bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+            string scriptName = isLinux ? "getlyrics.sh" : "getlyrics.bat";
+            ProcessStartInfo psi = new ProcessStartInfo
             {
-                lyricsError2 = true; // Set flag to try fallback
-            }
-        };
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
+                FileName = Path.Combine(dataPath, scriptName),
+                Arguments = url + " " + dataPath,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
 
-        // Wait for process completion or cancellation with timeout
-        int timeoutSeconds = 7;
-        if (SettingsManager.Instance != null)
-        {
-            if (!int.TryParse(SettingsManager.Instance.GetSetting<string>("SyricsTimeout", "7"), out timeoutSeconds)) UnityEngine.Debug.LogError("Error parsing SyricsTimeout");
-        }
-        UnityEngine.Debug.Log($"Lyrics Process Limit (Main): {timeoutSeconds} seconds.");
-        var timeoutLimit = DateTime.Now.AddSeconds(timeoutSeconds);
-
-        await Task.Run(() =>
-        {
-            while (!process.HasExited)
+            Process process = new Process { StartInfo = psi };
+            process.ErrorDataReceived += (sender, args) =>
             {
-                if (DateTime.Now > timeoutLimit)
+                if (string.IsNullOrEmpty(args.Data)) return;
+                UnityEngine.Debug.Log("Error Output: " + args.Data);
+                if (args.Data.Contains("some tracks") || args.Data.Contains("Your application has"))
                 {
-                    try
-                    {
-                        process.Kill();
-                        process.WaitForExit(5000); // Wait up to 5 seconds for process to fully terminate
-                        UnityEngine.Debug.LogWarning($"Lyrics process (Main) timed out HARD after {timeoutSeconds}s.");
-                        lyricsError2 = true;
-                    }
-                    catch (Exception e) { UnityEngine.Debug.LogError($"Error killing timed-out process: {e.Message}"); }
-                    break;
+                    lyricsError2 = true; // Set flag to try fallback
                 }
-                Thread.Sleep(500); // Check every 0.5s
-            }
-        });
+            };
+            process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
 
-        // Ensure process is fully disposed
-        try
-        {
-            if (!process.HasExited)
+            // Wait for process completion or cancellation with timeout
+            int timeoutSeconds = 7;
+            if (SettingsManager.Instance != null)
             {
-                process.Kill();
-                process.WaitForExit(5000);
+                if (!int.TryParse(SettingsManager.Instance.GetSetting<string>("SyricsTimeout", "7"), out timeoutSeconds)) UnityEngine.Debug.LogError("Error parsing SyricsTimeout");
             }
-            process.Dispose();
-        }
-        catch (Exception e) { UnityEngine.Debug.LogWarning($"Error disposing lyrics process: {e.Message}"); }
+            UnityEngine.Debug.Log($"Lyrics Process Limit (Main): {timeoutSeconds} seconds.");
+            var timeoutLimit = DateTime.Now.AddSeconds(timeoutSeconds);
 
-        UnityEngine.Debug.Log("Lyrics script finished.");
-
-        // Check if a lyrics file was actually created recently
-        string downloadsCheckPath = Path.Combine(dataPath, "downloads");
-        bool recentLyricsFound = false;
-        if (Directory.Exists(downloadsCheckPath))
-        {
-            var directoryInfo = new DirectoryInfo(downloadsCheckPath);
-            var recentFiles = directoryInfo.GetFiles("*.*")
-                                           .Where(f => (f.Extension == ".lrc" || f.Extension == ".txt") &&
-                                                       (DateTime.Now - f.CreationTime).TotalSeconds < 20)
-                                           .ToArray();
-            if (recentFiles.Length > 0)
+            await Task.Run(() =>
             {
-                recentLyricsFound = true;
-            }
-        }
+                while (!process.HasExited)
+                {
+                    if (DateTime.Now > timeoutLimit)
+                    {
+                        try
+                        {
+                            process.Kill();
+                            process.WaitForExit(5000); // Wait up to 5 seconds for process to fully terminate
+                            UnityEngine.Debug.LogWarning($"Lyrics process (Main) timed out HARD after {timeoutSeconds}s.");
+                            lyricsError2 = true;
+                        }
+                        catch (Exception e) { UnityEngine.Debug.LogError($"Error killing timed-out process: {e.Message}"); }
+                        break;
+                    }
+                    Thread.Sleep(500); // Check every 0.5s
+                }
+            });
 
-        if (!recentLyricsFound && !lyricsError2)
+            // Ensure process is fully disposed
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill();
+                    process.WaitForExit(5000);
+                }
+                process.Dispose();
+            }
+            catch (Exception e) { UnityEngine.Debug.LogWarning($"Error disposing lyrics process: {e.Message}"); }
+
+            UnityEngine.Debug.Log("Lyrics script finished.");
+
+            // Check if a lyrics file was actually created recently
+            string downloadsCheckPath = Path.Combine(dataPath, "downloads");
+            bool recentLyricsFound = false;
+            if (Directory.Exists(downloadsCheckPath))
+            {
+                var directoryInfo = new DirectoryInfo(downloadsCheckPath);
+                var recentFiles = directoryInfo.GetFiles("*.*")
+                                               .Where(f => (f.Extension == ".lrc" || f.Extension == ".txt") &&
+                                                           (DateTime.Now - f.CreationTime).TotalSeconds < 20)
+                                               .ToArray();
+                if (recentFiles.Length > 0)
+                {
+                    recentLyricsFound = true;
+                }
+            }
+
+            if (!recentLyricsFound && !lyricsError2)
+            {
+                UnityEngine.Debug.LogWarning("Syrics finished but no new lyrics file found. Forcing fallback.");
+                lyricsError2 = true;
+            }
+            // --- END SYRICS LOGIC ---
+        }
+        else
         {
-            UnityEngine.Debug.LogWarning("Syrics finished but no new lyrics file found. Forcing fallback.");
-            lyricsError2 = true;
+            // LRCLib only mode - skip Syrics entirely
+            UnityEngine.Debug.Log("LyricsSource set to LRCLib only. Skipping Syrics.");
+            lyricsError2 = true; // Force LRCLib path
         }
 
         // --- FALLBACK LOGIC ---
@@ -1149,34 +1145,52 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
         else
         {
-            fakeLoading = true;
-            bool success = await AttemptDownload(url);
-            fakeLoading = false;
-
-            var downloadedMp3 = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
-
-            DateTime creationTime = File.GetCreationTime(downloadedMp3);
-            if (!((DateTime.Now - creationTime).TotalSeconds < 50))
-            {
-                success = false;
-            }
-
-            if (File.Exists(expectedAudioPath)) File.Delete(expectedAudioPath);
+            // Use YoutubeExplode-based downloader instead of spotdl
             try
             {
-                File.Move(downloadedMp3, expectedAudioPath);
+                // Get duration and album from selectedTrack for better matching
+                TimeSpan spotifyDuration = TimeSpan.Zero;
+                string albumName = null;
+
+                if (selectedTrack != null)
+                {
+                    spotifyDuration = TimeSpan.FromMilliseconds(selectedTrack.duration_ms);
+                    albumName = selectedTrack.album?.name;
+                }
+                else if (lastPrecompiledTrack != null)
+                {
+                    spotifyDuration = TimeSpan.FromMilliseconds(lastPrecompiledTrack.duration_ms);
+                    albumName = lastPrecompiledTrack.album?.name;
+                }
+
+                // Subscribe to progress events
+                Action<double> progressHandler = null;
+                progressHandler = (progress) =>
+                {
+                    // Update currentPercentage (0.0 to 1.0 from downloader)
+                    currentPercentage = (float)progress;
+
+                    // Update stage 2 progress bar
+                    progress2.GetComponent<Slider>().value = (float)progress;
+                };
+
+                SpotifyToYoutubeDownloader.OnProgress += progressHandler;
+
+                try
+                {
+                    await SpotifyToYoutubeDownloader.DownloadClosestMatch(artist, name, spotifyDuration, expectedAudioPath, albumName);
+                }
+                finally
+                {
+                    // Always unsubscribe to prevent memory leaks
+                    SpotifyToYoutubeDownloader.OnProgress -= progressHandler;
+                }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"Failed to move downloaded file '{downloadedMp3}' to '{expectedAudioPath}': {ex.Message}");
-                success = false;
-            }
-
-            UnityEngine.Debug.Log($"Moved downloaded file to: {expectedAudioPath}");
-
-            if (!success)
-            {
-                alertManager.ShowError("An error occured downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
+                if (BGMusic.Instance != null) BGMusic.Instance.StopPreview();
+                UnityEngine.Debug.LogError($"YouTube download failed: {ex.Message}");
+                alertManager.ShowError("An error occurred downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
                 LoadingDone();
                 loadingFX.SetActive(false);
                 mainPanel.SetActive(true);
@@ -1302,117 +1316,131 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
         compiling = true;
 
-        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
-        string scriptName = isLinux ? "getlyrics.sh" : "getlyrics.bat";
+        // Check LyricsSource setting: 0 = Syrics (with LRCLib fallback), 1 = LRCLib only
+        int lyricsSource = SettingsManager.Instance?.GetSetting<int>("LyricsSource") ?? 0;
 
-        ProcessStartInfo psi = new ProcessStartInfo
+        if (lyricsSource == 0)
         {
-            FileName = Path.Combine(dataPath, scriptName),
-            Arguments = url + " " + dataPath,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
+            // --- SYRICS LOGIC ---
+            bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+            string scriptName = isLinux ? "getlyrics.sh" : "getlyrics.bat";
 
-        Process process = new Process { StartInfo = psi };
-        process.OutputDataReceived += (sender, args) =>
-        {
-            if (string.IsNullOrEmpty(args.Data)) return;
-            UnityEngine.Debug.Log("Output: " + args.Data);
-            if (args.Data.Contains("some tracks") || args.Data.Contains("Your application has"))
+            ProcessStartInfo psi = new ProcessStartInfo
             {
-                lyricsError2 = true; // Set flag to try fallback
-            }
-        };
-        process.ErrorDataReceived += (sender, args) =>
-        {
-            if (string.IsNullOrEmpty(args.Data)) return;
-            UnityEngine.Debug.Log("Error Output: " + args.Data);
-            if (args.Data.Contains("some tracks") || args.Data.Contains("Your application has"))
-            {
-                lyricsError2 = true; // Set flag to try fallback
-            }
-        };
-        process.Start();
-        currentBGProcess = process;
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
+                FileName = Path.Combine(dataPath, scriptName),
+                Arguments = url + " " + dataPath,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
 
-        // Wait for process completion or cancellation with timeout
-        int timeoutSeconds = 7;
-        if (SettingsManager.Instance != null)
-        {
-            if (!int.TryParse(SettingsManager.Instance.GetSetting<string>("SyricsTimeout", "7"), out timeoutSeconds)) UnityEngine.Debug.LogError("Error parsing SyricsTimeout");
-        }
-        UnityEngine.Debug.Log($"Lyrics Process Limit: {timeoutSeconds} seconds.");
-        var timeoutLimit = DateTime.Now.AddSeconds(timeoutSeconds);
-
-        await Task.Run(() =>
-        {
-            while (!process.HasExited)
+            Process process = new Process { StartInfo = psi };
+            process.OutputDataReceived += (sender, args) =>
             {
-                if (cancellationToken.IsCancellationRequested)
+                if (string.IsNullOrEmpty(args.Data)) return;
+                UnityEngine.Debug.Log("Output: " + args.Data);
+                if (args.Data.Contains("some tracks") || args.Data.Contains("Your application has"))
                 {
-                    try
-                    {
-                        process.Kill();
-                        process.WaitForExit(5000);
-                    }
-                    catch { }
-                    break;
+                    lyricsError2 = true; // Set flag to try fallback
                 }
-
-                if (DateTime.Now > timeoutLimit)
+            };
+            process.ErrorDataReceived += (sender, args) =>
+            {
+                if (string.IsNullOrEmpty(args.Data)) return;
+                UnityEngine.Debug.Log("Error Output: " + args.Data);
+                if (args.Data.Contains("some tracks") || args.Data.Contains("Your application has"))
                 {
-                    try
-                    {
-                        process.Kill();
-                        process.WaitForExit(5000); // Wait up to 5 seconds for process to fully terminate
-                        UnityEngine.Debug.LogWarning($"Lyrics process timed out HARD after {timeoutSeconds}s.");
-                        lyricsError2 = true;
-                    }
-                    catch (Exception e) { UnityEngine.Debug.LogError($"Error killing timed-out process: {e.Message}"); }
-                    break;
+                    lyricsError2 = true; // Set flag to try fallback
                 }
-                Thread.Sleep(500); // Check every 0.5s
-            }
-        }, cancellationToken);
+            };
+            process.Start();
+            currentBGProcess = process;
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
 
-        // Ensure process is fully disposed
-        try
-        {
-            if (!process.HasExited)
+            // Wait for process completion or cancellation with timeout
+            int timeoutSeconds = 7;
+            if (SettingsManager.Instance != null)
             {
-                process.Kill();
-                process.WaitForExit(5000);
+                if (!int.TryParse(SettingsManager.Instance.GetSetting<string>("SyricsTimeout", "7"), out timeoutSeconds)) UnityEngine.Debug.LogError("Error parsing SyricsTimeout");
             }
-            process.Dispose();
-        }
-        catch (Exception e) { UnityEngine.Debug.LogWarning($"Error disposing lyrics process: {e.Message}"); }
+            UnityEngine.Debug.Log($"Lyrics Process Limit: {timeoutSeconds} seconds.");
+            var timeoutLimit = DateTime.Now.AddSeconds(timeoutSeconds);
 
-        UnityEngine.Debug.Log("Lyrics script finished.");
-
-        // Check if a lyrics file was actually created recently
-        string downloadsCheckPath = Path.Combine(dataPath, "downloads");
-        bool recentLyricsFound = false;
-        if (Directory.Exists(downloadsCheckPath))
-        {
-            var directoryInfo = new DirectoryInfo(downloadsCheckPath);
-            var recentFiles = directoryInfo.GetFiles("*.*")
-                                           .Where(f => (f.Extension == ".lrc" || f.Extension == ".txt") &&
-                                                       (DateTime.Now - f.CreationTime).TotalSeconds < 20)
-                                           .ToArray();
-            if (recentFiles.Length > 0)
+            await Task.Run(() =>
             {
-                recentLyricsFound = true;
-            }
-        }
+                while (!process.HasExited)
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        try
+                        {
+                            process.Kill();
+                            process.WaitForExit(5000);
+                        }
+                        catch { }
+                        break;
+                    }
 
-        if (!recentLyricsFound && !lyricsError2)
+                    if (DateTime.Now > timeoutLimit)
+                    {
+                        try
+                        {
+                            process.Kill();
+                            process.WaitForExit(5000); // Wait up to 5 seconds for process to fully terminate
+                            UnityEngine.Debug.LogWarning($"Lyrics process timed out HARD after {timeoutSeconds}s.");
+                            lyricsError2 = true;
+                        }
+                        catch (Exception e) { UnityEngine.Debug.LogError($"Error killing timed-out process: {e.Message}"); }
+                        break;
+                    }
+                    Thread.Sleep(500); // Check every 0.5s
+                }
+            }, cancellationToken);
+
+            // Ensure process is fully disposed
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill();
+                    process.WaitForExit(5000);
+                }
+                process.Dispose();
+            }
+            catch (Exception e) { UnityEngine.Debug.LogWarning($"Error disposing lyrics process: {e.Message}"); }
+
+            UnityEngine.Debug.Log("Lyrics script finished.");
+
+            // Check if a lyrics file was actually created recently
+            string downloadsCheckPath = Path.Combine(dataPath, "downloads");
+            bool recentLyricsFound = false;
+            if (Directory.Exists(downloadsCheckPath))
+            {
+                var directoryInfo = new DirectoryInfo(downloadsCheckPath);
+                var recentFiles = directoryInfo.GetFiles("*.*")
+                                               .Where(f => (f.Extension == ".lrc" || f.Extension == ".txt") &&
+                                                           (DateTime.Now - f.CreationTime).TotalSeconds < 20)
+                                               .ToArray();
+                if (recentFiles.Length > 0)
+                {
+                    recentLyricsFound = true;
+                }
+            }
+
+            if (!recentLyricsFound && !lyricsError2)
+            {
+                UnityEngine.Debug.LogWarning("Syrics finished but no new lyrics file found. Forcing fallback.");
+                lyricsError2 = true;
+            }
+            // --- END SYRICS LOGIC ---
+        }
+        else
         {
-            UnityEngine.Debug.LogWarning("Syrics finished but no new lyrics file found. Forcing fallback.");
-            lyricsError2 = true;
+            // LRCLib only mode - skip Syrics entirely
+            UnityEngine.Debug.Log("LyricsSource set to LRCLib only. Skipping Syrics.");
+            lyricsError2 = true; // Force LRCLib path
         }
 
         // Check for cancellation after lyrics fetch
@@ -1473,42 +1501,31 @@ public class LevelResourcesCompiler : MonoBehaviour
             {
                 UnityEngine.Debug.Log("Audio file already exists. Skipping download.");
                 success = true;
-                //PlayerPrefs.SetString("fullLocation", expectedAudioPath);
-                //PlayerPrefs.SetString("vocalLocation", Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedAudioPath) + " [vocals].mp3"));
             }
             else
             {
-                success = await AttemptDownload(url);
-
-                var downloadedMp3 = Directory.GetFiles(dataPath, "*.mp3").OrderByDescending(File.GetCreationTime).FirstOrDefault();
-
-                if (downloadedMp3 != null)
+                try
                 {
-                    DateTime creationTime = File.GetCreationTime(downloadedMp3);
-                    if (!((DateTime.Now - creationTime).TotalSeconds < 50))
+                    // Get duration and album from lastPrecompiledTrack for better matching
+                    TimeSpan spotifyDuration = TimeSpan.Zero;
+                    string albumName = null;
+
+                    if (lastPrecompiledTrack != null)
                     {
-                        success = false;
+                        spotifyDuration = TimeSpan.FromMilliseconds(lastPrecompiledTrack.duration_ms);
+                        albumName = lastPrecompiledTrack.album?.name;
                     }
 
-                    if (File.Exists(expectedAudioPath)) File.Delete(expectedAudioPath);
-                    try
-                    {
-                        File.Move(downloadedMp3, expectedAudioPath);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.LogError($"Failed to move downloaded file '{downloadedMp3}' to '{expectedAudioPath}': {ex.Message}");
-                        success = false;
-                    }
-
-                    UnityEngine.Debug.Log($"Moved downloaded file to: {expectedAudioPath}");
+                    await SpotifyToYoutubeDownloader.DownloadClosestMatch(artist, name, spotifyDuration, expectedAudioPath, albumName);
+                    success = true;
                 }
-                else
+                catch (Exception ex)
                 {
+                    UnityEngine.Debug.LogError($"YouTube download failed: {ex.Message}");
                     success = false;
                 }
             }
-            await Task.Delay(1500, cancellationToken);
+            if (!success) await Task.Delay(1500, cancellationToken);
         }
 
         if (WebServerManager.Instance != null)
@@ -2093,60 +2110,6 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
     }
 
-    public async Task<bool> AttemptDownload(string url)
-    {
-        bool fail = false;
-        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
-        string scriptName = isLinux ? "downloadsong.sh" : "downloadsong.bat";
-        ProcessStartInfo psi = new ProcessStartInfo
-        {
-            FileName = Path.Combine(dataPath, scriptName),
-            Arguments = url + " " + dataPath,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        Process process = new Process { StartInfo = psi };
-        currentBGProcess = process;
-
-        process.OutputDataReceived += (sender, args) =>
-        {
-            if (string.IsNullOrEmpty(args.Data)) return;
-            UnityEngine.Debug.Log("Output: " + args.Data);
-            if (args.Data.Contains("duplicate")) dontSave = true;
-            if (args.Data.Contains("KeyError:"))
-            {
-                fail = true;
-                if (!process.HasExited) process.Kill();
-            }
-        };
-
-        process.ErrorDataReceived += (sender, args) =>
-        {
-            if (string.IsNullOrEmpty(args.Data)) return;
-            UnityEngine.Debug.LogError("Error: " + args.Data);
-            // if (args.Data.Contains("Traceback"))
-            //{
-            //fail = true;
-            //if (!process.HasExited) process.Kill();
-            //}
-            if (args.Data.Contains("KeyError:"))
-            {
-                fail = true;
-                if (!process.HasExited) process.Kill();
-            }
-        };
-
-
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
-        await Task.Run(() => process.WaitForExit());
-        return !fail;
-    }
 
     public void LoadMain()
     {

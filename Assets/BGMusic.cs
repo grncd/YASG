@@ -328,18 +328,25 @@ public class BGMusic : MonoBehaviour
         // Loop with fade
         while (true)
         {
-            float timeToWait = previewAudioSource.clip.length - 1f;
-            if (timeToWait > 0)
+            float clipLength = previewAudioSource.clip.length;
+            float fadeDuration = 1.0f; // 1 second fade
+            // Wait until fadeDuration before the end, so the fade-out finishes right as the clip would end
+            float playDuration = clipLength - (fadeDuration * 2f);
+
+            if (playDuration > 0)
             {
-                yield return new WaitForSeconds(timeToWait);
+                yield return new WaitForSeconds(playDuration);
             }
 
-            yield return StartCoroutine(FadeAudio(previewAudioSource, 0.5f, 0f));
+            // Fade out (audio keeps playing during fade, so we finish before clip ends)
+            yield return StartCoroutine(FadeAudio(previewAudioSource, fadeDuration, 0f));
 
+            // Restart smoothly
             previewAudioSource.time = 0f;
             previewAudioSource.Play();
 
-            yield return StartCoroutine(FadeAudio(previewAudioSource, 0.5f, 0.26f));
+            // Fade back in
+            yield return StartCoroutine(FadeAudio(previewAudioSource, fadeDuration, 0.26f));
         }
     }
 
