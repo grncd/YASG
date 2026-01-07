@@ -17,41 +17,50 @@ jobs:
       - name: Download Latest YASG Release
         shell: powershell
         env:
-          # This token is automatically provided by GitHub Actions
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
         run: |
           Write-Host "Fetching latest release from grncd/YASGsetuputilities..."
-          
-          # Downloads 'YASG_Windows.zip' from the latest release of the specified repo
           gh release download --repo grncd/YASGsetuputilities --pattern "YASG_Windows.zip" --dir "downloads"
-          
           Write-Host "Download complete."
 
       - name: Extract Game
         shell: powershell
         run: |
-          # Extracts the zip to a folder named 'game_dist'
           Expand-Archive -Path "downloads\YASG_Windows.zip" -DestinationPath "game_dist"
-          
           Write-Host "Contents of game folder:"
           Get-ChildItem -Path "game_dist"
           
-      - name: Run YASG.exe and Wait
+      - name: Run YASG.exe (Setup & Restart)
         shell: powershell
         run: |
-          # Note: Adjust path if the zip contains a subfolder (e.g., game_dist/Build/YASG.exe)
-          # For now, we assume YASG.exe is at the root of the zip.
           cd game_dist
           
-          Write-Host "Starting YASG.exe in batchmode..."
+          # --- Run 1: Setup Phase ---
+          Write-Host "🚀 Launching YASG.exe [Run 1/2: Setup Phase]..."
           
           try {
-            # -batchmode -nographics: Run without window/GPU (prevents crashes on VM)
-            # -Wait: Pauses workflow until the game closes itself
+            # Run the game and wait for it to close itself
             Start-Process -FilePath ".\YASG.exe" -ArgumentList "-batchmode", "-nographics" -Wait -NoNewWindow -ErrorAction Stop
+            Write-Host "✅ Setup phase complete. Process exited."
           }
           catch {
-            Write-Warning "Process exited. Checking for results..."
+            Write-Warning "Run 1 exited unexpectedly or threw an error. Attempting to proceed..."
+          }
+
+          # Wait 5 seconds to ensure file handles are released before restarting
+          Write-Host "Waiting 5 seconds for cleanup..."
+          Start-Sleep -Seconds 5
+
+          # --- Run 2: Verification Phase ---
+          Write-Host "🚀 Launching YASG.exe [Run 2/2: Verification Phase]..."
+          
+          try {
+            # Run the game again. This time it should perform the tests and create success.txt
+            Start-Process -FilePath ".\YASG.exe" -ArgumentList "-batchmode", "-nographics" -Wait -NoNewWindow -ErrorAction Stop
+            Write-Host "✅ Second run complete."
+          }
+          catch {
+             Write-Warning "Run 2 exited unexpectedly."
           }
 
       - name: Verify Success
