@@ -185,6 +185,8 @@ public class SettingsManager : MonoBehaviour
 
             { "SyricsTimeout", new Setting { Value = "7", Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.TextInput, FormalName = "Lyrics Search Timeout", Description = "Time in seconds to wait for the lyrics search script (syrics) to finish before falling back to LRCLib. Default is 7s." } },
 
+            { "LyricsSource", new Setting { Value = 0, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Lyrics Source", Description = "Choose where to fetch lyrics from. Syrics will fall back to LRCLib if it fails.", DropdownOptions = new List<string> { "Syrics", "LRCLib" } } },
+
             // Misc
             // DONE
             { "MenuMusic", new Setting { Value = 2, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Music", Description = "Defines the song that will be played in the menu.", DropdownOptions = new List<string> { "None","Default","Random selection from downloaded songs" } } },
