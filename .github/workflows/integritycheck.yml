@@ -13,21 +13,13 @@ jobs:
       contents: read
 
     steps:
-      - name: Download Latest YASG Release
-        shell: powershell
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
-        run: |
-          Write-Host "Fetching latest release from grncd/YASGsetuputilities..."
-          gh release download --repo grncd/YASGsetuputilities --pattern "YASG_Windows.zip" --dir "downloads --clobber"
-          Write-Host "Download complete."
-
-      - name: Extract Game
+      - name: Clean Workspace
         shell: powershell
         run: |
-          Expand-Archive -Path "downloads\YASG_Windows.zip" -DestinationPath "game_dist"
-          Write-Host "Contents of game folder:"
-          Get-ChildItem -Path "game_dist"
+          Write-Host "Cleaning workspace: $env:GITHUB_WORKSPACE"
+          # Deletes all files and folders inside the work directory without deleting the directory itself
+          Get-ChildItem -Path "$env:GITHUB_WORKSPACE" -Recurse | Remove-Item -Recurse -Force
+          Write-Host "✅ Workspace cleaned."
 
       - name: Clean Registry
         shell: powershell
@@ -40,6 +32,22 @@ jobs:
           } else {
               Write-Host "Registry key not found. Nothing to delete."
           }
+
+      - name: Download Latest YASG Release
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+        run: |
+          Write-Host "Fetching latest release from grncd/YASGsetuputilities..."
+          gh release download --repo grncd/YASGsetuputilities --pattern "YASG_Windows.zip" --dir "downloads"
+          Write-Host "Download complete."
+
+      - name: Extract Game
+        shell: powershell
+        run: |
+          Expand-Archive -Path "downloads\YASG_Windows.zip" -DestinationPath "game_dist"
+          Write-Host "Contents of game folder:"
+          Get-ChildItem -Path "game_dist"
           
       - name: Run YASG.exe (Setup & Restart)
         shell: powershell
