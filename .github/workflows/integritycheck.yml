@@ -7,7 +7,7 @@ on:
 
 jobs:
   run-yasg:
-    runs-on: windows-latest
+    runs-on: self-hosted
     
     # Permission needed to use the GitHub CLI (gh)
     permissions:
