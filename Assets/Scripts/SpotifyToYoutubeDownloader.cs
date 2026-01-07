@@ -41,82 +41,64 @@ public static class SpotifyToYoutubeDownloader
             Debug.Log($"[SpotifyToYoutube] Found option: '{result.Title}' ({result.Duration}) - URL: {result.Url}");
         }
 
-        // 2. Find the best match (20% -> 40%)
-        // Primary: duration match. Secondary (tie-breaker): album name in description
+        // 2. Find and download the best available match (20% -> 50%)
+        // Sort candidates by duration match, then try them in order, skipping unavailable videos
         var candidates = searchResults
             .OrderBy(v => Math.Abs((v.Duration ?? TimeSpan.Zero).TotalSeconds - spotifyDuration.TotalSeconds))
             .ToList();
 
-        YoutubeExplode.Videos.Video bestMatch = null;
-        var bestDurationDiff = double.MaxValue;
+        StreamManifest streamManifest = null;
+        IStreamInfo audioStreamInfo = null;
+        YoutubeExplode.Videos.Video successfulMatch = null;
+        Exception lastException = null;
+        int attemptCount = 0;
+        int maxAttempts = Math.Min(candidates.Count, 7); // Try up to 7 candidates
 
-        // Get the best duration match first
-        var topCandidate = candidates.First();
-        var topDurationDiff = Math.Abs((topCandidate.Duration ?? TimeSpan.Zero).TotalSeconds - spotifyDuration.TotalSeconds);
-
-        // If album name is provided, check if any candidates with similar duration have the album in description
-        if (!string.IsNullOrWhiteSpace(albumName))
+        foreach (var candidate in candidates.Take(maxAttempts))
         {
-            Debug.Log($"[SpotifyToYoutube] Looking for album '{albumName}' in candidates with similar duration...");
+            attemptCount++;
+            OnProgress?.Invoke(0.2 + (0.3 * attemptCount / maxAttempts)); // 20% -> 50%
 
-            // Only check candidates within 5 seconds of the best duration match
-            var similarDurationCandidates = candidates
-                .Where(v => Math.Abs((v.Duration ?? TimeSpan.Zero).TotalSeconds - spotifyDuration.TotalSeconds) <= topDurationDiff + 5)
-                .ToList();
-
-            int checkedCount = 0;
-            foreach (var candidate in similarDurationCandidates)
+            try
             {
+                Debug.Log($"[SpotifyToYoutube] Attempt {attemptCount}/{maxAttempts}: Trying '{candidate.Title}' ({candidate.Id})");
+
+                // Try to get video details (this can fail for unavailable videos)
                 var video = await youtube.Videos.GetAsync(candidate.Id);
-                var durationDiff = Math.Abs((video.Duration ?? TimeSpan.Zero).TotalSeconds - spotifyDuration.TotalSeconds);
-                var hasAlbum = video.Description.Contains(albumName, StringComparison.OrdinalIgnoreCase);
 
-                Debug.Log($"[SpotifyToYoutube] '{candidate.Title}' - Duration diff: {durationDiff:F1}s, Has album: {hasAlbum}");
-
-                // Report progress during matching (20% -> 40%)
-                checkedCount++;
-                OnProgress?.Invoke(0.2 + (0.2 * checkedCount / similarDurationCandidates.Count));
-
-                // Prefer this if: it has a better duration, OR same duration but has album match
-                if (bestMatch == null ||
-                    durationDiff < bestDurationDiff ||
-                    (Math.Abs(durationDiff - bestDurationDiff) < 1 && hasAlbum))
+                // Check album match if album name provided
+                if (!string.IsNullOrWhiteSpace(albumName))
                 {
-                    if (hasAlbum || bestMatch == null)
-                    {
-                        bestMatch = video;
-                        bestDurationDiff = durationDiff;
-                        if (hasAlbum) break; // Found album match with good duration, stop
-                    }
+                    var hasAlbum = video.Description.Contains(albumName, StringComparison.OrdinalIgnoreCase);
+                    var durationDiff = Math.Abs((video.Duration ?? TimeSpan.Zero).TotalSeconds - spotifyDuration.TotalSeconds);
+                    Debug.Log($"[SpotifyToYoutube] '{candidate.Title}' - Duration diff: {durationDiff:F1}s, Has album: {hasAlbum}");
                 }
+
+                // Try to get stream manifest (this can also fail)
+                streamManifest = await youtube.Videos.Streams.GetManifestAsync(candidate.Id);
+                audioStreamInfo = streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
+
+                if (audioStreamInfo != null)
+                {
+                    successfulMatch = video;
+                    Debug.Log($"[SpotifyToYoutube] Success! Using: '{video.Title}' ({video.Duration})");
+                    break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[SpotifyToYoutube] Video '{candidate.Id}' unavailable: {ex.Message}");
+                lastException = ex;
+                continue; // Try next candidate
             }
         }
 
-        // If no match found yet (no album provided or no album match), use best duration match
-        if (bestMatch == null)
-        {
-            bestMatch = await youtube.Videos.GetAsync(topCandidate.Id);
-        }
-
-        OnProgress?.Invoke(0.4);
-
-        if (bestMatch == null)
-        {
-            throw new Exception("Could not find a suitable match.");
-        }
-
-        Debug.Log($"[SpotifyToYoutube] Best match found: '{bestMatch.Title}' ({bestMatch.Duration}) - URL: {bestMatch.Url}");
-
-        // 3. Get stream manifest (40% -> 50%)
-        var streamManifest = await youtube.Videos.Streams.GetManifestAsync(bestMatch.Id);
         OnProgress?.Invoke(0.5);
 
-        // 4. Select best audio stream (highest bitrate)
-        var audioStreamInfo = streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
-
-        if (audioStreamInfo == null)
+        // Check if we found a valid stream
+        if (audioStreamInfo == null || successfulMatch == null)
         {
-            throw new Exception("No audio stream found.");
+            throw new Exception($"No available video found after trying {attemptCount} candidates. Last error: {lastException?.Message}");
         }
 
         // 5. Download with progress (50% -> 90%)

@@ -152,7 +152,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         // Wait a frame for everything to initialize
         yield return new WaitForSeconds(1f);
 
-        Debug.Log("[T Mode] Triggering StartCompile with test song...");
+        Debug.Log("[T Mode] Starting automated test sequence...");
 
         // Create a mock Track object so LRCLib fallback works
         selectedTrack = new SearchHandler.Track
@@ -162,18 +162,213 @@ public class LevelResourcesCompiler : MonoBehaviour
             duration_ms = 51000,
             album = new SearchHandler.Album
             {
+                name = "DELTARUNE Chapter 1 OST",
                 images = new List<SearchHandler.Image> { new SearchHandler.Image { url = "https://i.scdn.co/image/ab67616d0000b2732f2eeee9b405f4d00428d84c", width = 640, height = 640 } }
             }
         };
 
-        // Call StartCompile with the test parameters
-        _ = StartCompile(
-            "https://open.spotify.com/track/7y6NbGuLZuNW0lVaPnYx22",
-            "Don't Forget",
-            "Toby Fox",
-            "0:51",
-            "https://i.scdn.co/image/ab67616d0000b2732f2eeee9b405f4d00428d84c"
-        );
+        string testUrl = "https://open.spotify.com/track/7y6NbGuLZuNW0lVaPnYx22";
+        string testName = "Don't Forget";
+        string testArtist = "Toby Fox";
+        string testLength = "0:51";
+        string testCover = "https://i.scdn.co/image/ab67616d0000b2732f2eeee9b405f4d00428d84c";
+
+        // --- PHASE 1: Test with Demucs ---
+        Debug.Log("[T Mode] Phase 1: Setting VocalProcessingMethod to Demucs (1)...");
+        SettingsManager.Instance.SetSetting("VocalProcessingMethod", 1);
+
+        Debug.Log("[T Mode] Phase 1: Starting compile with Demucs...");
+        Task compileTask = TModeCompile(testUrl, testName, testArtist, testLength, testCover);
+        yield return new WaitUntil(() => compileTask.IsCompleted);
+
+        if (compileTask.IsFaulted)
+        {
+            Debug.LogError($"[T Mode] Phase 1 compile failed: {compileTask.Exception?.InnerException?.Message}");
+            TModeOutputFail("Phase 1 (Demucs) compile task failed: " + compileTask.Exception?.InnerException?.Message);
+            yield break;
+        }
+
+        Debug.Log("[T Mode] Phase 1: Compile complete. Checking files...");
+        bool phase1FilesOk = TModeCheckFiles(testArtist, testName);
+
+        if (!phase1FilesOk)
+        {
+            Debug.LogError("[T Mode] Phase 1 (Demucs) failed: Required files not found.");
+            TModeOutputFail("Phase 1 (Demucs) failed: Required files not found.");
+            yield break;
+        }
+
+        Debug.Log("[T Mode] Phase 1: All files present. Deleting files for Phase 2...");
+        TModeDeleteFiles(testArtist, testName);
+
+        // --- PHASE 2: Test with VocalRemover.org ---
+        Debug.Log("[T Mode] Phase 2: Setting VocalProcessingMethod to VocalRemover.org (0)...");
+        SettingsManager.Instance.SetSetting("VocalProcessingMethod", 0);
+
+        Debug.Log("[T Mode] Phase 2: Starting compile with VocalRemover.org...");
+        Task compileTask2 = TModeCompile(testUrl, testName, testArtist, testLength, testCover);
+        yield return new WaitUntil(() => compileTask2.IsCompleted);
+
+        if (compileTask2.IsFaulted)
+        {
+            Debug.LogError($"[T Mode] Phase 2 compile failed: {compileTask2.Exception?.InnerException?.Message}");
+            TModeOutputFail("Phase 2 (VocalRemover.org) compile task failed: " + compileTask2.Exception?.InnerException?.Message);
+            yield break;
+        }
+
+        Debug.Log("[T Mode] Phase 2: Compile complete. Checking files...");
+        bool phase2FilesOk = TModeCheckFiles(testArtist, testName);
+
+        if (!phase2FilesOk)
+        {
+            Debug.LogError("[T Mode] Phase 2 (VocalRemover.org) failed: Required files not found.");
+            TModeOutputFail("Phase 2 (VocalRemover.org) failed: Required files not found.");
+            yield break;
+        }
+
+        Debug.Log("[T Mode] All tests passed! Generating success.txt...");
+        TModeOutputSuccess();
+    }
+
+    /// <summary>
+    /// Simplified compile for T Mode testing. Does not load Main scene.
+    /// </summary>
+    private async Task TModeCompile(string url, string name, string artist, string length, string cover)
+    {
+        dataPath = PlayerPrefs.GetString("dataPath");
+        Debug.Log($"[T Mode] Compiling: {name} by {artist}");
+
+        string sanitizedName = SanitizeFileName(name);
+        string safeArtist = SanitizeFileName(artist);
+        string expectedFileName = $"{safeArtist} - {sanitizedName}.mp3";
+        string expectedAudioPath = Path.Combine(dataPath, "downloads", expectedFileName);
+
+        // Fetch lyrics using LRCLib directly for simplicity
+        Debug.Log("[T Mode] Fetching lyrics via LRCLib...");
+        bool lyricsSuccess = await FetchLyricsFromLrcLib(selectedTrack);
+        if (!lyricsSuccess)
+        {
+            throw new Exception("Failed to fetch lyrics from LRCLib.");
+        }
+
+        // Download song if not present
+        if (!File.Exists(expectedAudioPath))
+        {
+            Debug.Log("[T Mode] Downloading song...");
+            TimeSpan spotifyDuration = TimeSpan.FromMilliseconds(selectedTrack.duration_ms);
+            string albumName = selectedTrack.album?.name;
+            await SpotifyToYoutubeDownloader.DownloadClosestMatch(artist, name, spotifyDuration, expectedAudioPath, albumName);
+        }
+        else
+        {
+            Debug.Log("[T Mode] Audio file already exists. Skipping download.");
+        }
+
+        // Split vocals
+        Debug.Log("[T Mode] Splitting vocals...");
+        await RunPythonDirectly(expectedAudioPath);
+
+        Debug.Log("[T Mode] Compile complete.");
+    }
+
+    /// <summary>
+    /// Checks if all required files are present for T Mode testing.
+    /// </summary>
+    private bool TModeCheckFiles(string artist, string songName)
+    {
+        string sanitizedName = SanitizeFileName(songName);
+        string safeArtist = SanitizeFileName(artist);
+        string expectedFileName = $"{safeArtist} - {sanitizedName}";
+
+        // Expected files:
+        // 1. Audio file: downloads/{artist} - {name}.mp3
+        string audioPath = Path.Combine(dataPath, "downloads", expectedFileName + ".mp3");
+        // 2. Lyrics file: downloads/{name}.lrc or downloads/{name}.txt
+        string lyricsPathLrc = Path.Combine(dataPath, "downloads", sanitizedName + ".lrc");
+        string lyricsPathTxt = Path.Combine(dataPath, "downloads", sanitizedName + ".txt");
+        // 3. Vocal file: output/htdemucs/{artist} - {name} [vocals].mp3
+        string vocalPath = Path.Combine(dataPath, "output", "htdemucs", expectedFileName + " [vocals].mp3");
+        // 4. Instrumental file: output/htdemucs/{artist} - {name} [no_vocals].mp3
+        string instrumentalPath = Path.Combine(dataPath, "output", "htdemucs", expectedFileName + " [no_vocals].mp3");
+
+        Debug.Log($"[T Mode] Checking audio: {audioPath} - Exists: {File.Exists(audioPath)}");
+        Debug.Log($"[T Mode] Checking lyrics (lrc): {lyricsPathLrc} - Exists: {File.Exists(lyricsPathLrc)}");
+        Debug.Log($"[T Mode] Checking lyrics (txt): {lyricsPathTxt} - Exists: {File.Exists(lyricsPathTxt)}");
+        Debug.Log($"[T Mode] Checking vocals: {vocalPath} - Exists: {File.Exists(vocalPath)}");
+        Debug.Log($"[T Mode] Checking instrumental: {instrumentalPath} - Exists: {File.Exists(instrumentalPath)}");
+
+        bool audioExists = File.Exists(audioPath);
+        bool lyricsExists = File.Exists(lyricsPathLrc) || File.Exists(lyricsPathTxt);
+        bool vocalExists = File.Exists(vocalPath);
+        bool instrumentalExists = File.Exists(instrumentalPath);
+
+        return audioExists && lyricsExists && vocalExists && instrumentalExists;
+    }
+
+    /// <summary>
+    /// Deletes all generated files for a song (used between T Mode phases).
+    /// </summary>
+    private void TModeDeleteFiles(string artist, string songName)
+    {
+        string sanitizedName = SanitizeFileName(songName);
+        string safeArtist = SanitizeFileName(artist);
+        string expectedFileName = $"{safeArtist} - {sanitizedName}";
+
+        string audioPath = Path.Combine(dataPath, "downloads", expectedFileName + ".mp3");
+        string lyricsPathLrc = Path.Combine(dataPath, "downloads", sanitizedName + ".lrc");
+        string lyricsPathTxt = Path.Combine(dataPath, "downloads", sanitizedName + ".txt");
+        string vocalPath = Path.Combine(dataPath, "output", "htdemucs", expectedFileName + " [vocals].mp3");
+        string instrumentalPath = Path.Combine(dataPath, "output", "htdemucs", expectedFileName + " [no_vocals].mp3");
+
+        try { if (File.Exists(audioPath)) File.Delete(audioPath); Debug.Log($"[T Mode] Deleted: {audioPath}"); } catch (Exception e) { Debug.LogWarning($"[T Mode] Failed to delete {audioPath}: {e.Message}"); }
+        try { if (File.Exists(lyricsPathLrc)) File.Delete(lyricsPathLrc); Debug.Log($"[T Mode] Deleted: {lyricsPathLrc}"); } catch (Exception e) { Debug.LogWarning($"[T Mode] Failed to delete {lyricsPathLrc}: {e.Message}"); }
+        try { if (File.Exists(lyricsPathTxt)) File.Delete(lyricsPathTxt); Debug.Log($"[T Mode] Deleted: {lyricsPathTxt}"); } catch (Exception e) { Debug.LogWarning($"[T Mode] Failed to delete {lyricsPathTxt}: {e.Message}"); }
+        try { if (File.Exists(vocalPath)) File.Delete(vocalPath); Debug.Log($"[T Mode] Deleted: {vocalPath}"); } catch (Exception e) { Debug.LogWarning($"[T Mode] Failed to delete {vocalPath}: {e.Message}"); }
+        try { if (File.Exists(instrumentalPath)) File.Delete(instrumentalPath); Debug.Log($"[T Mode] Deleted: {instrumentalPath}"); } catch (Exception e) { Debug.LogWarning($"[T Mode] Failed to delete {instrumentalPath}: {e.Message}"); }
+    }
+
+    /// <summary>
+    /// Outputs success.txt and quits the application.
+    /// </summary>
+    private void TModeOutputSuccess()
+    {
+        string executableDir = Path.GetDirectoryName(Application.dataPath);
+        string successPath = Path.Combine(executableDir, "success.txt");
+        try
+        {
+            File.WriteAllText(successPath, $"T Mode test completed successfully at {DateTime.Now}");
+            Debug.Log($"[T Mode] SUCCESS! Written to: {successPath}");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[T Mode] Failed to write success.txt: {e.Message}");
+        }
+        Application.Quit();
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#endif
+    }
+
+    /// <summary>
+    /// Outputs fail.txt with reason and quits the application.
+    /// </summary>
+    private void TModeOutputFail(string reason)
+    {
+        string executableDir = Path.GetDirectoryName(Application.dataPath);
+        string failPath = Path.Combine(executableDir, "fail.txt");
+        try
+        {
+            File.WriteAllText(failPath, $"T Mode test failed at {DateTime.Now}\nReason: {reason}");
+            Debug.LogError($"[T Mode] FAILED! Reason: {reason}. Written to: {failPath}");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[T Mode] Failed to write fail.txt: {e.Message}");
+        }
+        Application.Quit();
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#endif
     }
 
 
@@ -1511,7 +1706,8 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         string url = $"https://lrclib.net/api/get?track_name={trackName}&artist_name={artistName}&album_name={albumName}&duration={duration}";
 
-        const int maxRetries = 10;
+        // In T Mode, use more retries to handle potential network instability
+        int maxRetries = Application.version.StartsWith("T") ? 200 : 10;
         int attempt = 0;
 
         while (attempt < maxRetries)
