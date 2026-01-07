@@ -138,24 +138,6 @@ public class LevelResourcesCompiler : MonoBehaviour
             GameObject.Find("QRCodeCanvas").GetComponent<CanvasGroup>().alpha = 1f;
             UpdatePartyModeUI();
         }
-        /*
-        mainQueue.Add(new QueueObject
-        {
-            players = new List<string> { "bingola games" },
-            playerDifficulties = new List<int> { 1 },
-            playerMicToggle = new List<bool> { true },
-            track = new BackgroundTrack
-            {
-                url = "https://open.spotify.com/track/5MLTylyzHVd7oV8OE4JMZt",
-                name = "Até Que Durou - Ao Vivo",
-                artist = "Péricles",
-                length = "5:13",
-                cover = "https://i.scdn.co/image/ab67616d0000b273c01abbbe975f17c84487e9f8"
-            }
-        });
-        // compileExecutionQueue.Add(mainQueue[0].track); // Moved to WebServerManager
-        ProcessFirstOnQueue();
-        */
 
         // T Mode: Automatically start compile for testing
         if (Application.version.StartsWith("T"))
@@ -1273,43 +1255,6 @@ public class LevelResourcesCompiler : MonoBehaviour
         // Check for cancellation before proceeding
         cancellationToken.ThrowIfCancellationRequested();
 
-        //PlayerPrefs.SetString("currentSong", name);
-        //PlayerPrefs.SetString("currentArtist", artist);
-        //startCompileButton.interactable = true; 
-        /*
-        if (CheckFile(sanitizedName + ".txt"))
-        {
-            status.text = "Already downloaded. Loading main scene...";
-            PlayerPrefs.SetInt("saved", 1);
-
-            string safeArtist = SanitizeFileName(artist);
-            string expectedFileName = $"{safeArtist} - {sanitizedName}.mp3";
-            string expectedFilePath = Path.Combine(dataPath, "downloads", expectedFileName);
-
-            if (File.Exists(expectedFilePath))
-            {
-                UnityEngine.Debug.Log("Found corresponding file: " + expectedFilePath);
-                string vocalLocation = Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedFilePath) + " [vocals].mp3");
-                PlayerPrefs.SetString("vocalLocation", vocalLocation);
-                if (SettingsManager.Instance.GetSetting<bool>("PlayInstrumental"))
-                {
-                    string instrumentalLocation = Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedFilePath) + " [no_vocals].mp3");
-                    PlayerPrefs.SetString("fullLocation", instrumentalLocation);
-                }
-                else
-                {
-                    PlayerPrefs.SetString("fullLocation", expectedFilePath);
-                }
-                if (PlayerPrefs.GetInt("multiplayer") == 0) LoadMain();
-                return;
-            }
-            else
-            {
-                UnityEngine.Debug.LogError($"Lyrics file found for '{name}', but the corresponding audio file '{expectedFileName}' is missing in the downloads folder. A re-download might be required. If the issue persists, delete the song's .txt file inside YASG's data folder.");
-                return;
-            }
-        }
-        */
         if (WebServerManager.Instance != null)
         {
             WebServerManager.Instance.SetCurrentStatus("Fetching lyrics...");
@@ -2259,11 +2204,6 @@ public class LevelResourcesCompiler : MonoBehaviour
 
             using (var process = new Process { StartInfo = psi })
             {
-                //process.OutputDataReceived += (sender, args) =>
-                //{
-                //if (!string.IsNullOrEmpty(args.Data))
-                //Debug.Log($"[UpChkr] {args.Data}");
-                //};
                 process.ErrorDataReceived += (sender, args) =>
                 {
                     if (!string.IsNullOrEmpty(args.Data) && !args.Data.Contains("pip"))
@@ -2363,10 +2303,6 @@ public class LevelResourcesCompiler : MonoBehaviour
 
             // 4. Delete Pitch Data (Silent delete, no alert)
             AudioClipPitchProcessor.DeletePitchData(vocalsPath);
-            //if (AudioClipPitchProcessor.Instance != null)
-            //{
-            //    AudioClipPitchProcessor.Instance.DeletePitchData(vocalsPath);
-            //}
 
             // 5. Remove from Downloads List
             FavoritesManager.RemoveDownloadByUrl(url);

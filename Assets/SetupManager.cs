@@ -58,13 +58,11 @@ public class SetupManager : MonoBehaviour
     public Button demucsNextButton;
 
 
-    // --- Private members for handling the process ---
     private Process activeProcess;
     private bool processIsRunning = false;
     private ActiveProcessType currentProcessType = ActiveProcessType.None;
     private enum ActiveProcessType { None, Login, Preinstall, FinalInstall }
 
-    // --- Main Thread Dispatcher ---
     // This queue holds Actions (methods) that are sent from background threads
     // and need to be executed safely on Unity's main thread.
     private readonly static Queue<Action> executionQueue = new Queue<Action>();
@@ -110,9 +108,6 @@ public class SetupManager : MonoBehaviour
             executionQueue.Enqueue(action);
         }
     }
-
-    // --- Public Methods for UI Buttons ---
-
     public void Quit()
     {
         OnApplicationQuit(); // Ensure process is killed
@@ -135,7 +130,6 @@ public class SetupManager : MonoBehaviour
             return;
         }
 
-        // Initial UI state
         if (statusTextPreinstall != null) statusTextPreinstall.text = "Starting...";
         if (preinstallProgress != null) preinstallProgress.value = 0;
 
@@ -178,7 +172,6 @@ public class SetupManager : MonoBehaviour
         string py3Url = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/updatechecker.py";
 
         string batPath = Path.Combine(setupUtilitiesPath, $"pyinstall{scriptExt}");
-        // Note: For Python scripts, the filename remains .py
         string pyPath = Path.Combine(setupUtilitiesPath, "spotifydc.py");
         string py2Path = Path.Combine(setupUtilitiesPath, "fullinstall.py");
         string py3Path = Path.Combine(setupUtilitiesPath, "updatechecker.py");
@@ -439,11 +432,9 @@ public class SetupManager : MonoBehaviour
             return;
         }
 
-        // Initial UI state
         if (statusTextLogin != null) statusTextLogin.text = "Starting...";
         if (loginProgress != null) loginProgress.value = 0;
 
-        // Reset credentials to ensure clean state
         apikey = "";
         clientID = "";
         spdc = "";
@@ -451,8 +442,6 @@ public class SetupManager : MonoBehaviour
         currentProcessType = ActiveProcessType.Login;
         StartCoroutine(RunProcessCoroutine());
     }
-
-    // --- Core Process Handling Coroutine ---
 
     private IEnumerator RunProcessCoroutine()
     {
@@ -464,7 +453,6 @@ public class SetupManager : MonoBehaviour
 
         string pythonExe = isLinux ? Path.Combine(dataPath, "venv", "bin", "python3") : Path.Combine(dataPath, "venv", "Scripts", "python.exe");
 
-        // Configure the process based on which button was pressed
         if (currentProcessType == ActiveProcessType.Preinstall)
         {
             string scriptName = isLinux ? "pyinstall.sh" : "pyinstall.bat";
@@ -514,7 +502,6 @@ public class SetupManager : MonoBehaviour
             }
         }
 
-        // Common process settings
         activeProcess.StartInfo.WorkingDirectory = dataPath;
         activeProcess.StartInfo.UseShellExecute = false;
         activeProcess.StartInfo.CreateNoWindow = true;
@@ -522,7 +509,6 @@ public class SetupManager : MonoBehaviour
         activeProcess.StartInfo.RedirectStandardError = true;
         activeProcess.EnableRaisingEvents = true;
 
-        // --- Event Handlers that use the Main Thread Dispatcher ---
         activeProcess.OutputDataReceived += (sender, args) =>
         {
             if (!string.IsNullOrEmpty(args.Data))
@@ -576,14 +562,10 @@ public class SetupManager : MonoBehaviour
             }
         }
 
-        // Queue a final action to handle completion status
-        //QueueForMainThread(() => HandleProcessCompletion(activeProcess.ExitCode));
 
         CleanUpProcess();
 
     }
-
-    // --- Parsers and Handlers (now executed by the main thread) ---
 
     private void ParseOutputLine(string line)
     {
@@ -869,7 +851,6 @@ public class SetupManager : MonoBehaviour
         if (manualLoginPage != null) manualLoginPage.gameObject.SetActive(true);
     }
 
-    // --- Cleanup ---
 
     private void CleanUpProcess()
     {
