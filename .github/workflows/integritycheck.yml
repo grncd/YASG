@@ -9,7 +9,6 @@ jobs:
   run-yasg:
     runs-on: self-hosted
     
-    # Permission needed to use the GitHub CLI (gh)
     permissions:
       contents: read
 
@@ -29,6 +28,18 @@ jobs:
           Expand-Archive -Path "downloads\YASG_Windows.zip" -DestinationPath "game_dist"
           Write-Host "Contents of game folder:"
           Get-ChildItem -Path "game_dist"
+
+      - name: Clean Registry
+        shell: powershell
+        run: |
+          $registryPath = "HKCU:\SOFTWARE\YASG\YASG"
+          if (Test-Path $registryPath) {
+              Write-Host "Found existing registry key at $registryPath. Deleting..."
+              Remove-Item -Path $registryPath -Recurse -Force
+              Write-Host "✅ Registry cleared."
+          } else {
+              Write-Host "Registry key not found. Nothing to delete."
+          }
           
       - name: Run YASG.exe (Setup & Restart)
         shell: powershell
@@ -39,7 +50,6 @@ jobs:
           Write-Host "🚀 Launching YASG.exe [Run 1/2: Setup Phase]..."
           
           try {
-            # Run the game and wait for it to close itself
             Start-Process -FilePath ".\YASG.exe" -ArgumentList "-batchmode", "-nographics" -Wait -NoNewWindow -ErrorAction Stop
             Write-Host "✅ Setup phase complete. Process exited."
           }
@@ -47,7 +57,6 @@ jobs:
             Write-Warning "Run 1 exited unexpectedly or threw an error. Attempting to proceed..."
           }
 
-          # Wait 5 seconds to ensure file handles are released before restarting
           Write-Host "Waiting 5 seconds for cleanup..."
           Start-Sleep -Seconds 5
 
@@ -55,7 +64,6 @@ jobs:
           Write-Host "🚀 Launching YASG.exe [Run 2/2: Verification Phase]..."
           
           try {
-            # Run the game again. This time it should perform the tests and create success.txt
             Start-Process -FilePath ".\YASG.exe" -ArgumentList "-batchmode", "-nographics" -Wait -NoNewWindow -ErrorAction Stop
             Write-Host "✅ Second run complete."
           }
