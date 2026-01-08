@@ -1,7 +1,13 @@
 fileFormatVersion: 2
-guid: 11b30d06f444f3249906b0839449f292
+guid: c71aa2ef2995748879460914b31918cc
 TextureImporter:
-  internalIDToNameTable: []
+  internalIDToNameTable:
+  - first:
+      213: -841543200156696236
+    second: notifications_1000dp_E3E3E3_FILL1_wght400_GRAD0_opsz48_0
+  - first:
+      213: -8784639014704328226
+    second: notifications_1000dp_E3E3E3_FILL1_wght400_GRAD0_opsz48_1
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -34,7 +40,7 @@ TextureImporter:
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
-    filterMode: 2
+    filterMode: 1
     aniso: 1
     mipBias: 0
     wrapU: 1
@@ -94,33 +100,7 @@ TextureImporter:
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
   - serializedVersion: 4
-    buildTarget: Server
-    maxTextureSize: 2048
-    resizeAlgorithm: 0
-    textureFormat: -1
-    textureCompression: 1
-    compressionQuality: 50
-    crunchedCompression: 0
-    allowsAlphaSplitting: 0
-    overridden: 0
-    ignorePlatformSupport: 0
-    androidETC2FallbackOverride: 0
-    forceMaximumCompressionQuality_BC6H_BC7: 0
-  - serializedVersion: 4
     buildTarget: Android
-    maxTextureSize: 2048
-    resizeAlgorithm: 0
-    textureFormat: -1
-    textureCompression: 1
-    compressionQuality: 50
-    crunchedCompression: 0
-    allowsAlphaSplitting: 0
-    overridden: 0
-    ignorePlatformSupport: 0
-    androidETC2FallbackOverride: 0
-    forceMaximumCompressionQuality_BC6H_BC7: 0
-  - serializedVersion: 4
-    buildTarget: WebGL
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
@@ -134,7 +114,51 @@ TextureImporter:
     forceMaximumCompressionQuality_BC6H_BC7: 0
   spriteSheet:
     serializedVersion: 2
-    sprites: []
+    sprites:
+    - serializedVersion: 2
+      name: notifications_1000dp_E3E3E3_FILL1_wght400_GRAD0_opsz48_0
+      rect:
+        serializedVersion: 2
+        x: 165
+        y: 207
+        width: 670
+        height: 711
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 451c38b0bec3254f0800000000000000
+      internalID: -841543200156696236
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: notifications_1000dp_E3E3E3_FILL1_wght400_GRAD0_opsz48_1
+      rect:
+        serializedVersion: 2
+        x: 415
+        y: 82
+        width: 170
+        height: 86
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: ed1d280fb51b61680800000000000000
+      internalID: -8784639014704328226
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
     outline: []
     customData: 
     physicsShape: []
@@ -148,7 +172,9 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      notifications_1000dp_E3E3E3_FILL1_wght400_GRAD0_opsz48_0: -841543200156696236
+      notifications_1000dp_E3E3E3_FILL1_wght400_GRAD0_opsz48_1: -8784639014704328226
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

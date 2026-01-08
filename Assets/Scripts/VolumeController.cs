@@ -138,6 +138,10 @@ public class VolumeController : MonoBehaviour
 
     private IEnumerator VolumeFeedbackRoutine()
     {
+        // Activate the game object before fading in
+        if (volumeFeedbackGroup != null)
+            volumeFeedbackGroup.gameObject.SetActive(true);
+
         // Fade in to alpha 1 over 0.25s
         yield return StartCoroutine(FadeCanvasGroup(volumeFeedbackGroup, volumeFeedbackGroup != null ? volumeFeedbackGroup.alpha : 0f, 1f, 0.25f));
 
@@ -152,6 +156,10 @@ public class VolumeController : MonoBehaviour
         isFadingOut = true;
         yield return StartCoroutine(FadeCanvasGroup(volumeFeedbackGroup, volumeFeedbackGroup != null ? volumeFeedbackGroup.alpha : 1f, 0f, 0.25f));
         isFadingOut = false;
+
+        // Deactivate the game object after fading out
+        if (volumeFeedbackGroup != null)
+            volumeFeedbackGroup.gameObject.SetActive(false);
     }
 
     private IEnumerator FadeCanvasGroup(CanvasGroup group, float from, float to, float duration)

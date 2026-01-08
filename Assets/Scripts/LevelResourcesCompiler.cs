@@ -122,11 +122,11 @@ public class LevelResourcesCompiler : MonoBehaviour
         progressBar.gameObject.SetActive(false);
         initLoadingDone = true;
 
-        // Only run update check once per game session
+        // Only run update check once per game session (delayed by 1 second)
         if (!_hasRunUpdateCheck)
         {
             _hasRunUpdateCheck = true;
-            RunUpdateCheckSilently();
+            StartCoroutine(DelayedUpdateCheck());
         }
 
         if (PlayerPrefs.GetInt("partyMode") == 1)
@@ -2324,6 +2324,12 @@ public class LevelResourcesCompiler : MonoBehaviour
         public string syncedLyrics;
     }
 
+    private IEnumerator DelayedUpdateCheck()
+    {
+        yield return new WaitForSeconds(1f);
+        RunUpdateCheckSilently();
+    }
+
     private async void RunUpdateCheckSilently()
     {
         // Check for updates by downloading README.md and comparing versions
@@ -2386,6 +2392,9 @@ public class LevelResourcesCompiler : MonoBehaviour
                 return;
             }
 
+            // Send notification that update check is starting
+            NotificationCenter.Info("Update Check", "Checking for script updates...");
+
             var psi = new ProcessStartInfo
             {
                 FileName = pythonExe,
@@ -2398,8 +2407,27 @@ public class LevelResourcesCompiler : MonoBehaviour
                 WindowStyle = ProcessWindowStyle.Hidden
             };
 
+            bool hadUpdates = false;
+            List<string> updatedFiles = new List<string>();
+
             using (var process = new Process { StartInfo = psi })
             {
+                process.OutputDataReceived += (sender, args) =>
+                {
+                    if (!string.IsNullOrEmpty(args.Data))
+                    {
+                        Debug.Log($"[UpdateChecker] {args.Data}");
+                        // Check if any file was updated
+                        if (args.Data.Contains("updated."))
+                        {
+                            hadUpdates = true;
+                            // Extract filename from message like "filename.py updated."
+                            string filename = args.Data.Replace(" updated.", "").Trim();
+                            updatedFiles.Add(filename);
+                        }
+                    }
+                };
+
                 process.ErrorDataReceived += (sender, args) =>
                 {
                     if (!string.IsNullOrEmpty(args.Data) && !args.Data.Contains("pip"))
@@ -2412,10 +2440,24 @@ public class LevelResourcesCompiler : MonoBehaviour
 
                 await Task.Run(() => process.WaitForExit());
             }
+
+            // Send appropriate notification based on results
+            if (hadUpdates)
+            {
+                string updateInfo = updatedFiles.Count == 1
+                    ? $"{updatedFiles[0]} was updated."
+                    : $"{updatedFiles.Count} files were updated.";
+                NotificationCenter.Success("Scripts Updated", updateInfo);
+            }
+            else
+            {
+                NotificationCenter.Info("Update Check Complete", "All scripts are up to date.");
+            }
         }
         catch (Exception e)
         {
             Debug.LogWarning($"Update check failed: {e.Message}");
+            NotificationCenter.Error("Update Check Failed", e.Message);
         }
     }
 
