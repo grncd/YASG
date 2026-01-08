@@ -32,6 +32,11 @@ public class MultiplayerUI : MonoBehaviour
         {
             InstanceFinder.ClientManager.StopConnection();
         }
+        
+        // --- FIX: Reset Multiplayer Prefs on Disconnect ---
+        PlayerPrefs.SetInt("multiplayer", 0);
+        PlayerPrefs.SetInt("fromMP", 0);
+        PlayerPrefs.Save();
 
         // After disconnecting, load the main menu scene.
         //SceneManager.LoadScene("Menu");

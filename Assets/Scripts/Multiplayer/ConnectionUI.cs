@@ -40,6 +40,8 @@ public class ConnectionUI : MonoBehaviour
         }
 
         PlayerPrefs.SetString("masterIp", ip);
+        // --- FIX: Explicitly set multiplayer flag ---
+        PlayerPrefs.SetInt("multiplayer", 1);
 
         _networkManager.SceneManager.OnClientLoadedStartScenes += OnClientLoadedStartScenes_TriggerNameSet;
         _networkManager.ServerManager.StartConnection();
@@ -57,6 +59,9 @@ public class ConnectionUI : MonoBehaviour
         Debug.Log("ConnectionUI: JoinRoom button clicked.");
 
         PingHost(PlayerPrefs.GetString("masterIp"));
+
+        // --- FIX: Explicitly set multiplayer flag ---
+        PlayerPrefs.SetInt("multiplayer", 1);
 
         _networkManager.ClientManager.StartConnection();
 

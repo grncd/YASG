@@ -7,6 +7,7 @@ using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UI;
 using FishNet;
+using FishNet.Transporting; // Required for LocalConnectionState
 
 public class LobbyDisplayUI : MonoBehaviour
 {
@@ -45,6 +46,12 @@ public class LobbyDisplayUI : MonoBehaviour
 
         ipAddress.text = PlayerPrefs.GetString("masterIp");
 
+        // Subscribe to connection state changes
+        if (InstanceFinder.ClientManager != null)
+        {
+            InstanceFinder.ClientManager.OnClientConnectionState += OnClientConnectionState;
+        }
+
         // Subscribe to the static event to be notified when RoomManager is spawned.
         RoomManager.OnInstanceAvailable += HandleRoomManagerAvailable;
 
@@ -69,6 +76,12 @@ public class LobbyDisplayUI : MonoBehaviour
     private void OnDisable()
     {
         Debug.Log("LobbyDisplayUI: OnDisable called.");
+
+        // Unsubscribe from connection state changes
+        if (InstanceFinder.ClientManager != null)
+        {
+            InstanceFinder.ClientManager.OnClientConnectionState -= OnClientConnectionState;
+        }
 
         // Unsubscribe from the static event to prevent memory leaks.
         RoomManager.OnInstanceAvailable -= HandleRoomManagerAvailable;
@@ -255,8 +268,33 @@ public class LobbyDisplayUI : MonoBehaviour
         }
     }
 
+    // --- NEW: Connection State Handler ---
+    private void OnClientConnectionState(ClientConnectionStateArgs args)
+    {
+        if (args.ConnectionState == LocalConnectionState.Stopped)
+        {
+            // If the connection stopped and it wasn't intentional, it means we were kicked or the host disconnected.
+            if (!_isIntentionalDisconnect)
+            {
+                Debug.LogWarning("Disconnected from server unexpectedly (Host quit or kick).");
+                PlayerPrefs.SetInt("HostDisconnected", 1);
+                PlayerPrefs.SetInt("multiplayer", 0);
+                PlayerPrefs.SetInt("fromMP", 0);
+                
+                // If we are just in the lobby, we might want to refresh or go back.
+                // Since this UI is part of the "Menu" scene usually, we might need to handle UI switching.
+                // But typically, if we are in the lobby and lose connection, we should revert to main menu.
+                UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
+            }
+        }
+    }
+
+    private bool _isIntentionalDisconnect = false;
+
     public void Disconnect()
     {
+        _isIntentionalDisconnect = true;
+
         // If running as host, stop the server.
         if (InstanceFinder.ServerManager.Started)
         {
@@ -268,7 +306,12 @@ public class LobbyDisplayUI : MonoBehaviour
             InstanceFinder.ClientManager.StopConnection();
         }
 
+        // --- FIX: Reset Multiplayer Prefs on Disconnect ---
+        PlayerPrefs.SetInt("multiplayer", 0);
+        PlayerPrefs.SetInt("fromMP", 0);
+        PlayerPrefs.Save();
+
         // After disconnecting, load the main menu scene.
-        //SceneManager.LoadScene("Menu");
+        UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
     }
 }

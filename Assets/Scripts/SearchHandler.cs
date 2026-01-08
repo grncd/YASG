@@ -139,6 +139,7 @@ public class SearchHandler : MonoBehaviour
                 duration_ms = favSong.duration_ms,
                 album = new SearchHandler.Album // Populate album for cover image consistency
                 {
+                    name = favSong.album, // Populate album name from favorite
                     images = new List<SearchHandler.Image>()
                 }
                 // Populate other fields if LRC.PreCompile or downstream code relies on them
@@ -187,6 +188,7 @@ public class SearchHandler : MonoBehaviour
                         SongData newSong = new SongData(
                             currentFavSong.name,
                             currentFavSong.artist,
+                            currentFavSong.album, // Use stored album name
                             currentFavSong.length,
                             currentAdaptedTrack.album.images[0].url, // Example URL
                             currentFavSong.url
@@ -273,6 +275,7 @@ public class SearchHandler : MonoBehaviour
                 duration_ms = downloadedSong.duration_ms,
                 album = new SearchHandler.Album
                 {
+                    name = downloadedSong.album, // Populate album name from download
                     images = new List<SearchHandler.Image>()
                 }
             };
@@ -317,6 +320,7 @@ public class SearchHandler : MonoBehaviour
                         SongData newSong = new SongData(
                             currentSong.name,
                             currentSong.artist,
+                            currentSong.album, // Use stored album name
                             currentSong.length,
                             currentAdaptedTrack.album.images[0].url, // Example URL
                             currentSong.url
@@ -473,6 +477,7 @@ public class SearchHandler : MonoBehaviour
                                 SongData newSong = new SongData(
                                     track.name,
                                     track.artists[0].name,
+                                    track.album.name, // Album for strict LRCLib search
                                     ConvertDuration(track.duration_ms),
                                     track.album.images[0].url, // Example URL
                                     track.external_urls.spotify

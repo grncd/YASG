@@ -65,7 +65,7 @@ public static class FavoritesManager
         return true;
     }
 
-    public static bool AddFavorite(string name, string artist, string length, string coverUrl, string songUrl, int durationMs = 0)
+    public static bool AddFavorite(string name, string artist, string album, string length, string coverUrl, string songUrl, int durationMs = 0)
     {
         UserMusicData data = LoadMusicDataFromFile();
         if (IsFavorite(songUrl, name, artist))
@@ -81,7 +81,7 @@ public static class FavoritesManager
                 durationMs = (minutes * 60 + seconds) * 1000;
             }
         }
-        Song newFavorite = new Song(name, artist, length, durationMs, coverUrl, songUrl);
+        Song newFavorite = new Song(name, artist, album, length, durationMs, coverUrl, songUrl);
         data.favorites.Add(newFavorite);
         SaveMusicDataToFile(data);
         Debug.Log($"Added to favorites: {name} by {artist}");
@@ -136,7 +136,7 @@ public static class FavoritesManager
         return true;
     }
 
-    public static bool AddDownload(string name, string artist, string length, string coverUrl, string songSourceUrl, int durationMs = 0)
+    public static bool AddDownload(string name, string artist, string album, string length, string coverUrl, string songSourceUrl, int durationMs = 0)
     {
         UserMusicData data = LoadMusicDataFromFile();
         if (IsDownloaded(songSourceUrl))
@@ -152,7 +152,7 @@ public static class FavoritesManager
                 durationMs = (minutes * 60 + seconds) * 1000;
             }
         }
-        Song newDownload = new Song(name, artist, length, durationMs, coverUrl, songSourceUrl);
+        Song newDownload = new Song(name, artist, album, length, durationMs, coverUrl, songSourceUrl);
         data.downloads.Add(newDownload);
         SaveMusicDataToFile(data);
         Debug.Log($"Added to downloads: {name} (URL: {songSourceUrl})");

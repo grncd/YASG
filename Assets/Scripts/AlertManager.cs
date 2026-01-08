@@ -124,6 +124,17 @@ public class AlertManager : MonoBehaviour
             ShowError("Your microphone couldn't be initialized.", "Please ensure your microphone is properly connected and that it works as expected. Check that no other application has exclusive control over it.", "Close");
             PlayerPrefs.SetInt("ERR", 0);
         }
+        else if (PlayerPrefs.GetInt("HostDisconnected") == 1)
+        {
+            ShowInfo("You have been disconnected.", "The host has disconnected, so you have been returned to the menu.", "Close");
+            PlayerPrefs.SetInt("HostDisconnected", 0);
+            PlayerPrefs.SetInt("fromMP", 0);
+
+            // Ensure proper UI state
+            if (mpGO != null) mpGO.SetActive(false);
+            if (localGO != null) localGO.SetActive(false);
+            if (menuGO != null) menuGO.SetActive(true);
+        }
     }
 
 

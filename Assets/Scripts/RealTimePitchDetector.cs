@@ -136,7 +136,27 @@ public class RealTimePitchDetector : MonoBehaviour
 
     private void Start()
     {
-        vocalArrowSG = GameObject.Find(gameObject.name + "GPitch").GetComponent<Slider>();
+        if (PlayerPrefs.GetInt("multiplayer") == 0)
+        {
+            Setup();
+        }
+    }
+
+    public void Setup()
+    {
+        if (_isInitialized) return;
+
+        // Initialize vocalArrowSG (the green pitch indicator slider)
+        GameObject foundGO = GameObject.Find(gameObject.name + "GPitch");
+        if (foundGO != null)
+        {
+            vocalArrowSG = foundGO.GetComponent<Slider>();
+        }
+        else
+        {
+            Debug.LogWarning($"[RealTimePitchDetector] Could not find GameObject named '{gameObject.name}GPitch'. vocalArrowSG will be null.");
+        }
+
         switch (SettingsManager.Instance.GetSetting<int>("PitchDetectionQuality"))
         {
             case 0:
@@ -156,19 +176,11 @@ public class RealTimePitchDetector : MonoBehaviour
                 break;
         }
         showPitch = SettingsManager.Instance.GetSetting<bool>("ShowDetectedPitch");
-        if (!SettingsManager.Instance.GetSetting<bool>("AudioReactivePlayerCircle"))
+
+        if (micGlowImage != null && !SettingsManager.Instance.GetSetting<bool>("AudioReactivePlayerCircle"))
         {
             micGlowImage.gameObject.SetActive(false);
         }
-        if (PlayerPrefs.GetInt("multiplayer") == 0)
-        {
-            Setup();
-        }
-    }
-
-    public void Setup()
-    {
-        if (_isInitialized) return;
 
         if (enableAdvancedAntiMonotony)
         {

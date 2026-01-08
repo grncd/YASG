@@ -29,7 +29,7 @@ public class PlayerUIPanel : MonoBehaviour
 
     private void Awake()
     {
-        if(PlayerPrefs.GetInt("multiplayer") == 0)
+        if (PlayerPrefs.GetInt("multiplayer") == 0)
         {
             enabled = false;
         }
@@ -42,12 +42,12 @@ public class PlayerUIPanel : MonoBehaviour
 
             if (pitchDetector != null)
             {
-                pitchDetector.Setup();
+                // pitchDetector.Setup(); // Removed premature setup
                 pitchDetector.enabled = false;
             }
         }
 
-        
+
     }
 
     public void AssignPlayer(PlayerData playerData)
@@ -75,6 +75,8 @@ public class PlayerUIPanel : MonoBehaviour
             if (_assignedPlayerData.IsOwner)
             {
                 Debug.Log($"Enabling and Activating Pitch Detector for local player: {_assignedPlayerData.PlayerName.Value}");
+                pitchDetector.gameObject.name = "Player1";
+                pitchDetector.Setup();
                 pitchDetector.enabled = true;
                 pitchDetector.ActivateAndStartMicrophone();
             }

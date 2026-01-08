@@ -462,6 +462,7 @@ public class ResultsScreen : MonoBehaviour
 
     public async void RetrySong()
     {
+        if (PlayerPrefs.GetInt("multiplayer") == 1) return;
         resultsOutAnimator.Play("ResultsOut");
         resultsOutFX.Play();
         StartCoroutine(ChangeVolumeRoutine(backgroundMusic, 0f, 0.6f));

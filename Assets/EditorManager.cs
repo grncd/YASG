@@ -46,7 +46,7 @@ public class EditorManager : MonoBehaviour
     public LyricsScroller lyricsScroller;
     private GameObject tabs;
     private MusicPlayer player;
-    
+
     public LrcLibPublisherWithChallenge publisher;
 
     // --- SYNCING STATE FIELDS ---
@@ -58,7 +58,8 @@ public class EditorManager : MonoBehaviour
     private float targetTime = 22f;
     private float saveTimer = 0f;
 
-    private void OnApplicationQuit() {
+    private void OnApplicationQuit()
+    {
         PlayerPrefs.SetInt("editing", 0);
     }
 
@@ -103,11 +104,11 @@ public class EditorManager : MonoBehaviour
 
         if (transform.GetChild(2).gameObject.activeInHierarchy)
         {
-            if(PlayerPrefs.GetInt("lyricsDisclaimer") == 0)
+            if (PlayerPrefs.GetInt("lyricsDisclaimer") == 0)
             {
                 elapsedTime += Time.deltaTime;
                 understoodFill.fillAmount = elapsedTime / targetTime;
-                if(elapsedTime / targetTime > 1f)
+                if (elapsedTime / targetTime > 1f)
                 {
                     PlayerPrefs.SetInt("lyricsDisclaimer", 1);
                     understoodFill.transform.parent.GetComponent<Button>().interactable = true;
@@ -123,11 +124,11 @@ public class EditorManager : MonoBehaviour
                 understoodFill.fillAmount = 1f;
             }
         }
-        
+
     }
     void OnEnable()
     {
-        if(PlayerPrefs.GetInt("lyricsDisclaimer") == 0)
+        if (PlayerPrefs.GetInt("lyricsDisclaimer") == 0)
         {
             understoodFill = transform.GetChild(2).GetChild(4).GetChild(0).GetComponent<MPImage>();
             transform.GetChild(2).gameObject.SetActive(true);
@@ -155,7 +156,7 @@ public class EditorManager : MonoBehaviour
         audioSource.Stop();
         audioSource.volume = startVolume;
     }
-    
+
     void OnDisable()
     {
         GameObject.Find("Music").GetComponent<AudioSource>().Play();
@@ -395,7 +396,7 @@ public class EditorManager : MonoBehaviour
         else
         {
             isCustom = true;
-            string pathToAudio = Path.Combine(PlayerPrefs.GetString("dataPath"), "downloads",$"{artistName} - {trackName}.mp3");
+            string pathToAudio = Path.Combine(PlayerPrefs.GetString("dataPath"), "downloads", $"{artistName} - {trackName}.mp3");
             await LoadAndSetAudioClipWithPath(pathToAudio);
         }
 
@@ -442,7 +443,7 @@ public class EditorManager : MonoBehaviour
                     }
                     catch (Exception) { /* Ignore malformed lines */ }
                 }
-                
+
                 activeLyricItems.Add(itemScript);
                 timestamps.Add(restoredTimestamp);
 
@@ -466,9 +467,9 @@ public class EditorManager : MonoBehaviour
 
     public void LocalSaveLyrics()
     {
-        if(transform.GetChild(0).GetComponent<CanvasGroup>().alpha == 1f)
+        if (transform.GetChild(0).GetComponent<CanvasGroup>().alpha == 1f)
         {
-            if(saveIndex > 1)
+            if (saveIndex > 1)
             {
                 string dataPath = PlayerPrefs.GetString("dataPath");
                 if (string.IsNullOrEmpty(dataPath)) { Debug.LogError("dataPath is not set in PlayerPrefs!"); return; }
@@ -587,7 +588,7 @@ public class EditorManager : MonoBehaviour
         {
             string syncedLyricsFilePath = Path.Combine(workingLyricsPath, $"{trackId}_{trackName}_{isCustom}_synced.txt");
             File.WriteAllText(syncedLyricsFilePath, finalSyncedLyrics);
-            
+
 
             if (publisher != null)
             {
@@ -622,8 +623,8 @@ public class EditorManager : MonoBehaviour
             // Export custom song to zip
             ExportCustomSongToZip(trackName, artistName);
 
-            AlertManager.Instance.ShowSuccess("Lyrics successfully created.","You can now play this song by accessing your Downloaded Songs.","Dismiss");
-            FavoritesManager.AddDownload(trackName,artistName,FormatTime(duration),"",GenerateRandomString(16));
+            AlertManager.Instance.ShowSuccess("Lyrics successfully created.", "You can now play this song by accessing your Downloaded Songs.", "Dismiss");
+            FavoritesManager.AddDownload(trackName, artistName, albumName, FormatTime(duration), "", GenerateRandomString(16), (int)(duration * 1000));
         }
     }
 
@@ -675,12 +676,12 @@ public class EditorManager : MonoBehaviour
 
     public void CreateEditCustomButton()
     {
-        StartEditingCustom(customName.text,customArtist.text,songPath,vocalPath);
+        StartEditingCustom(customName.text, customArtist.text, songPath, vocalPath);
     }
 
     public void SelectSongPath()
     {
-        var paths = StandaloneFileBrowser.OpenFilePanel("Select .mp3 file", "", "mp3",false);
+        var paths = StandaloneFileBrowser.OpenFilePanel("Select .mp3 file", "", "mp3", false);
         if (paths.Length > 0)
         {
             songPath = paths[0];
@@ -709,7 +710,7 @@ public class EditorManager : MonoBehaviour
         await LoadAndSetAudioClipWithPath(songPath);
         File.Copy(songPath, Path.Combine(PlayerPrefs.GetString("dataPath"), "downloads", $"{artist} - {track}.mp3"));
 
-        if(string.IsNullOrEmpty(vocalPath))
+        if (string.IsNullOrEmpty(vocalPath))
         {
             await LevelResourcesCompiler.Instance.SplitSong(Path.Combine(PlayerPrefs.GetString("dataPath"), "downloads", $"{artist} - {track}.mp3"));
         }
@@ -722,7 +723,7 @@ public class EditorManager : MonoBehaviour
         artistName = artist;
         albumName = "";
         duration = player.audioSource.clip.length;
-        
+
         songInfo.text = $"{artist} - {track}";
 
         PlayerPrefs.SetString("currentSong", track);
@@ -1006,7 +1007,7 @@ public class EditorManager : MonoBehaviour
 
             // Add to downloaded songs
             string randomUrl = GenerateRandomString(16);
-            FavoritesManager.AddDownload(trackName, artistName, formattedDuration, "", randomUrl, (int)(duration * 1000));
+            FavoritesManager.AddDownload(trackName, artistName, "", formattedDuration, "", randomUrl, (int)(duration * 1000));
 
             // Cleanup temp directory
             Directory.Delete(tempExtractPath, true);
