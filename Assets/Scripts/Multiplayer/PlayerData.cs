@@ -21,7 +21,7 @@ public class PlayerData : NetworkBehaviour
     #endregion
 
     #region SyncVars
-    public readonly SyncVar<string> PlayerName = new SyncVar<string>(""); 
+    public readonly SyncVar<string> PlayerName = new SyncVar<string>("");
     public readonly SyncVar<int> Level = new SyncVar<int>(1);
     public readonly SyncVar<float> PercentageToNextLevel = new SyncVar<float>();
     public readonly SyncVar<int> TotalScore = new SyncVar<int>();
@@ -126,6 +126,7 @@ public class PlayerData : NetworkBehaviour
         if (base.IsOwner)
         {
             LocalPlayerInstance = this;
+            gameObject.name = "Player1";
             Debug.Log("PlayerData: Local PlayerData spawned and ready. Setting static instance.");
 
             // --- THIS IS THE MAJOR CHANGE ---
@@ -170,7 +171,10 @@ public class PlayerData : NetworkBehaviour
 
     private void OnPlayerNameChanged(string oldName, string newName, bool asServer)
     {
-        gameObject.name = "Player_" + newName;
+        if (!base.IsOwner)
+        {
+            gameObject.name = "Player_" + newName;
+        }
         if (playerNameDisplay != null)
         {
             playerNameDisplay.text = newName;
@@ -514,6 +518,11 @@ public class PlayerData : NetworkBehaviour
         string cleanSongName = System.Text.RegularExpressions.Regex.Replace(currentSong, charactersToRemovePattern, string.Empty);
         string lrcLocation = Path.Combine(PlayerPrefs.GetString("dataPath"), "downloads", cleanSongName + ".txt");
 
+        // --- NEW: Construct the Instrumental file path (always, regardless of host setting) ---
+        // It is always in the same folder as vocalLocation, with [no_vocals] suffix.
+        // Assuming vocalLocation ends with " [vocals].mp3"
+        string instrumentalLocation = vocalLocation.Replace(" [vocals].mp3", " [no_vocals].mp3");
+
         // Basic validation
         if (string.IsNullOrEmpty(fullLocation) || string.IsNullOrEmpty(vocalLocation) || !File.Exists(lrcLocation))
         {
@@ -521,49 +530,52 @@ public class PlayerData : NetworkBehaviour
             return;
         }
 
-        // Add all three files to the list to be served.
-        List<string> filesToServe = new List<string> { fullLocation, vocalLocation, lrcLocation };
+        // Add all FOUR files to the list to be served. 
+        // Note: fullLocation might be the same as instrumentalLocation if host has PlayInstrumental ON.
+        // SimpleHttpFileServer handles duplicate paths gracefully (or we can distinct them).
+        List<string> filesToServe = new List<string> { fullLocation, vocalLocation, lrcLocation, instrumentalLocation }.Distinct().ToList();
 
         // --- STEP 3: Start the server (no change) ---
         bool serverStarted = _httpServer.StartServer(filesToServe);
         if (!serverStarted) { /* ... */ return; }
 
-        // --- STEP 4: Report all three filenames to the main server ---
+        // --- STEP 4: Report all four filenames to the main server ---
         string fullFileName = Path.GetFileName(fullLocation);
         string vocalFileName = Path.GetFileName(vocalLocation);
-        string lrcFileName = Path.GetFileName(lrcLocation); // Get the LRC filename
+        string lrcFileName = Path.GetFileName(lrcLocation);
+        string instrumentalFileName = Path.GetFileName(instrumentalLocation);
 
-        Debug.Log("CompileAndReport: Reporting all three file names to server.");
-        RequestReportCompilationFinished_ServerRpc(fullFileName, vocalFileName, lrcFileName);
+        Debug.Log("CompileAndReport: Reporting all file names to server.");
+        RequestReportCompilationFinished_ServerRpc(fullFileName, vocalFileName, lrcFileName, instrumentalFileName);
         Debug.Log("Master Processor finished its tasks and is reporting ready status.");
         RequestReportReadyForSceneChange_ServerRpc();
     }
 
 
     [ServerRpc(RequireOwnership = true)]
-    public void RequestReportCompilationFinished_ServerRpc(string fullFileName, string vocalFileName, string lrcFileName) // Add lrcFileName
+    public void RequestReportCompilationFinished_ServerRpc(string fullFileName, string vocalFileName, string lrcFileName, string instrumentalFileName) // Add lrcFileName and instrumentalFileName
     {
         if (!this.IsMasterProcessor.Value) return;
 
         Debug.Log($"Server received compilation finished report from {Owner.ClientId}.");
         string masterProcessorIp = Owner.GetAddress();
 
-        // Pass the lrcFileName to the broadcast method
-        RoomManager.Instance.BroadcastDownloadInfo_Server(masterProcessorIp, fullFileName, vocalFileName, lrcFileName);
+        // Pass the lrcFileName and instrumentalFileName to the broadcast method
+        RoomManager.Instance.BroadcastDownloadInfo_Server(masterProcessorIp, fullFileName, vocalFileName, lrcFileName, instrumentalFileName);
     }
 
 
     // [ClientRpc] - The server tells non-master clients to download the files.
     [ObserversRpc]
-    public void DownloadFiles_ObserversRpc(string masterIp, string fullFileName, string vocalFileName, string lrcFileName) // Add lrcFileName
+    public void DownloadFiles_ObserversRpc(string masterIp, string fullFileName, string vocalFileName, string lrcFileName, string instrumentalFileName) // Add lrcFileName and instrumentalFileName
     {
         if (this.IsMasterProcessor.Value) return;
 
         Debug.Log($"Received RPC to download files from {masterIp}.");
-        StartCoroutine(DownloadFiles_Coroutine(fullFileName, vocalFileName, lrcFileName)); // Pass it to the coroutine
+        StartCoroutine(DownloadFiles_Coroutine(fullFileName, vocalFileName, lrcFileName, instrumentalFileName)); // Pass it to the coroutine
     }
 
-    private IEnumerator DownloadFiles_Coroutine(string fullFileName, string vocalFileName, string lrcFileName)
+    private IEnumerator DownloadFiles_Coroutine(string fullFileName, string vocalFileName, string lrcFileName, string instrumentalFileName)
     {
         string dataPath = PlayerPrefs.GetString("dataPath");
         string masterIp = PlayerPrefs.GetString("masterIp");
@@ -579,17 +591,33 @@ public class PlayerData : NetworkBehaviour
         Directory.CreateDirectory(lrcSaveDir);
         string lrcSavePath = Path.Combine(lrcSaveDir, lrcFileName);
 
+        // --- NEW: Instrumental Save Path ---
+        string instrumentalSavePath = Path.Combine(vocalSaveDir, instrumentalFileName);
+
         // --- NEW: Check if the .lrc file exists as a .txt file ---
         string lrcAsTxtPath = Path.ChangeExtension(lrcSavePath, ".txt");
 
-        // --- NEW: Check if all files already exist ---
-        if (File.Exists(fullSavePath) && File.Exists(vocalSavePath) && (File.Exists(lrcSavePath) || File.Exists(lrcAsTxtPath)))
+        // --- STRICT VERIFICATION ---
+        // Using LevelResourcesCompiler's strict integrity check.
+        // If files are missing (or partial), they are deleted to force a clean download.
+        bool filesVerified = LevelResourcesCompiler.Instance.VerifySongIntegrity(lrcAsTxtPath, fullSavePath, vocalSavePath, instrumentalSavePath);
+
+        if (filesVerified)
         {
-            Debug.Log("All necessary files already exist locally. Skipping download.");
+            Debug.Log("Strict Integrity Check Passed. All files present. Skipping download.");
             PlayerPrefs.SetInt("saved", 1);
-            // --- FIX: Do not overwrite PlayerPrefs here. The correct paths are already set by the single-player download process. ---
-            // PlayerPrefs.SetString("vocalLocation", vocalSavePath);
-            // PlayerPrefs.SetString("fullLocation", fullSavePath);
+
+            // Set PlayerPrefs for paths
+            PlayerPrefs.SetString("vocalLocation", vocalSavePath);
+            if (SettingsManager.Instance.GetSetting<bool>("PlayInstrumental"))
+            {
+                PlayerPrefs.SetString("fullLocation", instrumentalSavePath);
+            }
+            else
+            {
+                PlayerPrefs.SetString("fullLocation", fullSavePath);
+            }
+
             // Immediately report ready status
             if (PlayerData.LocalPlayerInstance != null)
             {
@@ -603,6 +631,7 @@ public class PlayerData : NetworkBehaviour
             // Exit the coroutine since no download is needed.
             yield break;
         }
+
         PlayerPrefs.SetInt("saved", 0);
         // If we reach here, at least one file is missing, so we proceed with downloading.
 
@@ -610,6 +639,7 @@ public class PlayerData : NetworkBehaviour
         string fullUrl = $"http://{masterIp}:8080/{Uri.EscapeDataString(fullFileName)}";
         string vocalUrl = $"http://{masterIp}:8080/{Uri.EscapeDataString(vocalFileName)}";
         string lrcUrl = $"http://{masterIp}:8080/{Uri.EscapeDataString(lrcFileName)}";
+        string instrumentalUrl = $"http://{masterIp}:8080/{Uri.EscapeDataString(instrumentalFileName)}";
 
         // --- Download Full Song (only if it doesn't exist) ---
         if (!File.Exists(fullSavePath))
@@ -661,10 +691,38 @@ public class PlayerData : NetworkBehaviour
             Debug.Log($"Successfully downloaded LRC file to {lrcSavePath}");
         }
 
+        // --- Download Instrumental Track (Required for strict verification) ---
+        // We assume Host has it because Host passed strict check.
+        if (!File.Exists(instrumentalSavePath))
+        {
+            LevelResourcesCompiler.Instance.status.text = $"Downloading instrumental...";
+            UnityWebRequest instrumentalRequest = new UnityWebRequest(instrumentalUrl, UnityWebRequest.kHttpVerbGET)
+            {
+                downloadHandler = new DownloadHandlerFile(instrumentalSavePath)
+            };
+            yield return instrumentalRequest.SendWebRequest();
+            if (instrumentalRequest.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogWarning($"Failed to download instrumental track: {instrumentalRequest.error}");
+                // We proceed even if instrumental fails, but next verification might fail.
+            }
+        }
+
+        // --- Set PlayerPrefs for Playback ---
+        bool needInstrumental = SettingsManager.Instance.GetSetting<bool>("PlayInstrumental");
+        if (needInstrumental && File.Exists(instrumentalSavePath))
+        {
+            PlayerPrefs.SetString("fullLocation", instrumentalSavePath);
+        }
+        else
+        {
+            PlayerPrefs.SetString("fullLocation", fullSavePath);
+        }
+
         // --- Report Ready (This part is unchanged) ---
 
         PlayerPrefs.SetString("vocalLocation", vocalSavePath);
-        PlayerPrefs.SetString("fullLocation", fullSavePath);
+        // PlayerPrefs.GetString("fullLocation") is already set in the instrumental block above.
 
         Debug.Log("All files downloaded or verified. Reporting ready status to server via LocalPlayerInstance.");
         LevelResourcesCompiler.Instance.status.text = "Finished!";

@@ -12,16 +12,18 @@ public struct SongData
 {
     public string Title;
     public string Artist;
+    public string Album;
     public string Length;
     public string CoverUrl;
     public string Link;
     public string LrcFileName;
 
     // A constructor to make creating new SongData easier
-    public SongData(string title, string artist, string length, string coverUrl, string link, string lrcFileName = "")
+    public SongData(string title, string artist, string album, string length, string coverUrl, string link, string lrcFileName = "")
     {
         Title = title;
         Artist = artist;
+        Album = album;
         Length = length;
         CoverUrl = coverUrl;
         Link = link;
@@ -170,12 +172,12 @@ public class RoomManager : NetworkBehaviour
     }
 
     [Server]
-    public void BroadcastDownloadInfo_Server(string masterIp, string fullFileName, string vocalFileName, string lrcFileName) // Add lrcFileName
+    public void BroadcastDownloadInfo_Server(string masterIp, string fullFileName, string vocalFileName, string lrcFileName, string instrumentalFileName) // Add lrcFileName and instrumentalFileName
     {
-        // Send the download info (including lrcFileName) to all clients
+        // Send the download info (including lrcFileName and instrumentalFileName) to all clients
         foreach (var conn in ServerManager.Clients.Values)
         {
-            conn.FirstObject?.GetComponent<PlayerData>()?.DownloadFiles_ObserversRpc(masterIp, fullFileName, vocalFileName, lrcFileName);
+            conn.FirstObject?.GetComponent<PlayerData>()?.DownloadFiles_ObserversRpc(masterIp, fullFileName, vocalFileName, lrcFileName, instrumentalFileName);
         }
     }
 
@@ -266,6 +268,9 @@ public class RoomManager : NetworkBehaviour
     {
         if (!IsServer) return;
 
+        // Notify all clients that we are returning to the lobby so they can set up their UI state
+        NotifyReturningToLobby_ObserversRpc();
+
         // First, reset everyone's state
         ResetAllPlayersState_Server();
 
@@ -274,5 +279,13 @@ public class RoomManager : NetworkBehaviour
         SceneLoadData sld = new SceneLoadData("Menu"); // Assuming "Menu" is the lobby scene
         sld.ReplaceScenes = ReplaceOption.All;
         InstanceFinder.NetworkManager.SceneManager.LoadGlobalScenes(sld);
+    }
+
+    [ObserversRpc]
+    public void NotifyReturningToLobby_ObserversRpc()
+    {
+        Debug.Log("Received RPC: Returning to lobby. Setting 'fromMP' flag.");
+        PlayerPrefs.SetInt("fromMP", 1);
+        PlayerPrefs.Save();
     }
 }

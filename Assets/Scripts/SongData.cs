@@ -6,6 +6,7 @@ public class Song
 {
     public string name;
     public string artist;
+    public string album;          // Added Album field
     public string length;         // Formatted "M:SS" string
     public int duration_ms;    // Raw duration in milliseconds
     public string coverurl;
@@ -19,6 +20,7 @@ public class Song
     {
         this.name = track.name;
         this.artist = (track.artists != null && track.artists.Count > 0) ? track.artists[0].name : "Unknown Artist";
+        this.album = (track.album != null) ? track.album.name : ""; // Extract album name
         this.length = formattedLength;
         this.duration_ms = track.duration_ms;
         this.coverurl = (track.album?.images != null && track.album.images.Count > 0) ? GetBestImageUrl(track.album.images) : "";
@@ -27,10 +29,11 @@ public class Song
     }
 
     // Constructor for manual/other sources
-    public Song(string name, string artist, string length, int durationMs, string coverurl, string songSourceUrl)
+    public Song(string name, string artist, string album, string length, int durationMs, string coverurl, string songSourceUrl)
     {
         this.name = name;
         this.artist = artist;
+        this.album = album;
         this.length = length;
         this.duration_ms = durationMs;
         this.coverurl = coverurl;

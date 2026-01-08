@@ -173,7 +173,7 @@ public class FileDropHandler : MonoBehaviour
 
             // Add to downloaded songs
             string randomUrl = GenerateRandomString(16);
-            FavoritesManager.AddDownload(trackName, artistName, formattedDuration, "", randomUrl, (int)(duration * 1000));
+            FavoritesManager.AddDownload(trackName, artistName, "", formattedDuration, "", randomUrl, (int)(duration * 1000));
 
             // Cleanup temp directory
             Directory.Delete(tempExtractPath, true);

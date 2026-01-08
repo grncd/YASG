@@ -603,6 +603,47 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     }
 
+    public bool VerifySongIntegrity(string txtPath, string fullAudioPath, string vocalPath, string noVocalPath)
+    {
+        bool txtExists = File.Exists(txtPath);
+        bool fullAuthioExists = File.Exists(fullAudioPath);
+        bool vocalsExists = File.Exists(vocalPath);
+        bool noVocalsExists = File.Exists(noVocalPath);
+
+        if (txtExists && fullAuthioExists && vocalsExists && noVocalsExists)
+        {
+            UnityEngine.Debug.Log($"Integrity Check Passed for:\nTXT: {txtPath}\nFULL: {fullAudioPath}\nVOCALS: {vocalPath}\nINST: {noVocalPath}");
+            return true;
+        }
+
+        UnityEngine.Debug.LogWarning("Song Verification Failed! Missing one or more files. Deleting leftovers to force re-process.");
+        UnityEngine.Debug.Log($"Status:\nTXT: {txtExists}\nFULL: {fullAuthioExists}\nVOCALS: {vocalsExists}\nINST: {noVocalsExists}");
+
+        // Cleanup to ensure fresh state
+        DeleteFileIfExists(txtPath);
+        DeleteFileIfExists(fullAudioPath);
+        DeleteFileIfExists(vocalPath);
+        DeleteFileIfExists(noVocalPath);
+
+        return false;
+    }
+
+    private void DeleteFileIfExists(string path)
+    {
+        if (File.Exists(path))
+        {
+            try
+            {
+                File.Delete(path);
+                UnityEngine.Debug.Log($"Deleted partial file: {path}");
+            }
+            catch (Exception ex)
+            {
+                UnityEngine.Debug.LogError($"Failed to delete file {path}: {ex.Message}");
+            }
+        }
+    }
+
     public bool CheckFile(string name)
     {
         string folderPath = Path.Combine(dataPath, "downloads");
@@ -745,7 +786,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         favButton.onClick.AddListener(() =>
         {
-            AddFavorite(name, artist, length, cover, url);
+            AddFavorite(name, artist, track?.album?.name ?? "", length, cover, url);
             favButton.gameObject.SetActive(false);
             unfavButton.gameObject.SetActive(true);
         });
@@ -793,9 +834,9 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
     }
 
-    public void AddFavorite(string name, string artist, string length, string cover, string url)
+    public void AddFavorite(string name, string artist, string album, string length, string cover, string url)
     {
-        FavoritesManager.AddFavorite(name, artist, length, cover, url);
+        FavoritesManager.AddFavorite(name, artist, album, length, cover, url);
         songInfo.transform.GetChild(5).GetComponent<AudioSource>().Play();
     }
 
@@ -1067,8 +1108,20 @@ public class LevelResourcesCompiler : MonoBehaviour
         songInfo.transform.GetChild(4).GetComponent<AudioSource>().Play();
 
         string sanitizedName = SanitizeFileName(name);
+        string safeArtist = SanitizeFileName(artist);
 
-        if (!CheckFile(sanitizedName + ".txt"))
+        // --- Construct Expected Paths for Strict Verification ---
+        string txtPathVerif = Path.Combine(dataPath, "downloads", sanitizedName + ".txt");
+        string expectedFileName = $"{safeArtist} - {sanitizedName}.mp3";
+        string fullAudioPathVerif = Path.Combine(dataPath, "downloads", expectedFileName);
+
+        string baseNameNoExt = Path.GetFileNameWithoutExtension(expectedFileName);
+        string vocalPathVerif = Path.Combine(dataPath, "output", "htdemucs", baseNameNoExt + " [vocals].mp3");
+        string noVocalPathVerif = Path.Combine(dataPath, "output", "htdemucs", baseNameNoExt + " [no_vocals].mp3");
+
+        bool filesVerified = VerifySongIntegrity(txtPathVerif, fullAudioPathVerif, vocalPathVerif, noVocalPathVerif);
+
+        if (!filesVerified)
         {
             transitionAnim.Play("Transition");
             await Task.Delay(1350);
@@ -1090,39 +1143,26 @@ public class LevelResourcesCompiler : MonoBehaviour
         PlayerPrefs.SetString("currentSong", name);
         PlayerPrefs.SetString("currentArtist", artist);
         startCompileButton.interactable = true;
-        if (CheckFile(sanitizedName + ".txt"))
+
+        if (filesVerified)
         {
             status.text = "Already downloaded. Loading main scene...";
             PlayerPrefs.SetInt("saved", 1);
 
-            string safeArtist = SanitizeFileName(artist);
-            string expectedFileName = $"{safeArtist} - {sanitizedName}.mp3";
-            string expectedFilePath = Path.Combine(dataPath, "downloads", expectedFileName);
+            UnityEngine.Debug.Log("Found all files. Preparing to load.");
 
-            if (File.Exists(expectedFilePath))
+            PlayerPrefs.SetString("vocalLocation", vocalPathVerif);
+            if (SettingsManager.Instance.GetSetting<bool>("PlayInstrumental"))
             {
-                UnityEngine.Debug.Log("Found corresponding file: " + expectedFilePath);
-                string vocalLocation = Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedFilePath) + " [vocals].mp3");
-                PlayerPrefs.SetString("vocalLocation", vocalLocation);
-                if (SettingsManager.Instance.GetSetting<bool>("PlayInstrumental"))
-                {
-                    string instrumentalLocation = Path.Combine(dataPath, "output", "htdemucs", Path.GetFileNameWithoutExtension(expectedFilePath) + " [no_vocals].mp3");
-                    PlayerPrefs.SetString("fullLocation", instrumentalLocation);
-                }
-                else
-                {
-                    PlayerPrefs.SetString("fullLocation", expectedFilePath);
-                }
-                if (PlayerPrefs.GetInt("multiplayer") == 0) LoadMain();
-                return;
+                PlayerPrefs.SetString("fullLocation", noVocalPathVerif);
             }
             else
             {
-                UnityEngine.Debug.LogError($"Lyrics file found for '{name}', but the corresponding audio file '{expectedFileName}' is missing in the downloads folder. A re-download might be required. If the issue persists, delete the song's .txt file inside YASG's data folder.");
-                PlayerPrefs.SetInt("ERR", 1);
-                UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
-                return;
+                PlayerPrefs.SetString("fullLocation", fullAudioPathVerif);
             }
+
+            if (PlayerPrefs.GetInt("multiplayer") == 0) LoadMain();
+            return;
         }
 
         PlayerPrefs.SetInt("saved", 0);
@@ -1261,14 +1301,42 @@ public class LevelResourcesCompiler : MonoBehaviour
             Track trackForLrcLib = selectedTrack;
             if (PlayerPrefs.GetInt("multiplayer") == 1 && trackForLrcLib == null)
             {
-                if (lastPrecompiledTrack != null && lastPrecompiledTrack.name == name && lastPrecompiledTrack.artists[0].name == artist)
+                // --- FIX: Exclusively use RoomManager SelectedSong logic ---
+                // We ignore lastPrecompiledTrack because it is a local cache that might be stale or completely wrong in multiplayer.
+                if (RoomManager.Instance != null && !string.IsNullOrEmpty(RoomManager.Instance.SelectedSong.Value.Title))
                 {
-                    trackForLrcLib = lastPrecompiledTrack;
-                    UnityEngine.Debug.Log("Using cached track for LRCLib fallback in multiplayer.");
+                    UnityEngine.Debug.Log("Constructing track from RoomManager selection for LRCLib fallback.");
+                    SongData songData = RoomManager.Instance.SelectedSong.Value;
+
+                    trackForLrcLib = new Track();
+                    trackForLrcLib.name = songData.Title;
+
+                    trackForLrcLib.artists = new System.Collections.Generic.List<Artist>();
+                    Artist newArtist = new Artist();
+                    newArtist.name = songData.Artist;
+                    trackForLrcLib.artists.Add(newArtist);
+
+                    trackForLrcLib.album = new Album();
+                    // STRICT: Use the Album name if we have it. Do NOT fallback to Title, as that causes wrong matches.
+                    trackForLrcLib.album.name = songData.Album;
+
+                    // Parse duration from "mm:ss" string to ms
+                    int totalMs = 0;
+                    if (!string.IsNullOrEmpty(songData.Length))
+                    {
+                        string[] parts = songData.Length.Split(':');
+                        if (parts.Length == 2 && int.TryParse(parts[0], out int min) && int.TryParse(parts[1], out int sec))
+                        {
+                            totalMs = (min * 60 + sec) * 1000;
+                        }
+                    }
+                    trackForLrcLib.duration_ms = totalMs;
+
+                    UnityEngine.Debug.Log($"[LRCLib Fallback] Constructed Track -> Name: '{trackForLrcLib.name}', Artist: '{newArtist.name}', Album: '{trackForLrcLib.album.name}', Duration: {totalMs}ms");
                 }
                 else
                 {
-                    UnityEngine.Debug.LogError("LRCLib fallback in multiplayer failed: No valid cached track found.");
+                    UnityEngine.Debug.LogError("LRCLib fallback in multiplayer failed: No valid cached track AND no RoomManager selection found.");
                     lyricsError = true;
                     loadingFX.SetActive(false);
                     return;
@@ -1409,7 +1477,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         splittingVocals = false;
         currentPercentage = 0f;
 
-        FavoritesManager.AddDownload(name, artist, length, cover, url);
+        FavoritesManager.AddDownload(name, artist, lastPrecompiledTrack?.album?.name ?? "", length, cover, url);
 
         stage3.transform.GetChild(1).gameObject.SetActive(false);
         stage3.transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.3443396f, 1f, 0.3759922f);
@@ -1683,7 +1751,8 @@ public class LevelResourcesCompiler : MonoBehaviour
         splittingVocals = false;
         currentPercentage = 0f;
 
-        FavoritesManager.AddDownload(name, artist, length, cover, url);
+        string albumArg = lastPrecompiledTrack?.album?.name ?? "";
+        FavoritesManager.AddDownload(name, artist, albumArg, length, cover, url);
 
         if (WebServerManager.Instance != null)
         {
