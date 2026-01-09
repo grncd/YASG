@@ -765,6 +765,59 @@ public class PlayerData : NetworkBehaviour
         if (!this.IsHost.Value) return;
         RoomManager.Instance.ReturnToLobby_Server();
     }
+
+    [ServerRpc(RequireOwnership = true)]
+    public void RequestLoadResultsScene_ServerRpc()
+    {
+        if (!this.IsHost.Value)
+        {
+            Debug.LogWarning($"Client {Owner.ClientId} tried to load Results scene, but is not the host.");
+            return;
+        }
+
+        Debug.Log("Host is requesting Results scene load via server.");
+        RoomManager.Instance?.LoadResultsScene_Server();
+    }
+
+    [ServerRpc(RequireOwnership = true)]
+    public void RequestReportLyricsError_ServerRpc()
+    {
+        // Only the master processor should report lyrics errors
+        if (!this.IsMasterProcessor.Value)
+        {
+            Debug.LogWarning($"Client {Owner.ClientId} tried to report lyrics error, but is not the master processor.");
+            return;
+        }
+
+        Debug.Log("Master processor is reporting lyrics error to all clients.");
+        RoomManager.Instance?.HandleLyricsError_Server();
+    }
+
+    [ObserversRpc]
+    public void ShowLyricsError_ObserversRpc()
+    {
+        Debug.Log("Received lyrics error notification from server.");
+
+        // Show the error alert
+        if (AlertManager.Instance != null)
+        {
+            AlertManager.Instance.ShowError(
+                "This song does not have lyrics.",
+                "The song you've selected either has no lyrics or we couldn't find any synced lyrics for it. If this song has lyrics and you'd like to add them, <b>use the Add Lyrics button</b> located in the menu.",
+                "Dismiss"
+            );
+        }
+
+        // Close the loading screen
+        if (LevelResourcesCompiler.Instance != null)
+        {
+            LevelResourcesCompiler.Instance.LoadingDone();
+            if (LevelResourcesCompiler.Instance.loadingFX != null)
+            {
+                LevelResourcesCompiler.Instance.loadingFX.SetActive(false);
+            }
+        }
+    }
     #endregion
 
 }

@@ -176,6 +176,15 @@ public class LobbyDisplayUI : MonoBehaviour
 
     private void CheckForAllPlayersReady(List<PlayerData> players)
     {
+        // Always update ready/unready button state for the local player
+        if (PlayerData.LocalPlayerInstance != null)
+        {
+            bool localIsReady = PlayerData.LocalPlayerInstance.IsReady.Value;
+            unreadyButton.gameObject.SetActive(localIsReady);
+            readyButton.gameObject.SetActive(!localIsReady);
+        }
+
+        // Only the host can see and use the start game button
         if (PlayerData.LocalPlayerInstance == null || !PlayerData.LocalPlayerInstance.IsHost.Value)
         {
             startGameButton.gameObject.SetActive(false);
@@ -187,16 +196,13 @@ public class LobbyDisplayUI : MonoBehaviour
         if (allReady)
         {
             startGameButton.gameObject.SetActive(true);
+            startGameButton.interactable = true; // Reset interactability when all ready
             unreadyButton.gameObject.SetActive(false);
         }
         else
         {
             startGameButton.gameObject.SetActive(false);
-            if (PlayerData.LocalPlayerInstance != null)
-            {
-                unreadyButton.gameObject.SetActive(PlayerData.LocalPlayerInstance.IsReady.Value);
-                readyButton.gameObject.SetActive(!PlayerData.LocalPlayerInstance.IsReady.Value);
-            }
+            startGameButton.interactable = true; // Reset interactability for next time
         }
     }
 

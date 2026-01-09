@@ -6,11 +6,8 @@ using TMPro;
 using UnityEngine;
 using System.IO;
 using UnityEngine.UI;
-using System.Runtime.CompilerServices;
 using System;
-using System.Threading.Tasks;
 using UnityEngine.SceneManagement;
-using FishNet.Managing.Scened;
 
 public class LyricsHandler : MonoBehaviour
 {
@@ -218,27 +215,33 @@ public class LyricsHandler : MonoBehaviour
         }
     }
 
-    private async void FadeOut()
+    private void FadeOut()
     {
         Debug.Log("LyricsHandler: FadeOut started.");
         fadeOut.Play("FadeOut");
-        await Task.Delay(TimeSpan.FromSeconds(1));
+        StartCoroutine(FadeOutCoroutine());
+    }
+
+    private IEnumerator FadeOutCoroutine()
+    {
+        yield return new WaitForSeconds(1f);
 
         if (PlayerPrefs.GetInt("multiplayer") == 1)
         {
             Debug.Log("LyricsHandler: Multiplayer mode detected.");
+
             if (PlayerData.LocalPlayerInstance == null)
             {
-                Debug.LogError("LyricsHandler: PlayerData.LocalPlayerInstance is NULL!");
-            }
-            else
-            {
-                Debug.Log($"LyricsHandler: LocalPlayerInstance found. IsHost: {PlayerData.LocalPlayerInstance.IsHost.Value}");
+                Debug.LogError("LyricsHandler: PlayerData.LocalPlayerInstance is NULL! Cannot proceed with multiplayer transition.");
+                yield break;
             }
 
-            if (PlayerData.LocalPlayerInstance != null && PlayerData.LocalPlayerInstance.IsHost.Value)
+            Debug.Log($"LyricsHandler: LocalPlayerInstance found. IsHost: {PlayerData.LocalPlayerInstance.IsHost.Value}");
+
+            if (PlayerData.LocalPlayerInstance.IsHost.Value)
             {
                 Debug.Log("LyricsHandler: Host is triggering end-of-game calculations.");
+
                 // 1. Tell the server to calculate and set the final placements for everyone.
                 PlayerData.LocalPlayerInstance.RequestSetFinalPlacements_ServerRpc();
 
@@ -246,18 +249,17 @@ public class LyricsHandler : MonoBehaviour
                 PlayerData.LocalPlayerInstance.RequestFinalXPCalculation_ServerRpc();
 
                 // 3. Wait a brief moment to ensure the SyncVars have time to propagate.
-                await Task.Delay(TimeSpan.FromMilliseconds(250));
+                yield return new WaitForSeconds(0.5f);
 
-                Debug.Log("LyricsHandler: Host is loading the Results scene for everyone.");
-                SceneLoadData sld = new SceneLoadData("Results");
-                sld.ReplaceScenes = ReplaceOption.All;
-                FishNet.InstanceFinder.NetworkManager.SceneManager.LoadGlobalScenes(sld);
+                // 4. Request the server to load the Results scene for everyone.
+                Debug.Log("LyricsHandler: Host is requesting Results scene load.");
+                PlayerData.LocalPlayerInstance.RequestLoadResultsScene_ServerRpc();
             }
+            // Non-host clients don't need to do anything here - the server will load the scene for them
         }
         else
         {
             Debug.Log("LyricsHandler: Offline mode detected. Loading Results scene.");
-            // Offline logic
             UnityEngine.SceneManagement.SceneManager.LoadScene("Results");
         }
     }

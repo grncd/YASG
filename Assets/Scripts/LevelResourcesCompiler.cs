@@ -508,8 +508,11 @@ public class LevelResourcesCompiler : MonoBehaviour
         partyModeStartAllowed = false;
         playersReady.Clear();
         var firstTrack = WebServerManager.Instance.mainQueue[0].track;
-        playFX.Play();
-        await Task.Delay(1010);
+        if (PlayerPrefs.GetInt("multiplayer") == 0 && !partyMode)
+        {
+            playFX.Play();
+            await Task.Delay(1010);
+        }
         StartPartyMode(firstTrack.url, firstTrack.name, firstTrack.artist, firstTrack.length, firstTrack.cover);
     }
 
@@ -1097,8 +1100,11 @@ public class LevelResourcesCompiler : MonoBehaviour
             File.Move(Path.Combine(dataPath, "downloads", sanitizedName + ".lrc"), Path.Combine(dataPath, "downloads", sanitizedName + ".txt"));
         }
 
-        transitionAnim.Play("TransitionSaved");
-        await Task.Delay(1450);
+        if (PlayerPrefs.GetInt("multiplayer") == 0 && !partyMode)
+        {
+            transitionAnim.Play("TransitionSaved");
+            await Task.Delay(1450);
+        }
         if (WebServerManager.Instance != null && WebServerManager.Instance.mainQueue.Count > 0)
         {
             WebServerManager.Instance.mainQueue.RemoveAt(0);
@@ -1147,7 +1153,10 @@ public class LevelResourcesCompiler : MonoBehaviour
         UnityEngine.Debug.Log($"CALLED: {url}, {name}, {artist}, {length}, {cover}");
         PlayerPrefs.SetString("currentSongURL", url);
         name = name.Replace("\\", " ");
-        songInfo.transform.GetChild(4).GetComponent<AudioSource>().Play();
+
+        bool isMP = PlayerPrefs.GetInt("multiplayer") == 1 || partyMode;
+
+        if (!isMP) songInfo.transform.GetChild(4).GetComponent<AudioSource>().Play();
 
         string sanitizedName = SanitizeFileName(name);
         string safeArtist = SanitizeFileName(artist);
@@ -1163,23 +1172,30 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         bool filesVerified = VerifySongIntegrity(txtPathVerif, fullAudioPathVerif, vocalPathVerif, noVocalPathVerif);
 
+
         if (!filesVerified)
         {
-            transitionAnim.Play("Transition");
-            await Task.Delay(1350);
+            if (!isMP)
+            {
+                transitionAnim.Play("Transition");
+                await Task.Delay(1350);
+            }
             if (songInfo.activeSelf)
             {
                 Dismiss(true);
                 mainPanel.SetActive(false);
             }
-            await Task.Delay(384);
+            if (!isMP) await Task.Delay(384);
         }
         else
         {
-            transitionAnim.Play("TransitionSaved");
-            await Task.Delay(1450);
+            if (!isMP)
+            {
+                transitionAnim.Play("TransitionSaved");
+                await Task.Delay(1450);
+            }
             Dismiss(true);
-            await Task.Delay(600);
+            if (!isMP) await Task.Delay(600);
         }
 
         PlayerPrefs.SetString("currentSong", name);
@@ -1379,8 +1395,16 @@ public class LevelResourcesCompiler : MonoBehaviour
                 else
                 {
                     UnityEngine.Debug.LogError("LRCLib fallback in multiplayer failed: No valid cached track AND no RoomManager selection found.");
-                    lyricsError = true;
-                    loadingFX.SetActive(false);
+                    // In multiplayer, notify all clients about the error
+                    if (isMP && PlayerData.LocalPlayerInstance != null)
+                    {
+                        PlayerData.LocalPlayerInstance.RequestReportLyricsError_ServerRpc();
+                    }
+                    else
+                    {
+                        lyricsError = true;
+                        loadingFX.SetActive(false);
+                    }
                     return;
                 }
             }
@@ -1390,8 +1414,16 @@ public class LevelResourcesCompiler : MonoBehaviour
             if (!fallbackSuccess)
             {
                 UnityEngine.Debug.LogError("LRCLib fallback also failed. No lyrics found.");
-                lyricsError = true; // Trigger the final error UI
-                loadingFX.SetActive(false);
+                // In multiplayer, notify all clients about the error
+                if (isMP && PlayerData.LocalPlayerInstance != null)
+                {
+                    PlayerData.LocalPlayerInstance.RequestReportLyricsError_ServerRpc();
+                }
+                else
+                {
+                    lyricsError = true; // Trigger the final error UI
+                    loadingFX.SetActive(false);
+                }
                 return;
             }
 

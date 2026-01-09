@@ -388,7 +388,8 @@ public class AudioClipPitchProcessor : MonoBehaviour
         }
 
         // Vocal track loading (0% to 10% of overall, i.e., 0.0 to AUDIO_LOADING_PHASE_END_PROGRESS / 2)
-        string urlVocal = "file://" + vocalTrackPath;
+        // Use Uri to properly escape special characters like # in filenames
+        string urlVocal = new Uri(vocalTrackPath).AbsoluteUri;
         using (UnityWebRequest wwwVocal = UnityWebRequestMultimedia.GetAudioClip(urlVocal, AudioType.MPEG))
         {
             var asyncOp = wwwVocal.SendWebRequest();
@@ -438,7 +439,8 @@ public class AudioClipPitchProcessor : MonoBehaviour
         }
         else
         {
-            string urlFull = "file://" + fullTrackPath;
+            // Use Uri to properly escape special characters like # in filenames
+            string urlFull = new Uri(fullTrackPath).AbsoluteUri;
             using (UnityWebRequest wwwFull = UnityWebRequestMultimedia.GetAudioClip(urlFull, AudioType.MPEG))
             {
                 var asyncOp = wwwFull.SendWebRequest();
