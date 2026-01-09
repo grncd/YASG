@@ -22,6 +22,11 @@ public class MultiplayerUI : MonoBehaviour
     /// </summary>
     public void Disconnect()
     {
+        if (PlayerPrefs.GetInt("multiplayer") == 1)
+        {
+            PlayerData.isIntentionalDisconnect = true;
+        }
+
         // If running as host, stop the server.
         if (InstanceFinder.ServerManager.Started)
         {
@@ -32,7 +37,7 @@ public class MultiplayerUI : MonoBehaviour
         {
             InstanceFinder.ClientManager.StopConnection();
         }
-        
+
         // --- FIX: Reset Multiplayer Prefs on Disconnect ---
         PlayerPrefs.SetInt("multiplayer", 0);
         PlayerPrefs.SetInt("fromMP", 0);

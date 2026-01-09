@@ -378,6 +378,10 @@ public class AudioClipPitchProcessor : MonoBehaviour
         {
             UnityEngine.Debug.LogError("Vocal file path is empty! Cannot proceed.");
             PlayerPrefs.SetInt("ERR", 1);
+            if (PlayerPrefs.GetInt("multiplayer") == 1)
+            {
+                PlayerData.isIntentionalDisconnect = true;
+            }
             UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
             StartCoroutine(FadeOutLoadingScreen());
             yield break;
@@ -400,6 +404,10 @@ public class AudioClipPitchProcessor : MonoBehaviour
                 UnityEngine.Debug.LogError($"Failed to load vocal audio: {wwwVocal.error} from path: {urlVocal}");
                 processingProgress = 1f;
                 PlayerPrefs.SetInt("ERR", 1);
+                if (PlayerPrefs.GetInt("multiplayer") == 1)
+                {
+                    PlayerData.isIntentionalDisconnect = true;
+                }
                 UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
                 StartCoroutine(FadeOutLoadingScreen());
                 yield break;
@@ -410,6 +418,10 @@ public class AudioClipPitchProcessor : MonoBehaviour
                 UnityEngine.Debug.LogError($"Vocal AudioClip is null after download from: {urlVocal}. Cannot proceed.");
                 processingProgress = 1f;
                 PlayerPrefs.SetInt("ERR", 1);
+                if (PlayerPrefs.GetInt("multiplayer") == 1)
+                {
+                    PlayerData.isIntentionalDisconnect = true;
+                }
                 UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
                 StartCoroutine(FadeOutLoadingScreen());
                 yield break;
