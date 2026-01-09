@@ -161,6 +161,10 @@ public class LyricsHandler : MonoBehaviour
     public void BackToMenu()
     {
         Time.timeScale = 1f;
+        if (PlayerPrefs.GetInt("multiplayer") == 1)
+        {
+            PlayerData.isIntentionalDisconnect = true;
+        }
         UnityEngine.SceneManagement.SceneManager.LoadScene("Menu", LoadSceneMode.Single);
     }
 
@@ -216,14 +220,25 @@ public class LyricsHandler : MonoBehaviour
 
     private async void FadeOut()
     {
+        Debug.Log("LyricsHandler: FadeOut started.");
         fadeOut.Play("FadeOut");
         await Task.Delay(TimeSpan.FromSeconds(1));
 
         if (PlayerPrefs.GetInt("multiplayer") == 1)
         {
-            // Online logic
+            Debug.Log("LyricsHandler: Multiplayer mode detected.");
+            if (PlayerData.LocalPlayerInstance == null)
+            {
+                Debug.LogError("LyricsHandler: PlayerData.LocalPlayerInstance is NULL!");
+            }
+            else
+            {
+                Debug.Log($"LyricsHandler: LocalPlayerInstance found. IsHost: {PlayerData.LocalPlayerInstance.IsHost.Value}");
+            }
+
             if (PlayerData.LocalPlayerInstance != null && PlayerData.LocalPlayerInstance.IsHost.Value)
             {
+                Debug.Log("LyricsHandler: Host is triggering end-of-game calculations.");
                 // 1. Tell the server to calculate and set the final placements for everyone.
                 PlayerData.LocalPlayerInstance.RequestSetFinalPlacements_ServerRpc();
 
@@ -233,6 +248,7 @@ public class LyricsHandler : MonoBehaviour
                 // 3. Wait a brief moment to ensure the SyncVars have time to propagate.
                 await Task.Delay(TimeSpan.FromMilliseconds(250));
 
+                Debug.Log("LyricsHandler: Host is loading the Results scene for everyone.");
                 SceneLoadData sld = new SceneLoadData("Results");
                 sld.ReplaceScenes = ReplaceOption.All;
                 FishNet.InstanceFinder.NetworkManager.SceneManager.LoadGlobalScenes(sld);
@@ -240,6 +256,7 @@ public class LyricsHandler : MonoBehaviour
         }
         else
         {
+            Debug.Log("LyricsHandler: Offline mode detected. Loading Results scene.");
             // Offline logic
             UnityEngine.SceneManagement.SceneManager.LoadScene("Results");
         }
