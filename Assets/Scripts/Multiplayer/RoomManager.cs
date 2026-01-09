@@ -288,4 +288,32 @@ public class RoomManager : NetworkBehaviour
         PlayerPrefs.SetInt("fromMP", 1);
         PlayerPrefs.Save();
     }
+
+    [Server]
+    public void LoadResultsScene_Server()
+    {
+        if (!IsServer) return;
+
+        Debug.Log("Server loading Results scene for all players.");
+        SceneLoadData sld = new SceneLoadData("Results");
+        sld.ReplaceScenes = ReplaceOption.All;
+        InstanceFinder.NetworkManager.SceneManager.LoadGlobalScenes(sld);
+    }
+
+    [Server]
+    public void HandleLyricsError_Server()
+    {
+        if (!IsServer) return;
+
+        Debug.Log("Server handling lyrics error - resetting all player states and notifying clients.");
+
+        // Reset all player states back to initial room state
+        ResetAllPlayersState_Server();
+
+        // Broadcast the error to all clients
+        foreach (var conn in ServerManager.Clients.Values)
+        {
+            conn.FirstObject?.GetComponent<PlayerData>()?.ShowLyricsError_ObserversRpc();
+        }
+    }
 }

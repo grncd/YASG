@@ -272,6 +272,15 @@ public class SettingsUI : MonoBehaviour
             }
         }
 
+        // Close settings panel when opening multiplayer UI
+        if (onSettings)
+        {
+            onSettings = false;
+            settingsContainer.SetActive(false);
+            settingsButton.GetComponent<Animator>().Play("SettingsOut");
+            menuGO.SetActive(true);
+        }
+
         multiplayerSet.SetActive(true);
         clickFX.Play();
     }
