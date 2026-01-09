@@ -155,30 +155,6 @@ public class PlayerData : NetworkBehaviour
                 RequestInitializeData_ServerRpc("UnnamedPlayer", 1, 0f, 0);
             }
 
-            // Subscribe to connection state changes
-            if (InstanceFinder.ClientManager != null)
-            {
-                InstanceFinder.ClientManager.OnClientConnectionState += OnClientConnectionState;
-            }
-        }
-    }
-
-    private void OnClientConnectionState(FishNet.Transporting.ClientConnectionStateArgs args)
-    {
-        if (args.ConnectionState == FishNet.Transporting.LocalConnectionState.Stopped)
-        {
-            // If the connection stopped and it wasn't intentional, it means we were kicked or the host disconnected.
-            if (!isIntentionalDisconnect && !IsHost.Value && UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "Main")
-            {
-                Debug.LogWarning("Disconnected from server unexpectedly (Host quit). Returning to menu with alert.");
-                PlayerPrefs.SetInt("HostDisconnected", 1);
-                PlayerPrefs.SetInt("fromMP", 1);
-                PlayerPrefs.Save();
-                UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
-            }
-
-            // In case it was intentional or we are just cleanup, we reset the flag
-            isIntentionalDisconnect = false;
         }
     }
 
@@ -187,10 +163,6 @@ public class PlayerData : NetworkBehaviour
         base.OnStopClient();
         if (LocalPlayerInstance == this)
         {
-            if (InstanceFinder.ClientManager != null)
-            {
-                InstanceFinder.ClientManager.OnClientConnectionState -= OnClientConnectionState;
-            }
             LocalPlayerInstance = null;
         }
     }

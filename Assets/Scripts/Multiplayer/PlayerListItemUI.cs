@@ -3,6 +3,7 @@ using UnityEngine;
 using TMPro;
 using MPUIKIT; // Assuming this is for your MPImage
 using FishNet.Object;
+using UnityEngine.UI;
 
 public class PlayerListItemUI : MonoBehaviour
 {
@@ -16,6 +17,7 @@ public class PlayerListItemUI : MonoBehaviour
     public GameObject readyIndicator;
     public GameObject hostIndicator;
     public GameObject masterProcessorIndicator;
+    public Button bubbleButton;
 
     // --- Data Reference ---
     private PlayerData _playerData;
@@ -91,7 +93,7 @@ public class PlayerListItemUI : MonoBehaviour
 
     private void OnTotalScoreChanged(int oldScore, int newScore, bool asServer)
     {
-        if(newScore != 0)
+        if (newScore != 0)
         {
             totalScoreText.text = "Total Score: " + newScore.ToString("#,#");
         }
@@ -103,15 +105,17 @@ public class PlayerListItemUI : MonoBehaviour
 
     private void OnDifficultyChanged(int oldDiff, int newDiff, bool asServer)
     {
-        if(newDiff == 0)
+        if (newDiff == 0)
         {
             difficultyText.text = "Easy";
             difficultyText.color = new Color(0.3042734f, 1f, 0.2588235f);
-        }else if (newDiff == 1)
+        }
+        else if (newDiff == 1)
         {
             difficultyText.text = "Medium";
             difficultyText.color = new Color(0.9826014f, 1f, 0.259434f);
-        }else if (newDiff == 2)
+        }
+        else if (newDiff == 2)
         {
             difficultyText.text = "Hard";
             difficultyText.color = new Color(1f, 0.2588235f, 0.2657269f);
@@ -141,5 +145,13 @@ public class PlayerListItemUI : MonoBehaviour
     public void RequestSetMasterProcessor()
     {
         PlayerData.LocalPlayerInstance.RequestTransferMasterProcessor_ServerRpc(GameObject.Find("Player_" + _playerData.PlayerName.Value).GetComponent<NetworkObject>());
+    }
+
+    private void Update()
+    {
+        if (bubbleButton != null && PlayerData.LocalPlayerInstance != null)
+        {
+            bubbleButton.interactable = PlayerData.LocalPlayerInstance.IsHost.Value;
+        }
     }
 }

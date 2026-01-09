@@ -22,6 +22,8 @@ using System.Text.RegularExpressions;
 using Debug = UnityEngine.Debug;
 using GameKit.Dependencies.Utilities;
 using FishNet.Demo.AdditiveScenes;
+using FishNet;
+using FishNet.Transporting;
 
 public class LevelResourcesCompiler : MonoBehaviour
 {
@@ -144,6 +146,48 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             Debug.Log("[T Mode] Auto-compile starting...");
             StartCoroutine(TModeAutoCompile());
+        }
+    }
+
+    private void OnEnable()
+    {
+        if (InstanceFinder.ClientManager != null)
+        {
+            InstanceFinder.ClientManager.OnClientConnectionState += OnClientConnectionState;
+        }
+    }
+
+    private void OnDisable()
+    {
+        if (InstanceFinder.ClientManager != null)
+        {
+            InstanceFinder.ClientManager.OnClientConnectionState -= OnClientConnectionState;
+        }
+    }
+
+    private void OnClientConnectionState(ClientConnectionStateArgs args)
+    {
+        if (args.ConnectionState == LocalConnectionState.Stopped)
+        {
+            // If the connection stopped and it wasn't intentional, it means we were kicked or the host disconnected.
+            // We check if multiplayer was active and if we are in the Main scene.
+            if (!PlayerData.isIntentionalDisconnect &&
+                SceneManager.GetActiveScene().name == "Main" &&
+                PlayerPrefs.GetInt("multiplayer") == 1)
+            {
+                Debug.LogWarning("LevelResourcesCompiler: Disconnected from server unexpectedly (Host quit). Returning to menu with alert.");
+                PlayerPrefs.SetInt("HostDisconnected", 1);
+                PlayerPrefs.SetInt("fromMP", 1);
+                PlayerPrefs.Save();
+
+                // Clear the flag for next time
+                PlayerData.isIntentionalDisconnect = false;
+
+                SceneManager.LoadScene("Menu");
+            }
+
+            // Reset the flag anyway if it was a stopped state
+            PlayerData.isIntentionalDisconnect = false;
         }
     }
 
@@ -958,9 +1002,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             bgGM.SetActive(false);
         }
 
-        _originalVSyncCount = QualitySettings.vSyncCount;
-        QualitySettings.vSyncCount = 0;
-        Application.targetFrameRate = 30;
+
 
         await RunPythonDirectly(filePath);
 
@@ -1890,6 +1932,9 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
         else
         {
+            _originalVSyncCount = QualitySettings.vSyncCount;
+            QualitySettings.vSyncCount = 0;
+            Application.targetFrameRate = 30;
             // Use local Python/Demucs
             var inputFolder = Path.Combine(dataPath, "vocalremover", "input");
             Directory.CreateDirectory(inputFolder);
