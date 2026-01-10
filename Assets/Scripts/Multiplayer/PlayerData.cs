@@ -41,6 +41,7 @@ public class PlayerData : NetworkBehaviour
     #endregion
 
     private SimpleHttpFileServer _httpServer;
+    private bool _areRoleNotificationsEnabled = false; // Flag to suppress initial spawn notifications
 
     #region Network Callbacks (OnStart/OnStop)
     public override void OnStartNetwork()
@@ -155,8 +156,18 @@ public class PlayerData : NetworkBehaviour
                 RequestInitializeData_ServerRpc("UnnamedPlayer", 1, 0f, 0);
             }
 
+            // Start coroutine to enable role notifications after a short delay
+            // This prevents "You are the Host" popping up immediately upon room creation
+            StartCoroutine(EnableRoleNotificationsAfterDelay());
         }
     }
+
+    private IEnumerator EnableRoleNotificationsAfterDelay()
+    {
+        yield return new WaitForSeconds(1.0f);
+        _areRoleNotificationsEnabled = true;
+    }
+
 
     public override void OnStopClient()
     {
@@ -218,13 +229,37 @@ public class PlayerData : NetworkBehaviour
     private void OnIsHostChanged(bool oldStatus, bool newStatus, bool asServer)
     {
         Debug.Log($"Player host status changed to {newStatus}");
-        // Example: Show/hide a "Host" crown icon next to the player's name
+
+        // Only show notification for the local player
+        if (base.IsOwner && _areRoleNotificationsEnabled)
+        {
+            if (newStatus)
+            {
+                NotificationCenter.Info("You are the Host!", "You have been promoted to Host. You now have control over game settings and starting the game.");
+            }
+            else
+            {
+                NotificationCenter.Info("Role Changed", "You are no longer the Host.");
+            }
+        }
     }
 
     private void OnIsMasterProcessorChanged(bool oldStatus, bool newStatus, bool asServer)
     {
         Debug.Log($"Player master processor status changed to {newStatus}");
-        // This is mostly for internal logic, but you could show a UI icon for it.
+
+        // Only show notification for the local player
+        if (base.IsOwner && _areRoleNotificationsEnabled)
+        {
+            if (newStatus)
+            {
+                NotificationCenter.Info("You are the Master Processor!", "You are now responsible for downloading and processing songs for the room.");
+            }
+            else
+            {
+                NotificationCenter.Info("Role Changed", "You are no longer the Master Processor.");
+            }
+        }
     }
 
     private void OnPlacementChanged(int oldPlacement, int newPlacement, bool asServer)
@@ -423,6 +458,12 @@ public class PlayerData : NetworkBehaviour
     public void RequestSetReadyStatus_ServerRpc(bool isReady)
     {
         IsReady.Value = isReady;
+
+        // Broadcast ready sound to all clients when a player becomes ready
+        if (isReady && RoomManager.Instance != null)
+        {
+            RoomManager.Instance.PlayPlayerReadySound_ObserversRpc();
+        }
     }
 
     [ServerRpc(RequireOwnership = true)]

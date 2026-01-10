@@ -3371,7 +3371,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 3689540073
-  m_fontColor: {r: 0.9150943, g: 0.9150943, b: 0.9150943, a: 0.85882354}
+  m_fontColor: {r: 0.3443396, g: 1, b: 0.3759922, a: 1}
   m_enableVertexGradient: 1
   m_colorMode: 2
   m_fontColorGradient:
@@ -15070,7 +15070,7 @@ MonoBehaviour:
   m_MinValue: 0
   m_MaxValue: 1
   m_WholeNumbers: 0
-  m_Value: 0
+  m_Value: 1
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
@@ -25736,7 +25736,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.3396226, g: 0.3396226, b: 0.3396226, a: 1}
+  m_Color: {r: 0.1116768, g: 0.333, b: 0.1218292, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -25758,7 +25758,7 @@ MonoBehaviour:
   m_MaterialMode: 0
   m_StrokeWidth: 0
   m_OutlineWidth: 4.12
-  m_OutlineColor: {r: 0.6320754, g: 0.6320754, b: 0.6320754, a: 1}
+  m_OutlineColor: {r: 0.313548, g: 0.901, b: 0.3404953, a: 1}
   m_FalloffDistance: 2
   m_ConstrainRotation: 1
   m_ShapeRotation: 0
@@ -28773,7 +28773,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   roomNameInput: {fileID: 1286644212}
-  addressInput: {fileID: 1965325469}
+  addressInput: {fileID: 1041571488}
   lobbyPanel: {fileID: 0}
   multiplayerPanel: {fileID: 1801840691}
   menuPanel: {fileID: 959612404}
@@ -71056,6 +71056,7 @@ MonoBehaviour:
   placeholder: {fileID: 21300000, guid: 8f21606845443a34b94cbf056daf43f9, type: 3}
   textAdvisors: {fileID: 455290431}
   playFX: {fileID: 90999363}
+  stageProgress: {fileID: 1767986129}
 --- !u!4 &1667038467
 Transform:
   m_ObjectHideFlags: 0
@@ -75861,7 +75862,7 @@ RectTransform:
   m_Father: {fileID: 1332299381}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 5, y: -0.000006198883}
   m_SizeDelta: {x: 10, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -75878,7 +75879,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.8018868, g: 0.8018868, b: 0.8018868, a: 1}
+  m_Color: {r: 0.313548, g: 0.901, b: 0.3404953, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -77304,6 +77305,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1801840692}
   - component: {fileID: 1801840693}
+  - component: {fileID: 1801840694}
   m_Layer: 6
   m_Name: Multiplayer
   m_TagString: Untagged
@@ -77361,7 +77363,108 @@ MonoBehaviour:
   readyButton: {fileID: 1055203431}
   unreadyButton: {fileID: 1389569665}
   startGameButton: {fileID: 1694805448}
-  checkInterval: 0.5
+  lobbyAudioSource: {fileID: 1801840694}
+  gameStartClip: {fileID: 8300000, guid: fc870d230de6e68829a0d0d18ad103f6, type: 3}
+  playerJoinClip: {fileID: 8300000, guid: f169540b774cc882b8250fee6a7ce6c5, type: 3}
+  playerReadyClip: {fileID: 8300000, guid: a575700c15c96ee8c83eee2e00b5798c, type: 3}
+  checkInterval: 0.25
+--- !u!82 &1801840694
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1801840691}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 24300002, guid: bdb8f3dff423f3143bf13ff318516a30, type: 2}
+  m_audioClip: {fileID: 0}
+  m_Resource: {fileID: 0}
+  m_PlayOnAwake: 0
+  m_Volume: 0.251
+  m_Pitch: 1
+  Loop: 0
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 1
+  MinDistance: 1
+  MaxDistance: 500
+  Pan2D: 0
+  rolloffMode: 0
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!1 &1802680185
 GameObject:
   m_ObjectHideFlags: 0
@@ -82092,7 +82195,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288782753
-  m_fontColor: {r: 0.6320754, g: 0.6320754, b: 0.6320754, a: 1}
+  m_fontColor: {r: 0.3443396, g: 1, b: 0.3759922, a: 1}
   m_enableVertexGradient: 1
   m_colorMode: 2
   m_fontColorGradient:

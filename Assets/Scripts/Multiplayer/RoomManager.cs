@@ -147,6 +147,9 @@ public class RoomManager : NetworkBehaviour
 
         Debug.Log("Server starting game sequence...");
 
+        // --- Broadcast game start sound to all clients ---
+        PlayGameStartSound_ObserversRpc();
+
         // Reset the "IsReady" status for everyone. We will re-use it for the next step.
         foreach (var conn in ServerManager.Clients.Values)
         {
@@ -300,6 +303,8 @@ public class RoomManager : NetworkBehaviour
         InstanceFinder.NetworkManager.SceneManager.LoadGlobalScenes(sld);
     }
 
+
+
     [Server]
     public void HandleLyricsError_Server()
     {
@@ -316,4 +321,36 @@ public class RoomManager : NetworkBehaviour
             conn.FirstObject?.GetComponent<PlayerData>()?.ShowLyricsError_ObserversRpc();
         }
     }
+
+    #region Audio FX RPCs
+
+    /// <summary>
+    /// Broadcasts game start sound to all clients.
+    /// </summary>
+    [ObserversRpc]
+    public void PlayGameStartSound_ObserversRpc()
+    {
+        Debug.Log("Playing game start sound on this client.");
+        var lobbyUI = FindObjectOfType<LobbyDisplayUI>();
+        if (lobbyUI != null && lobbyUI.lobbyAudioSource != null && lobbyUI.gameStartClip != null)
+        {
+            lobbyUI.lobbyAudioSource.PlayOneShot(lobbyUI.gameStartClip);
+        }
+    }
+
+    /// <summary>
+    /// Broadcasts player ready sound to all clients.
+    /// </summary>
+    [ObserversRpc]
+    public void PlayPlayerReadySound_ObserversRpc()
+    {
+        Debug.Log("Playing player ready sound on this client.");
+        var lobbyUI = FindObjectOfType<LobbyDisplayUI>();
+        if (lobbyUI != null && lobbyUI.lobbyAudioSource != null && lobbyUI.playerReadyClip != null)
+        {
+            lobbyUI.lobbyAudioSource.PlayOneShot(lobbyUI.playerReadyClip);
+        }
+    }
+
+    #endregion
 }

@@ -190,8 +190,40 @@ public class NotificationCenter : MonoBehaviour
         // Create popup notification
         if (popupParent != null)
         {
-            GameObject popupNotification = Instantiate(prefab, popupParent);
+            // --- FIX: Wrap popup in a container to maintain layout stability while animating ---
+            GameObject container = new GameObject("PopupContainer", typeof(RectTransform));
+            container.transform.SetParent(popupParent, false);
+            container.AddComponent<CanvasGroup>(); // Optional, for safety
+
+            GameObject popupNotification = Instantiate(prefab, container.transform);
             popupNotification.SetActive(true);
+            
+            // Ensure container matches popup size for layout purposes
+            RectTransform popupRect = popupNotification.GetComponent<RectTransform>();
+            RectTransform containerRect = container.GetComponent<RectTransform>();
+            containerRect.sizeDelta = popupRect.sizeDelta;
+
+            // If the popup has a LayoutElement, ideally we should copy it or add one to container
+            // For now, we assume standard usage (Grid or VLG uses RectTransform size)
+            // But let's add a LayoutElement to container just in case the VLG needs it
+            LayoutElement containerLE = container.AddComponent<LayoutElement>();
+            LayoutElement popupLE = popupNotification.GetComponent<LayoutElement>();
+            if (popupLE != null)
+            {
+                containerLE.preferredWidth = popupLE.preferredWidth;
+                containerLE.preferredHeight = popupLE.preferredHeight;
+                containerLE.minWidth = popupLE.minWidth;
+                containerLE.minHeight = popupLE.minHeight;
+                containerLE.flexibleWidth = popupLE.flexibleWidth;
+                containerLE.flexibleHeight = popupLE.flexibleHeight;
+            }
+            else
+            {
+                // Fallback to rect size
+                containerLE.preferredWidth = popupRect.sizeDelta.x;
+                containerLE.preferredHeight = popupRect.sizeDelta.y;
+            }
+
             SetupNotificationText(popupNotification, title, info);
             StartCoroutine(HandlePopupLifecycle(popupNotification));
         }
@@ -200,6 +232,12 @@ public class NotificationCenter : MonoBehaviour
     private IEnumerator HandlePopupLifecycle(GameObject popup)
     {
         RectTransform rectTransform = popup.GetComponent<RectTransform>();
+        
+        // Ensure popup anchors are set to fill the container so we can animate offset
+        rectTransform.anchorMin = Vector2.zero;
+        rectTransform.anchorMax = Vector2.one;
+        rectTransform.sizeDelta = Vector2.zero; // Fill container
+
         CanvasGroup canvasGroup = popup.GetComponent<CanvasGroup>();
         if (canvasGroup == null)
             canvasGroup = popup.AddComponent<CanvasGroup>();
@@ -214,18 +252,11 @@ public class NotificationCenter : MonoBehaviour
                 timeoutSlider.value = 0f;
         }
 
-        // Force layout rebuild to get correct position
-        LayoutRebuilder.ForceRebuildLayoutImmediate(popupParent as RectTransform);
-
-        // Store the position assigned by the layout group
-        Vector2 originalPosition = rectTransform.anchoredPosition;
-        Vector2 rightHiddenPosition = originalPosition + new Vector2(slideDistance, 0);
-
-        // Ignore layout so the Grid Layout Group stops controlling this element
-        LayoutElement layoutElement = popup.GetComponent<LayoutElement>();
-        if (layoutElement == null)
-            layoutElement = popup.AddComponent<LayoutElement>();
-        layoutElement.ignoreLayout = true;
+        // --- NEW LOGIC: Animate relative to container ---
+        // Target position is (0,0) (centered in container)
+        // Start position is (slideDistance, 0)
+        Vector2 originalPosition = Vector2.zero;
+        Vector2 rightHiddenPosition = new Vector2(slideDistance, 0);
 
         // Start from right hidden position
         rectTransform.anchoredPosition = rightHiddenPosition;
@@ -246,7 +277,15 @@ public class NotificationCenter : MonoBehaviour
         // Slide out to right with cubic in easing
         yield return StartCoroutine(SlideAnimation(rectTransform, originalPosition, rightHiddenPosition, slideAnimationDuration, EaseInCubic));
 
-        Destroy(popup);
+        // --- FIX: Destroy the container, not just the popup ---
+        if (popup.transform.parent != null && popup.transform.parent != popupParent)
+        {
+            Destroy(popup.transform.parent.gameObject);
+        }
+        else
+        {
+            Destroy(popup);
+        }
     }
 
     private IEnumerator SlideAnimation(RectTransform rectTransform, Vector2 from, Vector2 to, float duration, System.Func<float, float> easingFunction)

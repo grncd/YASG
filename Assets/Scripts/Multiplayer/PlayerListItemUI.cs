@@ -18,6 +18,7 @@ public class PlayerListItemUI : MonoBehaviour
     public GameObject hostIndicator;
     public GameObject masterProcessorIndicator;
     public Button bubbleButton;
+    public GameObject moreObject; // Reference to the "More" button/object
 
     // --- Data Reference ---
     private PlayerData _playerData;
@@ -147,11 +148,41 @@ public class PlayerListItemUI : MonoBehaviour
         PlayerData.LocalPlayerInstance.RequestTransferMasterProcessor_ServerRpc(GameObject.Find("Player_" + _playerData.PlayerName.Value).GetComponent<NetworkObject>());
     }
 
+    // ... (rest of the file until Update method)
+
     private void Update()
     {
         if (bubbleButton != null && PlayerData.LocalPlayerInstance != null)
         {
             bubbleButton.interactable = PlayerData.LocalPlayerInstance.IsHost.Value;
+        }
+
+        // Enable "More" object only if the local player is the host
+        if (moreObject != null)
+        {
+            bool isLocalHost = PlayerData.LocalPlayerInstance != null && PlayerData.LocalPlayerInstance.IsHost.Value;
+            if (moreObject.activeSelf != isLocalHost)
+            {
+                moreObject.SetActive(isLocalHost);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Checks if the local player is the host. If NOT, shows an error notification via AlertManager.
+    /// This is intended to be called by UI buttons that require host privileges.
+    /// </summary>
+    public void CheckIfLocalPlayerIsHostAndNotify()
+    {
+        if (PlayerData.LocalPlayerInstance == null)
+        {
+            Debug.LogWarning("CheckIfHost: LocalPlayerInstance is null.");
+            return;
+        }
+
+        if (!PlayerData.LocalPlayerInstance.IsHost.Value)
+        {
+            NotificationCenter.Error("Permission Denied", "Only the Host can perform this action.");
         }
     }
 }
