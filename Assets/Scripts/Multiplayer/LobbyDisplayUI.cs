@@ -33,6 +33,12 @@ public class LobbyDisplayUI : MonoBehaviour
     public Button unreadyButton;
     public Button startGameButton;
 
+    [Header("Lobby Audio FX")]
+    public AudioSource lobbyAudioSource;
+    public AudioClip gameStartClip;
+    public AudioClip playerJoinClip;
+    public AudioClip playerReadyClip;
+
     // --- Private Fields (No changes here) ---
     private readonly Dictionary<PlayerData, GameObject> _playerListItems = new Dictionary<PlayerData, GameObject>();
     private Coroutine _refreshCoroutine;
@@ -43,6 +49,9 @@ public class LobbyDisplayUI : MonoBehaviour
     {
         Debug.Log("LobbyDisplayUI: OnEnable called.");
         PlayerPrefs.SetInt("multiplayer", 1);
+
+        // Reset the intentional disconnect flag for fresh lobby sessions
+        _isIntentionalDisconnect = false;
 
         ipAddress.text = PlayerPrefs.GetString("masterIp");
 
@@ -158,6 +167,12 @@ public class LobbyDisplayUI : MonoBehaviour
                     GameObject itemGO = Instantiate(playerListItemPrefab, playerListContainer);
                     itemGO.GetComponent<PlayerListItemUI>().Setup(player);
                     _playerListItems[player] = itemGO;
+
+                    // Play player join sound effect
+                    if (lobbyAudioSource != null && playerJoinClip != null)
+                    {
+                        lobbyAudioSource.PlayOneShot(playerJoinClip);
+                    }
                 }
             }
 
@@ -286,7 +301,7 @@ public class LobbyDisplayUI : MonoBehaviour
                 PlayerPrefs.SetInt("HostDisconnected", 1);
                 PlayerPrefs.SetInt("multiplayer", 0);
                 PlayerPrefs.SetInt("fromMP", 0);
-                
+
                 // If we are just in the lobby, we might want to refresh or go back.
                 // Since this UI is part of the "Menu" scene usually, we might need to handle UI switching.
                 // But typically, if we are in the lobby and lose connection, we should revert to main menu.

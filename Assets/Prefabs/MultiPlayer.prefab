@@ -943,17 +943,17 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 3353978921403160432}
-        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
-        m_MethodName: SetActive
-        m_Mode: 6
+      - m_Target: {fileID: 8889893444244997677}
+        m_TargetAssemblyTypeName: PlayerListItemUI, Assembly-CSharp
+        m_MethodName: CheckIfLocalPlayerIsHostAndNotify
+        m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
           m_IntArgument: 0
           m_FloatArgument: 0
           m_StringArgument: 
-          m_BoolArgument: 1
+          m_BoolArgument: 0
         m_CallState: 2
 --- !u!222 &5636531208871114374
 CanvasRenderer:
@@ -1661,7 +1661,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: chigga gaming
+  m_text: Name
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 54bcfc41279f6af4cb4cb8b7dfe0979f, type: 2}
   m_sharedMaterial: {fileID: -1612320144615957249, guid: 54bcfc41279f6af4cb4cb8b7dfe0979f, type: 2}
@@ -1913,6 +1913,7 @@ MonoBehaviour:
   hostIndicator: {fileID: 8959636449093692535}
   masterProcessorIndicator: {fileID: 6256766177043746110}
   bubbleButton: {fileID: 4538858373895839824}
+  moreObject: {fileID: 3353978921403160432}
 --- !u!1 &5409481093729389898
 GameObject:
   m_ObjectHideFlags: 0

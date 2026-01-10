@@ -88,6 +88,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     public Sprite placeholder;
     public CanvasGroup textAdvisors;
     public AudioSource playFX;
+    public GameObject stageProgress;
 
     private Process currentBGProcess;
     private CancellationTokenSource backgroundCompileCancellationSource;
@@ -942,7 +943,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         loadingSecond.SetActive(true);
         loadingSecond.transform.GetChild(4).gameObject.SetActive(false);
         loadingFirst.SetActive(false);
-        BeginLoading();
+        BeginLoading(true);
         loadingFX.SetActive(true);
         status.text = "Downloading song for playback...";
 
@@ -991,7 +992,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         loadingSecond.SetActive(true);
         loadingSecond.transform.GetChild(4).gameObject.SetActive(false);
         loadingFirst.SetActive(false);
-        BeginLoading();
+        BeginLoading(true);
         loadingFX.SetActive(true);
         status.text = "Splitting vocals for use...";
 
@@ -1228,7 +1229,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         loadingSecond.SetActive(true);
         loadingSecond.transform.GetChild(4).gameObject.SetActive(true);
         loadingFirst.SetActive(false);
-        BeginLoading();
+        BeginLoading(true);
         loadingFX.SetActive(true);
         status.text = "Fetching lyrics...";
         compiling = true;
@@ -1355,12 +1356,12 @@ public class LevelResourcesCompiler : MonoBehaviour
             status.text = "Primary source failed. Trying LRCLib...";
             UnityEngine.Debug.Log("Initial lyric fetch failed. Attempting LRCLib fallback.");
 
-            // In multiplayer, selectedTrack might be null. Use the cached track.
-            Track trackForLrcLib = selectedTrack;
-            if (PlayerPrefs.GetInt("multiplayer") == 1 && trackForLrcLib == null)
+            // In multiplayer, ALWAYS use RoomManager data to avoid stale selectedTrack from previous local session
+            Track trackForLrcLib = null;
+            if (PlayerPrefs.GetInt("multiplayer") == 1)
             {
                 // --- FIX: Exclusively use RoomManager SelectedSong logic ---
-                // We ignore lastPrecompiledTrack because it is a local cache that might be stale or completely wrong in multiplayer.
+                // We ignore selectedTrack/lastPrecompiledTrack because they are local caches that might be stale or completely wrong in multiplayer.
                 if (RoomManager.Instance != null && !string.IsNullOrEmpty(RoomManager.Instance.SelectedSong.Value.Title))
                 {
                     UnityEngine.Debug.Log("Constructing track from RoomManager selection for LRCLib fallback.");
@@ -1407,6 +1408,11 @@ public class LevelResourcesCompiler : MonoBehaviour
                     }
                     return;
                 }
+            }
+            else
+            {
+                // Non-multiplayer: safe to use selectedTrack
+                trackForLrcLib = selectedTrack;
             }
 
             bool fallbackSuccess = await FetchLyricsFromLrcLib(trackForLrcLib);
@@ -1735,22 +1741,37 @@ public class LevelResourcesCompiler : MonoBehaviour
             status.text = "Primary source failed. Trying LRCLib...";
             UnityEngine.Debug.Log("Initial lyric fetch failed. Attempting LRCLib fallback.");
 
-            // In multiplayer, selectedTrack might be null. Use the cached track.
-            Track trackForLrcLib = selectedTrack;
-            if (PlayerPrefs.GetInt("multiplayer") == 1 && trackForLrcLib == null)
+            // In party mode/multiplayer, ALWAYS construct track from parameters to avoid stale selectedTrack
+            Track trackForLrcLib = null;
+            if (partyMode || PlayerPrefs.GetInt("multiplayer") == 1)
             {
-                if (lastPrecompiledTrack != null && lastPrecompiledTrack.name == name && lastPrecompiledTrack.artists[0].name == artist)
+                // Construct track from parameters - this is the authoritative data for this compile
+                trackForLrcLib = new Track();
+                trackForLrcLib.name = name;
+                trackForLrcLib.artists = new System.Collections.Generic.List<Artist>();
+                Artist newArtist = new Artist();
+                newArtist.name = artist;
+                trackForLrcLib.artists.Add(newArtist);
+                trackForLrcLib.album = new Album();
+                trackForLrcLib.album.name = lastPrecompiledTrack?.album?.name ?? "";
+
+                // Parse duration from "mm:ss" string to ms if available
+                int totalMs = 0;
+                if (!string.IsNullOrEmpty(length))
                 {
-                    trackForLrcLib = lastPrecompiledTrack;
-                    UnityEngine.Debug.Log("Using cached track for LRCLib fallback in multiplayer.");
+                    string[] parts = length.Split(':');
+                    if (parts.Length == 2 && int.TryParse(parts[0], out int min) && int.TryParse(parts[1], out int sec))
+                    {
+                        totalMs = (min * 60 + sec) * 1000;
+                    }
                 }
-                else
-                {
-                    UnityEngine.Debug.LogError("LRCLib fallback in multiplayer failed: No valid cached track found.");
-                    lyricsError = true;
-                    loadingFX.SetActive(false);
-                    return;
-                }
+                trackForLrcLib.duration_ms = totalMs;
+                UnityEngine.Debug.Log($"[LRCLib Fallback] Constructed Track from params -> Name: '{name}', Artist: '{artist}', Duration: {totalMs}ms");
+            }
+            else
+            {
+                // Non-party/non-multiplayer: safe to use selectedTrack
+                trackForLrcLib = selectedTrack;
             }
 
             bool fallbackSuccess = await FetchLyricsFromLrcLib(trackForLrcLib);
@@ -2097,11 +2118,17 @@ public class LevelResourcesCompiler : MonoBehaviour
         loadingCanvas.SetActive(false);
     }
 
-    public void BeginLoading()
+    public void BeginLoading(bool isLocalProcessing = false)
     {
         LowpassTransition(true);
         blurAnim.Play("BlurIn");
         loadingAnim.Play("LoadingIn");
+
+        // Control stageProgress based on local vs network processing
+        if (stageProgress != null)
+        {
+            stageProgress.SetActive(isLocalProcessing);
+        }
     }
 
     private Process activeProcess;
@@ -2132,7 +2159,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         loadingSecond.SetActive(true);
         loadingSecond.transform.GetChild(4).gameObject.SetActive(true);
         loadingFirst.SetActive(false);
-        BeginLoading();
+        BeginLoading(true);
         loadingFX.SetActive(true);
 
         StartCoroutine(RunFullInstallCoroutine());
