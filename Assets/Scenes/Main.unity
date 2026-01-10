@@ -33017,10 +33017,6 @@ PrefabInstance:
       value: PlayerParticle
       objectReference: {fileID: 0}
     - target: {fileID: 4428890703254789804, guid: d5cd1d0e61a189a4dbdf3c0b7a6e0fc1, type: 3}
-      propertyPath: debugMode
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 4428890703254789804, guid: d5cd1d0e61a189a4dbdf3c0b7a6e0fc1, type: 3}
       propertyPath: bufferLengthSeconds
       value: 1
       objectReference: {fileID: 0}
@@ -34280,7 +34276,7 @@ MonoBehaviour:
   unpauseFX: {fileID: 304512915}
   stagesGO: {fileID: 1648352136}
   pitchTrack: {fileID: 851624384}
-  retryButton: {fileID: 0}
+  retryButton: {fileID: 1724524587}
 --- !u!4 &1574963926
 Transform:
   m_ObjectHideFlags: 0
