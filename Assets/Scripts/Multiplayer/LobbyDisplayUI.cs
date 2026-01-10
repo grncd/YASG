@@ -39,16 +39,13 @@ public class LobbyDisplayUI : MonoBehaviour
     public AudioClip playerJoinClip;
 
     public AudioClip playerReadyClip;
-    public AudioClip trackSwitchClip; // New SFX for track switch
+    public AudioClip trackSwitchClip;
 
 
-
-    // --- Private Fields (No changes here) ---
     private readonly Dictionary<PlayerData, GameObject> _playerListItems = new Dictionary<PlayerData, GameObject>();
     private Coroutine _refreshCoroutine;
     public float checkInterval = 0.25f;
 
-    // --- NEW OnEnable ---
     private void OnEnable()
     {
         Debug.Log("LobbyDisplayUI: OnEnable called.");
@@ -85,7 +82,7 @@ public class LobbyDisplayUI : MonoBehaviour
         startGameButton.onClick.AddListener(OnStartGameButtonClicked);
     }
 
-    // --- NEW OnDisable ---
+
     private void OnDisable()
     {
         Debug.Log("LobbyDisplayUI: OnDisable called.");
@@ -120,11 +117,6 @@ public class LobbyDisplayUI : MonoBehaviour
         }
     }
 
-    // --- NEW Handler Method ---
-    /// <summary>
-    /// This method is called ONLY when we know for sure that RoomManager.Instance is not null.
-    /// It subscribes to all the necessary events and sets the initial UI values.
-    /// </summary>
     private void HandleRoomManagerAvailable(RoomManager rmInstance)
     {
         Debug.Log("LobbyDisplayUI: RoomManager instance is available. Subscribing to events and refreshing displays.");
@@ -143,6 +135,12 @@ public class LobbyDisplayUI : MonoBehaviour
         UpdateRoomNameDisplay(rmInstance.GetRoomName());
         UpdateCreatorNameDisplay(rmInstance.GetCreatorName());
         UpdateSongDisplay(rmInstance.SelectedSong.Value);
+
+        // Refresh IP to fix race condition (as OnEnable might run before PlayerPrefs are updated)
+        if (ipAddress != null)
+        {
+            ipAddress.text = PlayerPrefs.GetString("masterIp");
+        }
     }
 
 

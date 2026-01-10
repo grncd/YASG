@@ -275,11 +275,24 @@ public class RealTimePitchDetector : MonoBehaviour
 
         if (debugMode)
         {
-            vocalArrowSDBG = GameObject.Find("DebugPanel").transform.GetChild(0).GetChild(0).GetComponent<Slider>();
-            vocalArrowS2DBG = GameObject.Find("DebugPanel").transform.GetChild(0).GetChild(1).GetComponent<Slider>();
-            vocalArrowS3DBG = GameObject.Find("DebugPanel").transform.GetChild(0).GetChild(2).GetComponent<Slider>();
-            vocalArrowS4DBG = GameObject.Find("DebugPanel").transform.GetChild(0).GetChild(3).GetComponent<Slider>();
-            songDebugLeniency = GameObject.Find("DebugPanel").transform.GetChild(0).GetChild(4).GetChild(0).GetChild(0).GetComponent<RectTransform>();
+            GameObject debugPanel = GameObject.Find("DebugPanel");
+            if (debugPanel != null && debugPanel.transform.childCount > 0 && debugPanel.transform.GetChild(0).childCount > 4)
+            {
+                Transform debugContent = debugPanel.transform.GetChild(0);
+                vocalArrowSDBG = debugContent.GetChild(0).GetComponent<Slider>();
+                vocalArrowS2DBG = debugContent.GetChild(1).GetComponent<Slider>();
+                vocalArrowS3DBG = debugContent.GetChild(2).GetComponent<Slider>();
+                vocalArrowS4DBG = debugContent.GetChild(3).GetComponent<Slider>();
+                
+                if (debugContent.GetChild(4).childCount > 0 && debugContent.GetChild(4).GetChild(0).childCount > 0) 
+                {
+                    songDebugLeniency = debugContent.GetChild(4).GetChild(0).GetChild(0).GetComponent<RectTransform>();
+                }
+            }
+            else
+            {
+                if (debugMode) Debug.LogWarning("[RealTimePitchDetector] DebugPanel not found or hierarchy mismatch. Debug sliders for vocal arrows will not be linked.");
+            }
         }
 
         // Now that we are activated, we can start waiting for the score value and start the mic.

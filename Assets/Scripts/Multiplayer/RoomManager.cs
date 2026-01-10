@@ -1,6 +1,7 @@
 using FishNet.Object;
 using FishNet.Object.Synchronizing;
 using System.Linq; // Make sure you have this
+using System.Collections; // Required for IEnumerator
 using FishNet.Managing.Scened; // Add this using directive for SceneLoadData
 using UnityEngine;
 using UnityEngine.Events;
@@ -270,9 +271,16 @@ public class RoomManager : NetworkBehaviour
     public void ReturnToLobby_Server()
     {
         if (!IsServer) return;
+        StartCoroutine(ReturnToLobbyRoutine());
+    }
 
-        // Notify all clients that we are returning to the lobby so they can set up their UI state
+    private IEnumerator ReturnToLobbyRoutine()
+    {
+        // Notify all clients that we are returning to the lobby so they can set up their UI state AND play transition
         NotifyReturningToLobby_ObserversRpc();
+
+        // Wait for the transition animation (approx 1s)
+        yield return new WaitForSeconds(1.0f);
 
         // First, reset everyone's state
         ResetAllPlayersState_Server();
@@ -290,6 +298,13 @@ public class RoomManager : NetworkBehaviour
         Debug.Log("Received RPC: Returning to lobby. Setting 'fromMP' flag.");
         PlayerPrefs.SetInt("fromMP", 1);
         PlayerPrefs.Save();
+
+        // Trigger Results Screen transition if present
+        var resultsScreen = FindObjectOfType<ResultsScreen>();
+        if (resultsScreen != null)
+        {
+            resultsScreen.PlayTransitionAndLeave();
+        }
     }
 
     [Server]

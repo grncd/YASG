@@ -78,30 +78,89 @@ public class BGMusic : MonoBehaviour
 
     private void OnActiveSceneChanged(Scene previousScene, Scene newScene)
     {
-        // Always ensure any preview is stopped when scenes change to prevent overlapping audio
-        if (previewAudioSource != null && previewAudioSource.isPlaying)
+        // 1. Stop all coroutines immediately so no background logic continues from previous scene
+        StopAllCoroutines();
+
+        // 1.5 Stop the main BG music immediately (otherwise it keeps playing if coroutine is killed)
+        if (audioSource != null)
         {
-            StopPreview();
+            audioSource.Stop();
         }
 
-        // Only run menu setup when entering the Menu scene
+        // 2. Force stop preview audio and clean up ONLY if we are returning to the Menu (e.g. disconnect)
+        // If we are going to Main (starting game), we presumably want it to keep playing (or let Main handle it).
+        if (newScene.name == "Menu")
+        {
+            if (previewAudioSource != null)
+            {
+                previewAudioSource.Stop();
+                previewAudioSource.clip = null;
+            }
+
+            // 3. Clean up temporary preview file
+            if (!string.IsNullOrEmpty(tempPreviewFilePath) && File.Exists(tempPreviewFilePath))
+            {
+                try
+                {
+                    File.Delete(tempPreviewFilePath);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning($"BGMusic: Failed to delete temp preview file: {e.Message}");
+                }
+                tempPreviewFilePath = null;
+            }
+        }
+
+        // 4. Reset state/references for the new scene
         if (newScene.name == "Menu")
         {
             // Ensure bg volumes are sane
-            previewAudioSource.volume = 0.143f;
-            if (audioSource != null)
-            {
-                audioSource.volume = bgMusicVolume;
-            }
+            if (previewAudioSource != null) previewAudioSource.volume = 0.143f;
+            if (audioSource != null) audioSource.volume = bgMusicVolume;
+
             killSwitch = false;
-            songName = GameObject.Find("Canvas").transform.GetChild(2).GetChild(7).GetChild(2).GetComponent<TextMeshProUGUI>();
-            shuffleButton = songName.transform.parent.GetChild(4).gameObject;
-            StopAllCoroutines();
+
+            // Re-acquire references (Fragile hierarchy check, keeping as is)
+            var canvas = GameObject.Find("Canvas");
+            if (canvas != null)
+            {
+                // Verify hierarchy exists before accessing to prevent NREs
+                Transform t = canvas.transform;
+                if (t.childCount > 2)
+                {
+                    Transform audioPanel = t.GetChild(2);
+                    if (audioPanel.childCount > 7)
+                    {
+                        Transform songInfo = audioPanel.GetChild(7);
+                        if (songInfo.childCount > 2)
+                        {
+                            songName = songInfo.GetChild(2).GetComponent<TextMeshProUGUI>();
+                        }
+                        if (audioPanel.childCount > 4)
+                        {
+                            shuffleButton = audioPanel.GetChild(4).gameObject;
+                        }
+                    }
+                }
+            }
+
+            // Fallback if references failed (optional, but good practice)? 
+            // Existing code didn't check nulls, so it might have thrown exceptions. 
+            // I'll keep it safer but if I can't find it, I proceed.
+            // Actually, to be safe and closest to original:
+            try
+            {
+                songName = GameObject.Find("Canvas").transform.GetChild(2).GetChild(7).GetChild(2).GetComponent<TextMeshProUGUI>();
+                shuffleButton = songName.transform.parent.GetChild(4).gameObject;
+            }
+            catch { }
+
+
             StartCoroutine(MusicPlayerCoroutine());
         }
         else
         {
-            StopAllCoroutines();
             killSwitch = true;
         }
     }

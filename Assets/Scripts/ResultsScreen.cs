@@ -428,35 +428,43 @@ public class ResultsScreen : MonoBehaviour
         return -(Mathf.Cos(Mathf.PI * x) - 1) / 2;
     }
 
-    public async void BackToMenu()
+    public void BackToMenu()
     {
-        resultsOutAnimator.Play("ResultsOut");
-        resultsOutFX.Play();
-        StartCoroutine(ChangeVolumeRoutine(backgroundMusic, 0f, 0.6f));
-        await Task.Delay(700);
-        if (PlayerPrefs.GetInt("partyMode") == 0)
-        {
-            PlayerPrefs.SetInt("fromMP", 1);
-        }
-        // Check if we are in a multiplayer session.
+        // 1. Multiplayer Check
         if (PlayerPrefs.GetInt("multiplayer") == 1)
         {
-            // In multiplayer, only the host can trigger the return to the lobby.
+            // Only host can trigger
             if (PlayerData.LocalPlayerInstance != null && PlayerData.LocalPlayerInstance.IsHost.Value)
             {
                 Debug.Log("Host is requesting to return to the lobby.");
                 PlayerData.LocalPlayerInstance.RequestReturnToLobby_ServerRpc();
             }
-            else
-            {
-                Debug.Log("Only the host can return to the lobby. Non-host button should be disabled.");
-                // Optionally, you could have non-hosts just leave the room, but for now, we do nothing.
-            }
+            // Non-hosts do nothing
         }
         else
         {
-            // This is the original single-player logic.
-            SceneManager.LoadSceneAsync("Menu", LoadSceneMode.Single);
+            // Singleplayer: Execute immediately
+            PlayTransitionAndLeave();
+        }
+    }
+
+    public async void PlayTransitionAndLeave()
+    {
+        resultsOutAnimator.Play("ResultsOut");
+        resultsOutFX.Play();
+        StartCoroutine(ChangeVolumeRoutine(backgroundMusic, 0f, 0.6f));
+        await Task.Delay(700);
+        
+        if (PlayerPrefs.GetInt("partyMode") == 0)
+        {
+            PlayerPrefs.SetInt("fromMP", 1);
+        }
+
+        // If Singleplayer, load menu here.
+        // If Multiplayer, RoomManager handles Scene Load after this transition finishes.
+        if (PlayerPrefs.GetInt("multiplayer") == 0)
+        {
+             SceneManager.LoadSceneAsync("Menu", LoadSceneMode.Single);
         }
     }
 
