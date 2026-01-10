@@ -235,7 +235,7 @@ public class PlayerData : NetworkBehaviour
         {
             if (newStatus)
             {
-                NotificationCenter.Info("You are the Host!", "You have been promoted to Host. You now have control over game settings and starting the game.");
+                NotificationCenter.Info("You are the Host!", "You have been promoted to Host.");
             }
             else
             {

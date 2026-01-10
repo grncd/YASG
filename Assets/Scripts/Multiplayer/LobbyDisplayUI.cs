@@ -37,7 +37,11 @@ public class LobbyDisplayUI : MonoBehaviour
     public AudioSource lobbyAudioSource;
     public AudioClip gameStartClip;
     public AudioClip playerJoinClip;
+
     public AudioClip playerReadyClip;
+    public AudioClip trackSwitchClip; // New SFX for track switch
+
+
 
     // --- Private Fields (No changes here) ---
     private readonly Dictionary<PlayerData, GameObject> _playerListItems = new Dictionary<PlayerData, GameObject>();
@@ -108,6 +112,12 @@ public class LobbyDisplayUI : MonoBehaviour
             StopCoroutine(_refreshCoroutine);
         }
         ClearPlayerList();
+
+        // Stop preview music when leaving lobby
+        if (BGMusic.Instance != null)
+        {
+            BGMusic.Instance.StopPreview();
+        }
     }
 
     // --- NEW Handler Method ---
@@ -206,9 +216,19 @@ public class LobbyDisplayUI : MonoBehaviour
             return;
         }
 
+        // --- NEW CHECK: Is a song selected? ---
+        bool isSongSelected = false;
+        if (RoomManager.Instance != null && !string.IsNullOrEmpty(RoomManager.Instance.SelectedSong.Value.Title))
+        {
+            isSongSelected = true;
+        }
+
         bool allReady = players.Count > 0 && players.All(p => p.IsReady.Value);
 
-        if (allReady)
+        // Host sees start button ONLY if:
+        // 1. All players are ready
+        // 2. A song is actually selected
+        if (allReady && isSongSelected)
         {
             startGameButton.gameObject.SetActive(true);
             startGameButton.interactable = true; // Reset interactability when all ready
@@ -230,8 +250,20 @@ public class LobbyDisplayUI : MonoBehaviour
         _playerListItems.Clear();
     }
 
+    private float _lastTrackSwitchTime;
+
     private void UpdateSongDisplay(SongData song)
     {
+        // Play SFX with cooldown
+        if (lobbyAudioSource != null && trackSwitchClip != null && !string.IsNullOrEmpty(song.Title))
+        {
+            if (Time.time - _lastTrackSwitchTime > 1.0f)
+            {
+                lobbyAudioSource.PlayOneShot(trackSwitchClip);
+                _lastTrackSwitchTime = Time.time;
+            }
+        }
+
         if (songTitleText == null) return;
 
         if (string.IsNullOrEmpty(song.Title))
@@ -251,6 +283,19 @@ public class LobbyDisplayUI : MonoBehaviour
         if (!string.IsNullOrEmpty(song.CoverUrl))
         {
             StartCoroutine(DownloadImage(song.CoverUrl));
+        }
+
+        // --- Use BGMusic for Previews ---
+        if (BGMusic.Instance != null)
+        {
+            if (!string.IsNullOrEmpty(song.Link))
+            {
+                BGMusic.Instance.PreviewSong(song.Link);
+            }
+            else
+            {
+                BGMusic.Instance.StopPreview();
+            }
         }
     }
 
@@ -315,6 +360,8 @@ public class LobbyDisplayUI : MonoBehaviour
     public void Disconnect()
     {
         _isIntentionalDisconnect = true;
+
+        if (BGMusic.Instance != null) BGMusic.Instance.StopPreview(); // Stop preview explicitly
 
         // If running as host, stop the server.
         if (InstanceFinder.ServerManager.Started)
