@@ -156,16 +156,6 @@ public class PlayerListItemUI : MonoBehaviour
         {
             bubbleButton.interactable = PlayerData.LocalPlayerInstance.IsHost.Value;
         }
-
-        // Enable "More" object only if the local player is the host
-        if (moreObject != null)
-        {
-            bool isLocalHost = PlayerData.LocalPlayerInstance != null && PlayerData.LocalPlayerInstance.IsHost.Value;
-            if (moreObject.activeSelf != isLocalHost)
-            {
-                moreObject.SetActive(isLocalHost);
-            }
-        }
     }
 
     /// <summary>
@@ -174,15 +164,19 @@ public class PlayerListItemUI : MonoBehaviour
     /// </summary>
     public void CheckIfLocalPlayerIsHostAndNotify()
     {
-        if (PlayerData.LocalPlayerInstance == null)
-        {
-            Debug.LogWarning("CheckIfHost: LocalPlayerInstance is null.");
-            return;
-        }
+
 
         if (!PlayerData.LocalPlayerInstance.IsHost.Value)
         {
             NotificationCenter.Error("Permission Denied", "Only the Host can perform this action.");
+        }
+        else
+        {
+            bool isLocalHost = PlayerData.LocalPlayerInstance != null && PlayerData.LocalPlayerInstance.IsHost.Value;
+            if (moreObject.activeSelf != isLocalHost)
+            {
+                moreObject.SetActive(isLocalHost);
+            }
         }
     }
 }

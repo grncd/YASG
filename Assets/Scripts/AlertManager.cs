@@ -129,6 +129,7 @@ public class AlertManager : MonoBehaviour
             ShowInfo("You have been disconnected.", "The host has disconnected, so you have been returned to the menu.", "Close");
             PlayerPrefs.SetInt("HostDisconnected", 0);
             PlayerPrefs.SetInt("fromMP", 0);
+            PlayerPrefs.SetInt("multiplayer", 0);
 
             // Ensure proper UI state
             if (mpGO != null) mpGO.SetActive(false);

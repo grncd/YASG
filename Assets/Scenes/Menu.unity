@@ -35926,7 +35926,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 60f9075535fe95b43b8f550850f74807, type: 3}
   m_PlayOnAwake: 0
-  m_Volume: 0.165
+  m_Volume: 0.31
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -77367,6 +77367,7 @@ MonoBehaviour:
   gameStartClip: {fileID: 8300000, guid: fc870d230de6e68829a0d0d18ad103f6, type: 3}
   playerJoinClip: {fileID: 8300000, guid: f169540b774cc882b8250fee6a7ce6c5, type: 3}
   playerReadyClip: {fileID: 8300000, guid: a575700c15c96ee8c83eee2e00b5798c, type: 3}
+  trackSwitchClip: {fileID: 8300000, guid: 3c1caf9465a6aac40806e30c04333746, type: 3}
   checkInterval: 0.25
 --- !u!82 &1801840694
 AudioSource:
@@ -77381,7 +77382,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 0
-  m_Volume: 0.251
+  m_Volume: 1
   m_Pitch: 1
   Loop: 0
   Mute: 0

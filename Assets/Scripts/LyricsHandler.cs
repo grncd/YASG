@@ -42,6 +42,7 @@ public class LyricsHandler : MonoBehaviour
     public AudioSource unpauseFX;
     public GameObject stagesGO;
     public GameObject pitchTrack;
+    public Button retryButton;
 
     private int currentLineIndex = 0;
 
@@ -131,26 +132,38 @@ public class LyricsHandler : MonoBehaviour
 
     public void Pause()
     {
-        if (canPause && PlayerPrefs.GetInt("multiplayer") == 0)
+        if (canPause)
         {
+            bool isMultiplayer = PlayerPrefs.GetInt("multiplayer") == 1;
+
             paused = !paused;
-            PlayerPerformance[] allPlayers = FindObjectsOfType<PlayerPerformance>();
-            foreach (PlayerPerformance player in allPlayers)
+
+            if (!isMultiplayer)
             {
-                player.Pause();
+                // Single Player: Pause everything
+                PlayerPerformance[] allPlayers = FindObjectsOfType<PlayerPerformance>();
+                foreach (PlayerPerformance player in allPlayers)
+                {
+                    player.Pause();
+                }
+                APP.Pause();
             }
-            APP.Pause();
+            else
+            {
+                retryButton.interactable = false;
+            }
+
             if (paused)
             {
                 pauseFX.Play();
                 pausePanel.SetActive(true);
-                Time.timeScale = 0f;
+                if (!isMultiplayer) Time.timeScale = 0f; // Only freeze time in Single Player
             }
             else
             {
                 unpauseFX.Play();
                 pausePanel.SetActive(false);
-                Time.timeScale = 1f;
+                if (!isMultiplayer) Time.timeScale = 1f;
             }
         }
     }
@@ -160,7 +173,24 @@ public class LyricsHandler : MonoBehaviour
         Time.timeScale = 1f;
         if (PlayerPrefs.GetInt("multiplayer") == 1)
         {
+            // Proper disconnect logic
+            Debug.Log("BackToMenu: Disconnecting from Multiplayer...");
             PlayerData.isIntentionalDisconnect = true;
+
+            // Stop Client/Server as appropriate
+            if (FishNet.InstanceFinder.ServerManager != null && FishNet.InstanceFinder.ServerManager.Started)
+            {
+                FishNet.InstanceFinder.ServerManager.StopConnection(true);
+            }
+            else if (FishNet.InstanceFinder.ClientManager != null && FishNet.InstanceFinder.ClientManager.Started)
+            {
+                FishNet.InstanceFinder.ClientManager.StopConnection();
+            }
+
+            // Cleanup prefs
+            PlayerPrefs.SetInt("multiplayer", 0);
+            PlayerPrefs.SetInt("fromMP", 0);
+            PlayerPrefs.Save();
         }
         UnityEngine.SceneManagement.SceneManager.LoadScene("Menu", LoadSceneMode.Single);
     }
@@ -192,7 +222,7 @@ public class LyricsHandler : MonoBehaviour
         {
             canPause = false;
         }
-        if (Input.GetKeyDown(KeyCode.Escape) && canPause && PlayerPrefs.GetInt("multiplayer") == 0)
+        if (Input.GetKeyDown(KeyCode.Escape) && canPause)
         {
             Pause();
         }
