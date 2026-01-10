@@ -21,19 +21,11 @@ public class HostActionGuard : MonoBehaviour
             }
             else
             {
-                // Show Error Alert
-                if (AlertManager.Instance != null)
-                {
-                    AlertManager.Instance.ShowError(
-                        "Host Only",
-                        "Only the room host can perform this action.",
+                AlertManager.Instance.ShowError(
+                        "You are not the host.",
+                        "Only the room host can perform this action. (the player with a crown icon)",
                         "OK"
                     );
-                }
-                else
-                {
-                    Debug.LogWarning("HostActionGuard: Start/Back/Action blocked because you are not the host.");
-                }
             }
         }
     }
