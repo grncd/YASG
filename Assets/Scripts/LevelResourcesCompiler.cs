@@ -885,13 +885,13 @@ public class LevelResourcesCompiler : MonoBehaviour
     public void AddFavorite(string name, string artist, string album, string length, string cover, string url)
     {
         FavoritesManager.AddFavorite(name, artist, album, length, cover, url);
-        songInfo.transform.GetChild(5).GetComponent<AudioSource>().Play();
+        songInfo.transform.GetChild(6).GetComponent<AudioSource>().Play();
     }
 
     public void RemoveFavorite(string url)
     {
         FavoritesManager.RemoveFavoriteByUrl(url);
-        songInfo.transform.GetChild(6).GetComponent<AudioSource>().Play();
+        songInfo.transform.GetChild(7).GetComponent<AudioSource>().Play();
     }
 
     public async void Dismiss()
