@@ -33,7 +33,7 @@ public class ProgressManager : MonoBehaviour
                 lastActivePageIndex = activeIndex;
                 if (activeIndex != -1)
                 {
-                    switch (activeIndex+1)
+                    switch (activeIndex + 1)
                     {
                         case 1:
                             progress[0].value = 0f;
@@ -51,6 +51,7 @@ public class ProgressManager : MonoBehaviour
                             progress[1].value = 1f;
                             break;
                         case 8:
+                            progress[1].value = 1f;
                             progress[2].value = 0.5f;
                             break;
                         case 9:

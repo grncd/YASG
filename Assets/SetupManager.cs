@@ -47,6 +47,12 @@ public class SetupManager : MonoBehaviour
     public AudioSource audioSource;
     public AudioSource completeFX;
 
+    [Header("Skip Login Option")]
+    [Tooltip("If true, login pages will be skipped entirely (uses anonymous Spotify API)")]
+    public bool skipLogin = true;
+    public SetupPage postLoginPage;
+    public SetupPage additionalLoginPage;
+
     [Header("Auto-Setup UI References (for testing builds)")]
     public SetupPage welcomePage;
     public SetupPage tosPage;
@@ -266,7 +272,7 @@ public class SetupManager : MonoBehaviour
 
     private void Start()
     {
-        if (!Application.isEditor)
+        if (/*!Application.isEditor*/ true)
         {
             // Ensure there's a sensible default (Unity game's data folder) if none set
             string defaultPath = PlayerPrefs.GetString("dataPath");
@@ -608,7 +614,18 @@ public class SetupManager : MonoBehaviour
             }
             if (message.Contains("Setup completed"))
             {
-                preinstallPage.NextPage();
+                if (skipLogin)
+                {
+                    preinstallPage.NextPage();
+                    preLoginPage.NextPage();
+                    loginPage.NextPage();
+                    manualLoginPage.NextPage();
+                    preinstallProgress.value = 1f;
+                }
+                else
+                {
+                    preinstallPage.NextPage();
+                }
             }
 
         }
@@ -852,6 +869,15 @@ public class SetupManager : MonoBehaviour
     }
 
 
+    public void SkipLogin()
+    {
+        preinstallProgress.value = 1f;
+        preLoginPage.NextPage();
+        loginPage.NextPage();
+        manualLoginPage.NextPage();
+    }
+
+
     private void CleanUpProcess()
     {
         if (activeProcess != null)
@@ -996,27 +1022,9 @@ public class SetupManager : MonoBehaviour
         yield return new WaitUntil(() => preinstallProgress != null && preinstallProgress.value >= 0.99f);
         yield return new WaitForSeconds(1f); // Extra buffer for page transition
 
-        // Step 4: Simulate Ctrl+L to skip to manual login page
-        UnityEngine.Debug.Log("[AutoSetup] Step 4: Skipping to manual login page (simulating Ctrl+L)");
-        if (preLoginPage != null) preLoginPage.gameObject.SetActive(false);
-        if (manualLoginPage != null) manualLoginPage.gameObject.SetActive(true);
-        if (loginPage != null) loginPage.gameObject.SetActive(false);
-
-        yield return new WaitForSeconds(0.5f);
-
-        // Step 5: Click "Use shared API key" and click Next
-        UnityEngine.Debug.Log("[AutoSetup] Step 5: Clicking 'Use shared API key' and Next");
-        if (useSharedApiButton != null)
-        {
-            useSharedApiButton.onClick.Invoke();
-        }
-        yield return new WaitForSeconds(0.3f);
-
-        // Advance to next page after using shared API
-        if (manualLoginPage != null)
-        {
-            manualLoginPage.NextPage();
-        }
+        // Step 4: Skip login entirely (using anonymous API)
+        UnityEngine.Debug.Log("[AutoSetup] Step 4: Skipping login (using anonymous Spotify API)");
+        SkipLogin();
 
         yield return new WaitForSeconds(0.5f);
 
