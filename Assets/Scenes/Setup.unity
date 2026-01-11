@@ -1769,7 +1769,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: <b>3.</b> Login + Settings
+  m_text: <b>3.</b> Settings
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: d7b32db4901769e4188bd82a9e439b3e, type: 2}
   m_sharedMaterial: {fileID: -2273542556847416566, guid: d7b32db4901769e4188bd82a9e439b3e, type: 2}
@@ -10670,6 +10670,9 @@ MonoBehaviour:
   finalInstallConsole: {fileID: 1446167938}
   audioSource: {fileID: 2104947866}
   completeFX: {fileID: 1231633833}
+  skipLogin: 1
+  postLoginPage: {fileID: 1976169328}
+  additionalLoginPage: {fileID: 0}
   welcomePage: {fileID: 5272268402965215067}
   tosPage: {fileID: 5038827113046294712}
   pathButton: {fileID: 1942300648}
@@ -19016,6 +19019,18 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1897059555}
     m_Modifications:
+    - target: {fileID: 6648392157012758387, guid: d4f983bb192877546abdda8830bc19b3, type: 3}
+      propertyPath: 'm_ActiveFontFeatures.Array.data[0]'
+      value: 1801810542
+      objectReference: {fileID: 0}
+    - target: {fileID: 6648392157166889424, guid: d4f983bb192877546abdda8830bc19b3, type: 3}
+      propertyPath: 'm_ActiveFontFeatures.Array.data[0]'
+      value: 1801810542
+      objectReference: {fileID: 0}
+    - target: {fileID: 6648392157222732606, guid: d4f983bb192877546abdda8830bc19b3, type: 3}
+      propertyPath: 'm_ActiveFontFeatures.Array.data[0]'
+      value: 1801810542
+      objectReference: {fileID: 0}
     - target: {fileID: 6648392157254385905, guid: d4f983bb192877546abdda8830bc19b3, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
