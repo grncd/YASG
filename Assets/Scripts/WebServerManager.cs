@@ -2884,75 +2884,13 @@ document.addEventListener('DOMContentLoaded', function() {
         callback(task.Result);
     }
 
-    private async Task<string> CheckLyricsAvailability(string spotifyUrl, string dataPath)
+    private Task<string> CheckLyricsAvailability(string spotifyUrl, string dataPath)
     {
-        try
-        {
-
-            bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
-            string scriptName = isLinux ? "getlyrics.sh" : "getlyrics.bat";
-            ProcessStartInfo psi = new ProcessStartInfo
-            {
-                FileName = Path.Combine(dataPath, scriptName),
-                Arguments = $"{spotifyUrl} {dataPath}",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            Process process = new Process { StartInfo = psi };
-            bool hasLyrics = true;
-            string errorMessage = "";
-
-            process.OutputDataReceived += (sender, args) =>
-            {
-                if (string.IsNullOrEmpty(args.Data)) return;
-                UnityEngine.Debug.Log($"[Lyrics Check] Output: {args.Data}");
-
-                // Check for indicators that lyrics were not found
-                if (args.Data.Contains("some tracks") ||
-                    args.Data.Contains("No lyrics found") ||
-                    args.Data.Contains("Lyrics not available"))
-                {
-                    hasLyrics = false;
-                    errorMessage = "No synced lyrics available";
-                }
-            };
-
-            process.ErrorDataReceived += (sender, args) =>
-            {
-                if (!string.IsNullOrEmpty(args.Data))
-                {
-                    UnityEngine.Debug.LogError($"[Lyrics Check] Error: {args.Data}");
-                    if (args.Data.Contains("error") || args.Data.Contains("failed"))
-                    {
-                        hasLyrics = false;
-                        errorMessage = "Error checking lyrics";
-                    }
-                }
-            };
-
-            process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-
-            await Task.Run(() => process.WaitForExit());
-
-            if (hasLyrics)
-            {
-                return "{\"hasLyrics\":true}";
-            }
-            else
-            {
-                return $"{{\"hasLyrics\":false,\"reason\":\"{errorMessage}\"}}";
-            }
-        }
-        catch (Exception e)
-        {
-            UnityEngine.Debug.LogError($"Error checking lyrics: {e.Message}");
-            return $"{{\"hasLyrics\":false,\"error\":\"{e.Message}\"}}";
-        }
+        // Lyrics availability is now checked during the actual compile process via LRCLib.
+        // We return true optimistically here - any lyrics errors will be handled gracefully
+        // during compilation with proper user feedback.
+        UnityEngine.Debug.Log($"[Lyrics Check] Optimistic check for: {spotifyUrl}");
+        return Task.FromResult("{\"hasLyrics\":true}");
     }
 
     private string ConvertDuration(int durationMs)

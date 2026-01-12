@@ -177,18 +177,12 @@ public class SettingsManager : MonoBehaviour
             { "PitchDetectionQuality", new Setting { Value = 2, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Real-Time Pitch Detection Quality", Description = "Turn this down if your FPS is dropping when singing in game. Only recommended to turn this up if you have a very low pitched voice or want precise pitch detection.", DropdownOptions = new List<string> { "Low", "Medium", "High", "Very High" } } },
             { "VocalProcessingMethod", new Setting { Value = 0, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Vocal Processing Method", Description = "Method used to extract vocals from the song. Only use vocalremover.org if you don't have a (good) GPU. Otherwise, use Demucs.", DropdownOptions = new List<string> { "VocalRemover.org", "Demucs" } } },
 
-            { "SyricsTimeout", new Setting { Value = "7", Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.TextInput, FormalName = "Lyrics Search Timeout", Description = "Time in seconds to wait for the lyrics search script (syrics) to finish before falling back to LRCLib. Default is 7s." } },
-
-            { "LyricsSource", new Setting { Value = 0, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Lyrics Source", Description = "Choose where to fetch lyrics from. Syrics will fall back to LRCLib if it fails.", DropdownOptions = new List<string> { "Syrics", "LRCLib" } } },
-
             // Misc
             { "MenuMusic", new Setting { Value = 2, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Music", Description = "Defines the song that will be played in the menu.", DropdownOptions = new List<string> { "None","Default","Random selection from downloaded songs" } } },
             { "MenuBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Background", Description = "Defines the background that will be displayed in the menu.", DropdownOptions = new List<string> { "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
             { "InGameBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "In-Game Background", Description = "Defines the background that will be displayed in-game.", DropdownOptions = new List<string> { "None", "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
             { "AudioReactiveBGInGame", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Background", Description = "Defines if the background will be audio-reactive or not. Currently, this only works if you are using the Rainbow Tunnel BG."  } },
 
-            { "ApiKey", new Setting { Value = PlayerPrefs.GetString("APIKEY", ""), Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.TextInput, FormalName = "API Key", Description = "Manually change your API key for Spotify integration."  } },
-            { "ClientId", new Setting { Value = PlayerPrefs.GetString("CLIENTID", ""), Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.TextInput, FormalName = "Client ID", Description = "Manually change your Client ID for Spotify integration."  } },
             { "FullReset", new Setting { Value = false, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "FULL RESET", Description = "Turn this on and REOPEN THE GAME to go back to the setup screen. THIS WILL DELETE ALL OF YOUR YASG DATA."  } }
         };
     }
@@ -237,18 +231,6 @@ public class SettingsManager : MonoBehaviour
                 {
                     LevelResourcesCompiler.Instance.RunFullInstall();
                 }
-            }
-            else if (key == "ApiKey")
-            {
-                PlayerPrefs.SetString("APIKEY", value.ToString());
-                PlayerPrefs.Save();
-                ReloadMenuScene();
-            }
-            else if (key == "ClientId")
-            {
-                PlayerPrefs.SetString("CLIENTID", value.ToString());
-                PlayerPrefs.Save();
-                ReloadMenuScene();
             }
             else if (key == "FullReset")
             {
