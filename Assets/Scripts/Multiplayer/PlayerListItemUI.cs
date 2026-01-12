@@ -140,12 +140,14 @@ public class PlayerListItemUI : MonoBehaviour
 
     public void RequestSetHost()
     {
-        PlayerData.LocalPlayerInstance.RequestTransferHost_ServerRpc(GameObject.Find("Player_" + _playerData.PlayerName.Value).GetComponent<NetworkObject>());
+        if (_playerData == null) return;
+        PlayerData.LocalPlayerInstance.RequestTransferHost_ServerRpc(_playerData.GetComponent<NetworkObject>());
     }
 
     public void RequestSetMasterProcessor()
     {
-        PlayerData.LocalPlayerInstance.RequestTransferMasterProcessor_ServerRpc(GameObject.Find("Player_" + _playerData.PlayerName.Value).GetComponent<NetworkObject>());
+        if (_playerData == null) return;
+        PlayerData.LocalPlayerInstance.RequestTransferMasterProcessor_ServerRpc(_playerData.GetComponent<NetworkObject>());
     }
 
     // ... (rest of the file until Update method)

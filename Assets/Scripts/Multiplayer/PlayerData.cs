@@ -626,21 +626,48 @@ public class PlayerData : NetworkBehaviour
         string masterIp = PlayerPrefs.GetString("masterIp");
 
         // --- Construct Save Paths ---
-        string fullSavePath = Path.Combine(dataPath, fullFileName);
+        string downloadDir = Path.Combine(dataPath, "downloads");
+        Directory.CreateDirectory(downloadDir);
+        string fullSavePath = Path.Combine(downloadDir, fullFileName);
 
         string vocalSaveDir = Path.Combine(dataPath, "output", "htdemucs");
         Directory.CreateDirectory(vocalSaveDir);
         string vocalSavePath = Path.Combine(vocalSaveDir, vocalFileName);
 
-        string lrcSaveDir = Path.Combine(dataPath, "downloads");
-        Directory.CreateDirectory(lrcSaveDir);
-        string lrcSavePath = Path.Combine(lrcSaveDir, lrcFileName);
+        string lrcSavePath = Path.Combine(downloadDir, lrcFileName);
 
         // --- NEW: Instrumental Save Path ---
         string instrumentalSavePath = Path.Combine(vocalSaveDir, instrumentalFileName);
 
         // --- NEW: Check if the .lrc file exists as a .txt file ---
         string lrcAsTxtPath = Path.ChangeExtension(lrcSavePath, ".txt");
+
+        // --- CLEANUP: Delete files in wrong location (root instead of downloads) ---
+        string wrongFullPath = Path.Combine(dataPath, fullFileName);
+        if (File.Exists(wrongFullPath) && wrongFullPath != fullSavePath)
+        {
+            Debug.Log($"Deleting file in wrong location: {wrongFullPath}");
+            File.Delete(wrongFullPath);
+        }
+
+        // --- FILE SIZE VALIDATION ---
+        // Check if existing files are valid (not empty/corrupted)
+        long minAudioFileSize = 10000; // 10KB minimum for audio files
+        if (File.Exists(fullSavePath) && new FileInfo(fullSavePath).Length < minAudioFileSize)
+        {
+            Debug.LogWarning($"Full song file is too small ({new FileInfo(fullSavePath).Length} bytes), deleting: {fullSavePath}");
+            File.Delete(fullSavePath);
+        }
+        if (File.Exists(vocalSavePath) && new FileInfo(vocalSavePath).Length < minAudioFileSize)
+        {
+            Debug.LogWarning($"Vocal track file is too small ({new FileInfo(vocalSavePath).Length} bytes), deleting: {vocalSavePath}");
+            File.Delete(vocalSavePath);
+        }
+        if (File.Exists(instrumentalSavePath) && new FileInfo(instrumentalSavePath).Length < minAudioFileSize)
+        {
+            Debug.LogWarning($"Instrumental track file is too small ({new FileInfo(instrumentalSavePath).Length} bytes), deleting: {instrumentalSavePath}");
+            File.Delete(instrumentalSavePath);
+        }
 
         // --- STRICT VERIFICATION ---
         // Using LevelResourcesCompiler's strict integrity check.
@@ -700,6 +727,16 @@ public class PlayerData : NetworkBehaviour
                 Debug.LogError($"Failed to download full song: {fullRequest.error}");
                 yield break;
             }
+
+            // Verify file was written and has content
+            yield return null; // Wait a frame for file system to flush
+            if (!File.Exists(fullSavePath) || new FileInfo(fullSavePath).Length < 1000)
+            {
+                Debug.LogError($"Full song file is missing or too small after download: {fullSavePath}");
+                if (File.Exists(fullSavePath)) File.Delete(fullSavePath);
+                yield break;
+            }
+            Debug.Log($"Full song downloaded successfully: {fullSavePath} ({new FileInfo(fullSavePath).Length} bytes)");
         }
 
         // --- Download Vocal Track (only if it doesn't exist) ---
@@ -716,6 +753,16 @@ public class PlayerData : NetworkBehaviour
                 Debug.LogError($"Failed to download vocal track: {vocalRequest.error}");
                 yield break;
             }
+
+            // Verify file was written and has content
+            yield return null; // Wait a frame for file system to flush
+            if (!File.Exists(vocalSavePath) || new FileInfo(vocalSavePath).Length < 1000)
+            {
+                Debug.LogError($"Vocal track file is missing or too small after download: {vocalSavePath}");
+                if (File.Exists(vocalSavePath)) File.Delete(vocalSavePath);
+                yield break;
+            }
+            Debug.Log($"Vocal track downloaded successfully: {vocalSavePath} ({new FileInfo(vocalSavePath).Length} bytes)");
         }
 
         // --- Download LRC file (only if it doesn't exist as .lrc or .txt) ---
@@ -753,6 +800,71 @@ public class PlayerData : NetworkBehaviour
             }
         }
 
+        // --- VALIDATE AUDIO FILES BEFORE PROCEEDING ---
+        LevelResourcesCompiler.Instance.status.text = "Validating audio files...";
+
+        // Validate vocal track
+        bool vocalValid = false;
+        yield return ValidateAudioFile(vocalSavePath, (isValid) => vocalValid = isValid);
+        if (!vocalValid)
+        {
+            Debug.LogError($"Vocal track failed validation, deleting and retrying download: {vocalSavePath}");
+            if (File.Exists(vocalSavePath)) File.Delete(vocalSavePath);
+
+            // Retry download
+            LevelResourcesCompiler.Instance.status.text = "Re-downloading vocal track...";
+            UnityWebRequest vocalRetry = new UnityWebRequest(vocalUrl, UnityWebRequest.kHttpVerbGET)
+            {
+                downloadHandler = new DownloadHandlerFile(vocalSavePath)
+            };
+            yield return vocalRetry.SendWebRequest();
+            if (vocalRetry.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"Failed to re-download vocal track: {vocalRetry.error}");
+                yield break;
+            }
+
+            // Validate again
+            yield return ValidateAudioFile(vocalSavePath, (isValid) => vocalValid = isValid);
+            if (!vocalValid)
+            {
+                Debug.LogError("Vocal track still invalid after re-download. Aborting.");
+                yield break;
+            }
+        }
+
+        // Validate full track
+        bool fullValid = false;
+        yield return ValidateAudioFile(fullSavePath, (isValid) => fullValid = isValid);
+        if (!fullValid)
+        {
+            Debug.LogError($"Full track failed validation, deleting and retrying download: {fullSavePath}");
+            if (File.Exists(fullSavePath)) File.Delete(fullSavePath);
+
+            // Retry download
+            LevelResourcesCompiler.Instance.status.text = "Re-downloading full song...";
+            UnityWebRequest fullRetry = new UnityWebRequest(fullUrl, UnityWebRequest.kHttpVerbGET)
+            {
+                downloadHandler = new DownloadHandlerFile(fullSavePath)
+            };
+            yield return fullRetry.SendWebRequest();
+            if (fullRetry.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"Failed to re-download full track: {fullRetry.error}");
+                yield break;
+            }
+
+            // Validate again
+            yield return ValidateAudioFile(fullSavePath, (isValid) => fullValid = isValid);
+            if (!fullValid)
+            {
+                Debug.LogError("Full track still invalid after re-download. Aborting.");
+                yield break;
+            }
+        }
+
+        Debug.Log("All audio files validated successfully!");
+
         // --- Set PlayerPrefs for Playback ---
         bool needInstrumental = SettingsManager.Instance.GetSetting<bool>("PlayInstrumental");
         if (needInstrumental && File.Exists(instrumentalSavePath))
@@ -764,13 +876,10 @@ public class PlayerData : NetworkBehaviour
             PlayerPrefs.SetString("fullLocation", fullSavePath);
         }
 
-        // --- Report Ready (This part is unchanged) ---
-
         PlayerPrefs.SetString("vocalLocation", vocalSavePath);
-        // PlayerPrefs.GetString("fullLocation") is already set in the instrumental block above.
 
-        Debug.Log("All files downloaded or verified. Reporting ready status to server via LocalPlayerInstance.");
-        LevelResourcesCompiler.Instance.status.text = "Finished!";
+        Debug.Log("All files downloaded and validated. Reporting ready status to server.");
+        LevelResourcesCompiler.Instance.status.text = "Ready!";
 
         if (PlayerData.LocalPlayerInstance != null)
         {
@@ -782,7 +891,59 @@ public class PlayerData : NetworkBehaviour
         }
     }
 
+    /// <summary>
+    /// Validates an audio file by loading it and checking if it has valid samples.
+    /// </summary>
+    private IEnumerator ValidateAudioFile(string filePath, System.Action<bool> callback)
+    {
+        // Check file exists and has reasonable size
+        if (!File.Exists(filePath))
+        {
+            Debug.LogWarning($"ValidateAudioFile: File does not exist: {filePath}");
+            callback(false);
+            yield break;
+        }
 
+        long fileSize = new FileInfo(filePath).Length;
+        if (fileSize < 10000) // Less than 10KB
+        {
+            Debug.LogWarning($"ValidateAudioFile: File too small ({fileSize} bytes): {filePath}");
+            callback(false);
+            yield break;
+        }
+
+        // Try to load the audio file
+        string url = new Uri(filePath).AbsoluteUri;
+        using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip(url, AudioType.MPEG))
+        {
+            yield return www.SendWebRequest();
+
+            if (www.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogWarning($"ValidateAudioFile: Failed to load audio: {www.error}");
+                callback(false);
+                yield break;
+            }
+
+            AudioClip clip = DownloadHandlerAudioClip.GetContent(www);
+            if (clip == null)
+            {
+                Debug.LogWarning($"ValidateAudioFile: AudioClip is null after loading: {filePath}");
+                callback(false);
+                yield break;
+            }
+
+            if (clip.samples <= 0 || clip.length <= 0)
+            {
+                Debug.LogWarning($"ValidateAudioFile: AudioClip has invalid data (samples: {clip.samples}, length: {clip.length}s): {filePath}");
+                callback(false);
+                yield break;
+            }
+
+            Debug.Log($"ValidateAudioFile: Valid audio - {filePath} ({clip.samples} samples, {clip.length}s)");
+            callback(true);
+        }
+    }
 
     // [ServerRpc] - A client tells the server it has finished downloading and is ready.
     [ServerRpc(RequireOwnership = true)]

@@ -19,23 +19,23 @@ public class WebServerManager : MonoBehaviour
     public int port = 8080;
     public string ngrokPath = "";
     public string ngrokAuthToken = "2J91uLLuuBT4RcZnFwkJlwEFhCv_5o6Pd1XgjfxK1TsANahei";
-    
+
     [Header("UI References")]
     public Image qrCodeImage;
     public GameObject qrCodeLoading;
-    
+
     private HttpListener httpListener;
     private bool isServerRunning = false;
     private Process ngrokProcess;
     private string publicUrl = "";
     private LevelResourcesCompiler levelCompiler;
-    
+
     // Spotify API
     private string spotifyClientId;
     private string spotifyClientSecret;
     private string spotifyAccessToken;
     private System.DateTime tokenExpiryTime;
-    
+
     [System.Serializable]
     public class SongRequest
     {
@@ -47,14 +47,14 @@ public class WebServerManager : MonoBehaviour
         public List<string> players;
         public List<int> difficulties;
     }
-    
+
     [System.Serializable]
     public class QueueResponse
     {
         public List<QueueItem> queue;
         public string currentSong;
     }
-    
+
     [System.Serializable]
     public class QueueItem
     {
@@ -65,7 +65,7 @@ public class WebServerManager : MonoBehaviour
         public List<string> players;
         public bool processed;
     }
-    
+
     [System.Serializable]
     public class NgrokTunnel
     {
@@ -73,19 +73,19 @@ public class WebServerManager : MonoBehaviour
         public string proto;
         public NgrokConfig config;
     }
-    
+
     [System.Serializable]
     public class NgrokConfig
     {
         public string addr;
     }
-    
+
     [System.Serializable]
     public class NgrokResponse
     {
         public List<NgrokTunnel> tunnels;
     }
-    
+
     // Spotify API Classes
     [System.Serializable]
     public class SpotifyTokenResponse
@@ -94,20 +94,20 @@ public class WebServerManager : MonoBehaviour
         public string token_type;
         public int expires_in;
     }
-    
+
     [System.Serializable]
     public class SpotifySearchResponse
     {
         public SpotifyTracksPage tracks;
     }
-    
+
     [System.Serializable]
     public class SpotifyTracksPage
     {
         public List<SpotifyTrack> items;
         public int total;
     }
-    
+
     [System.Serializable]
     public class SpotifyTrack
     {
@@ -118,21 +118,21 @@ public class WebServerManager : MonoBehaviour
         public int duration_ms;
         public SpotifyExternalUrls external_urls;
     }
-    
+
     [System.Serializable]
     public class SpotifyArtist
     {
         public string name;
         public string id;
     }
-    
+
     [System.Serializable]
     public class SpotifyAlbum
     {
         public string name;
         public List<SpotifyImage> images;
     }
-    
+
     [System.Serializable]
     public class SpotifyImage
     {
@@ -140,13 +140,13 @@ public class WebServerManager : MonoBehaviour
         public int width;
         public int height;
     }
-    
+
     [System.Serializable]
     public class SpotifyExternalUrls
     {
         public string spotify;
     }
-    
+
     // Queue data structures (moved from LevelResourcesCompiler)
     [System.Serializable]
     public class BackgroundTrack
@@ -157,7 +157,7 @@ public class WebServerManager : MonoBehaviour
         public string length;
         public string cover;
     }
-    
+
     [System.Serializable]
     public class QueueObject
     {
@@ -169,19 +169,19 @@ public class WebServerManager : MonoBehaviour
         public bool isBeingProcessed = false;
         public string requestedByUserId;
     }
-    
+
     // Party mode data
     public List<QueueObject> mainQueue = new List<QueueObject>();
     private List<BackgroundTrack> compileExecutionQueue = new List<BackgroundTrack>();
     private bool isProcessing = false;
     private string currentStatus = "";
-    
+
     // Public methods for queue management
     public bool IsProcessing() => isProcessing;
     public void SetProcessing(bool processing) => isProcessing = processing;
     public string GetCurrentStatus() => currentStatus;
     public void SetCurrentStatus(string status) => currentStatus = status;
-    
+
     // User tracking
     [System.Serializable]
     public class UserSession
@@ -192,9 +192,9 @@ public class WebServerManager : MonoBehaviour
         public bool hasPendingRequest;
         public System.DateTime requestTime;
     }
-    
+
     private Dictionary<string, UserSession> userSessions = new Dictionary<string, UserSession>();
-    
+
     public static WebServerManager Instance { get; private set; }
 
     public int player1Old;
@@ -221,7 +221,8 @@ public class WebServerManager : MonoBehaviour
         }
     }
 
-    private void Update() {
+    private void Update()
+    {
         if (levelCompiler == null && UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "Menu")
         {
             levelCompiler = GameObject.Find("Resources").GetComponent<LevelResourcesCompiler>();
@@ -249,17 +250,18 @@ public class WebServerManager : MonoBehaviour
         spotifyClientSecret = PlayerPrefs.GetString("APIKEY");
 
         // Start Spotify token refresh routine
-        StartCoroutine(SpotifyTokenRefreshRoutine());
+
+        //StartCoroutine(SpotifyTokenRefreshRoutine());
     }
 
     public void OnSceneChanged(UnityEngine.SceneManagement.Scene newScene, UnityEngine.SceneManagement.Scene oldScene)
     {
-        if(newScene.name == "Menu" && oldScene.name == "Results")
+        if (newScene.name == "Menu" && oldScene.name == "Results")
         {
             levelCompiler = GameObject.Find("Resources").GetComponent<LevelResourcesCompiler>();
         }
     }
-    
+
     private IEnumerator SpotifyTokenRefreshRoutine()
     {
         while (true)
@@ -268,7 +270,7 @@ public class WebServerManager : MonoBehaviour
             yield return new WaitForSeconds(3300); // Refresh every 55 minutes (tokens expire in 1 hour)
         }
     }
-    
+
     private IEnumerator GetSpotifyAccessToken()
     {
         if (string.IsNullOrEmpty(spotifyClientId) || string.IsNullOrEmpty(spotifyClientSecret))
@@ -276,19 +278,19 @@ public class WebServerManager : MonoBehaviour
             UnityEngine.Debug.LogError("Spotify credentials not found in PlayerPrefs");
             yield break;
         }
-        
+
         string url = "https://accounts.spotify.com/api/token";
-        
+
         WWWForm form = new WWWForm();
         form.AddField("grant_type", "client_credentials");
         form.AddField("client_id", spotifyClientId);
         form.AddField("client_secret", spotifyClientSecret);
-        
+
         using (UnityWebRequest request = UnityWebRequest.Post(url, form))
         {
             request.SetRequestHeader("Content-Type", "application/x-www-form-urlencoded");
             yield return request.SendWebRequest();
-            
+
             if (request.result == UnityWebRequest.Result.Success)
             {
                 SpotifyTokenResponse tokenResponse = JsonUtility.FromJson<SpotifyTokenResponse>(request.downloadHandler.text);
@@ -306,7 +308,7 @@ public class WebServerManager : MonoBehaviour
     public async void StartWebServer()
     {
         if (isServerRunning) return;
-        
+
         try
         {
             // Start HTTP server
@@ -315,15 +317,15 @@ public class WebServerManager : MonoBehaviour
             httpListener.Prefixes.Add($"http://127.0.0.1:{port}/");
             httpListener.Start();
             isServerRunning = true;
-            
+
             UnityEngine.Debug.Log($"Web server started on port {port}");
-            
+
             // Start ngrok tunnel
             await StartNgrokTunnel();
-            
+
             // Start handling requests
             StartCoroutine(HandleRequests());
-            
+
             // Generate QR code
             await GenerateQRCode();
         }
@@ -336,9 +338,9 @@ public class WebServerManager : MonoBehaviour
     public void StopWebServer()
     {
         if (!isServerRunning) return;
-        
+
         isServerRunning = false;
-        
+
         // Stop HTTP server
         if (httpListener != null)
         {
@@ -346,14 +348,14 @@ public class WebServerManager : MonoBehaviour
             httpListener.Close();
             httpListener = null;
         }
-        
+
         // Stop ngrok
         if (ngrokProcess != null && !ngrokProcess.HasExited)
         {
             ngrokProcess.Kill();
             ngrokProcess = null;
         }
-        
+
         publicUrl = "";
         UnityEngine.Debug.Log("Web server stopped");
     }
@@ -369,7 +371,7 @@ public class WebServerManager : MonoBehaviour
             }
 
             UnityEngine.Debug.Log("Authenticating ngrok...");
-            
+
             ProcessStartInfo authPsi = new ProcessStartInfo
             {
                 FileName = ngrokPath,
@@ -383,12 +385,12 @@ public class WebServerManager : MonoBehaviour
             using (Process authProcess = new Process { StartInfo = authPsi })
             {
                 authProcess.Start();
-                
+
                 string output = await authProcess.StandardOutput.ReadToEndAsync();
                 string error = await authProcess.StandardError.ReadToEndAsync();
-                
+
                 authProcess.WaitForExit();
-                
+
                 if (authProcess.ExitCode == 0)
                 {
                     UnityEngine.Debug.Log("Ngrok authentication successful");
@@ -433,10 +435,10 @@ tunnels:
     proto: http
     addr: {port}
     host_header: rewrite";
-            
+
             File.WriteAllText(configPath, configContent);
             UnityEngine.Debug.Log($"Created ngrok config at: {configPath}");
-            
+
             ProcessStartInfo psi = new ProcessStartInfo
             {
                 FileName = ngrokPath,
@@ -450,7 +452,7 @@ tunnels:
             UnityEngine.Debug.Log($"Starting ngrok with command: {psi.FileName} {psi.Arguments}");
 
             ngrokProcess = new Process { StartInfo = psi };
-            
+
             // Add event handlers to capture ngrok output
             ngrokProcess.OutputDataReceived += (sender, args) =>
             {
@@ -459,7 +461,7 @@ tunnels:
                     UnityEngine.Debug.Log($"[Ngrok Output] {args.Data}");
                 }
             };
-            
+
             ngrokProcess.ErrorDataReceived += (sender, args) =>
             {
                 if (!string.IsNullOrEmpty(args.Data))
@@ -467,23 +469,23 @@ tunnels:
                     UnityEngine.Debug.LogError($"[Ngrok Error] {args.Data}");
                 }
             };
-            
+
             ngrokProcess.Start();
             ngrokProcess.BeginOutputReadLine();
             ngrokProcess.BeginErrorReadLine();
-            
+
             UnityEngine.Debug.Log("Ngrok process started, waiting for tunnel establishment...");
-            
+
             // Wait longer for ngrok to establish tunnel
             await Task.Delay(5000);
-            
+
             // Check if process is still running
             if (ngrokProcess.HasExited)
             {
                 UnityEngine.Debug.LogError($"Ngrok process exited with code: {ngrokProcess.ExitCode}");
                 return;
             }
-            
+
             // Get the public URL from ngrok API
             await GetNgrokUrl();
         }
@@ -499,7 +501,7 @@ tunnels:
         try
         {
             UnityEngine.Debug.Log("Attempting to get ngrok URL from API...");
-            
+
             using (WebClient client = new WebClient())
             {
                 for (int attempt = 1; attempt <= 3; attempt++)
@@ -508,9 +510,9 @@ tunnels:
                     {
                         UnityEngine.Debug.Log($"Attempt {attempt}: Connecting to ngrok API at http://localhost:4040/api/tunnels");
                         string response = await client.DownloadStringTaskAsync("http://localhost:4040/api/tunnels");
-                        
+
                         UnityEngine.Debug.Log($"Ngrok API response: {response}");
-                        
+
                         // Manual JSON parsing for ngrok response since Unity's JsonUtility has limitations
                         if (response.Contains("\"public_url\""))
                         {
@@ -526,7 +528,7 @@ tunnels:
                         {
                             UnityEngine.Debug.LogWarning("Ngrok API returned empty tunnels array");
                         }
-                        
+
                         if (attempt < 3)
                         {
                             UnityEngine.Debug.Log($"Attempt {attempt} failed, retrying in 2 seconds...");
@@ -542,7 +544,7 @@ tunnels:
                         }
                     }
                 }
-                
+
                 UnityEngine.Debug.LogError("Failed to get ngrok URL after 3 attempts");
             }
         }
@@ -560,12 +562,12 @@ tunnels:
             if (httpListener.IsListening)
             {
                 var contextTask = Task.Run(() => httpListener.GetContext());
-                
+
                 while (!contextTask.IsCompleted && isServerRunning)
                 {
                     yield return null;
                 }
-                
+
                 if (contextTask.IsCompleted && !contextTask.IsFaulted)
                 {
                     HttpListenerContext context = contextTask.Result;
@@ -580,15 +582,15 @@ tunnels:
     {
         yield return StartCoroutine(ProcessRequestAsync(context));
     }
-    
+
     private IEnumerator ProcessRequestAsync(HttpListenerContext context)
     {
         HttpListenerRequest request = context.Request;
         HttpListenerResponse response = context.Response;
-        
+
         string responseString = "";
         bool isError = false;
-        
+
         // Handle search endpoint separately due to async nature
         if (request.Url.AbsolutePath == "/api/search" && request.HttpMethod == "GET")
         {
@@ -631,7 +633,7 @@ tunnels:
                     {
                         postData = reader.ReadToEnd();
                     }
-                    
+
                     string userId = GetOrCreateUserId(request);
                     responseString = ProcessSongRequest(postData, userId);
                     response.ContentType = "application/json";
@@ -653,7 +655,7 @@ tunnels:
                     // Handle static files (CSS, JS, etc.)
                     string filePath = request.Url.AbsolutePath.Substring(8); // Remove "/static/"
                     responseString = GetStaticFile(filePath);
-                    
+
                     if (filePath.EndsWith(".css"))
                         response.ContentType = "text/css";
                     else if (filePath.EndsWith(".js"))
@@ -673,7 +675,7 @@ tunnels:
                 isError = true;
             }
         }
-        
+
         // Send response
         try
         {
@@ -683,7 +685,7 @@ tunnels:
                 response.Headers.Add("Access-Control-Allow-Origin", "*");
                 response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
                 response.Headers.Add("Access-Control-Allow-Headers", "Content-Type");
-                
+
                 // Set user ID cookie if needed
                 if (request.Url.AbsolutePath.StartsWith("/api/"))
                 {
@@ -691,7 +693,7 @@ tunnels:
                     response.Headers.Add("Set-Cookie", $"yasg_user_id={userId}; Path=/; Max-Age=86400"); // 24 hours
                 }
             }
-            
+
             byte[] buffer = Encoding.UTF8.GetBytes(responseString);
             response.ContentLength64 = buffer.Length;
             response.OutputStream.Write(buffer, 0, buffer.Length);
@@ -715,7 +717,7 @@ tunnels:
             queue = new List<QueueItem>(),
             currentSong = "None"
         };
-        
+
         if (mainQueue != null)
         {
             foreach (var queueObj in mainQueue)
@@ -730,13 +732,13 @@ tunnels:
                     processed = queueObj.processed
                 });
             }
-            
+
             if (queueResponse.queue.Count > 0)
             {
                 queueResponse.currentSong = $"{queueResponse.queue[0].name} by {queueResponse.queue[0].artist}";
             }
         }
-        
+
         return JsonUtility.ToJson(queueResponse);
     }
 
@@ -745,7 +747,7 @@ tunnels:
         try
         {
             SongRequest songRequest = JsonUtility.FromJson<SongRequest>(postData);
-            
+
             if (levelCompiler != null && songRequest.players != null && songRequest.players.Count > 0)
             {
                 // Validate that all arrays have the same length
@@ -754,10 +756,10 @@ tunnels:
                 {
                     return "{\"success\":false,\"message\":\"Invalid player data - mismatched array lengths\"}";
                 }
-                
+
                 // Limit to 4 players maximum
                 int playerCount = Mathf.Min(songRequest.players.Count, 4);
-                
+
                 // Create new queue object with multiple players
                 var newQueueObject = new QueueObject
                 {
@@ -772,10 +774,10 @@ tunnels:
                         cover = songRequest.cover
                     }
                 };
-                
+
                 // Add to queue
                 mainQueue.Add(newQueueObject);
-                
+
                 // Store the user ID in the queue object for position tracking
                 newQueueObject.requestedByUserId = userId;
 
@@ -784,7 +786,7 @@ tunnels:
                 {
                     levelCompiler.UpdatePartyModeUI();
                 }
-                
+
                 string playerNames = string.Join(", ", newQueueObject.players);
                 UnityEngine.Debug.Log($"Song added to queue by user {userId}: {songRequest.name} by {songRequest.artist} with players: {playerNames}");
             }
@@ -792,7 +794,7 @@ tunnels:
             {
                 return "{\"success\":false,\"message\":\"No players specified or LevelResourcesCompiler not found\"}";
             }
-            
+
             return "{\"success\":true,\"message\":\"Song added to queue!\"}";
         }
         catch (Exception e)
@@ -805,20 +807,20 @@ tunnels:
     private async Task GenerateQRCode()
     {
         if (string.IsNullOrEmpty(publicUrl) || qrCodeImage == null) return;
-        
+
         try
         {
             // Use a QR code API service
             string qrApiUrl = $"https://api.qrserver.com/v1/create-qr-code/?size=300x300&data={Uri.EscapeDataString(publicUrl)}";
-            
+
             using (WebClient client = new WebClient())
             {
                 byte[] imageData = await client.DownloadDataTaskAsync(qrApiUrl);
-                
+
                 // Create texture from downloaded image
                 Texture2D texture = new Texture2D(2, 2);
                 texture.LoadImage(imageData);
-                
+
                 // Create sprite
                 Sprite qrSprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
 
@@ -829,7 +831,7 @@ tunnels:
                     qrCodeImage.color = Color.white;
                     qrCodeLoading.SetActive(false);
                 }
-                
+
                 UnityEngine.Debug.Log("QR code generated successfully");
             }
         }
@@ -2711,7 +2713,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 5000);
 });";
     }
-    
+
     public void OnSongCompleted(string userId)
     {
         if (!string.IsNullOrEmpty(userId) && userSessions.ContainsKey(userId))
@@ -2743,14 +2745,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         StopWebServer();
     }
-    
+
     // Temporary test method - call this to test the web server
     [ContextMenu("Test Start Web Server")]
     public void TestStartWebServer()
     {
         StartWebServer();
     }
-    
+
     // New API Methods
     private IEnumerator ProcessSpotifySearchCoroutine(string query, System.Action<string> callback)
     {
@@ -2759,21 +2761,21 @@ document.addEventListener('DOMContentLoaded', function() {
             callback("{\"error\":\"No search query provided\"}");
             yield break;
         }
-        
+
         if (string.IsNullOrEmpty(spotifyAccessToken))
         {
             callback("{\"error\":\"Spotify access token not available\"}");
             yield break;
         }
-        
+
         string encodedQuery = UnityWebRequest.EscapeURL(query);
         string searchUrl = $"https://api.spotify.com/v1/search?q={encodedQuery}&type=track&limit=20";
-        
+
         using (UnityWebRequest request = UnityWebRequest.Get(searchUrl))
         {
             request.SetRequestHeader("Authorization", "Bearer " + spotifyAccessToken);
             yield return request.SendWebRequest();
-            
+
             if (request.result == UnityWebRequest.Result.Success)
             {
                 callback(request.downloadHandler.text);
@@ -2784,13 +2786,13 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     }
-    
+
     private string GetOrCreateUserId(HttpListenerRequest request)
     {
         // Check for existing user ID in cookies
         string userId = null;
         string cookieHeader = request.Headers["Cookie"];
-        
+
         if (!string.IsNullOrEmpty(cookieHeader))
         {
             var match = Regex.Match(cookieHeader, @"yasg_user_id=([^;]+)");
@@ -2799,13 +2801,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 userId = match.Groups[1].Value;
             }
         }
-        
+
         // Generate new user ID if not found
         if (string.IsNullOrEmpty(userId))
         {
             userId = System.Guid.NewGuid().ToString();
         }
-        
+
         // Initialize user session if not exists
         if (!userSessions.ContainsKey(userId))
         {
@@ -2816,33 +2818,33 @@ document.addEventListener('DOMContentLoaded', function() {
                 queuePosition = -1
             };
         }
-        
+
         return userId;
     }
-    
+
     private string GetUserStatus(string userId)
     {
         if (!userSessions.ContainsKey(userId))
         {
             return "{\"hasPendingRequest\":false,\"canRequest\":true}";
         }
-        
+
         var session = userSessions[userId];
         bool canRequest = !session.hasPendingRequest;
-        
+
         return $"{{\"userId\":\"{userId}\",\"hasPendingRequest\":{session.hasPendingRequest.ToString().ToLower()},\"canRequest\":{canRequest.ToString().ToLower()}}}";
     }
-    
+
     private string GetQueuePosition(string userId)
     {
         if (!userSessions.ContainsKey(userId))
         {
             return "{\"position\":-1,\"total\":0}";
         }
-        
+
         var session = userSessions[userId];
         int queueTotal = mainQueue?.Count ?? 0;
-        
+
         // Find user's position in queue
         int position = -1;
         if (session.hasPendingRequest && mainQueue != null)
@@ -2858,10 +2860,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         }
-        
+
         return $"{{\"position\":{position},\"total\":{queueTotal}}}";
     }
-    
+
     private IEnumerator CheckLyricsCoroutine(string spotifyUrl, System.Action<string> callback)
     {
         // Get dataPath on main thread
@@ -2871,22 +2873,22 @@ document.addEventListener('DOMContentLoaded', function() {
             callback("{\"hasLyrics\":false,\"error\":\"Data path not configured\"}");
             yield break;
         }
-        
+
         var task = Task.Run(() => CheckLyricsAvailability(spotifyUrl, dataPath));
-        
+
         while (!task.IsCompleted)
         {
             yield return null;
         }
-        
+
         callback(task.Result);
     }
-    
+
     private async Task<string> CheckLyricsAvailability(string spotifyUrl, string dataPath)
     {
         try
         {
-            
+
             bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
             string scriptName = isLinux ? "getlyrics.sh" : "getlyrics.bat";
             ProcessStartInfo psi = new ProcessStartInfo
@@ -2902,22 +2904,22 @@ document.addEventListener('DOMContentLoaded', function() {
             Process process = new Process { StartInfo = psi };
             bool hasLyrics = true;
             string errorMessage = "";
-            
+
             process.OutputDataReceived += (sender, args) =>
             {
                 if (string.IsNullOrEmpty(args.Data)) return;
                 UnityEngine.Debug.Log($"[Lyrics Check] Output: {args.Data}");
-                
+
                 // Check for indicators that lyrics were not found
-                if (args.Data.Contains("some tracks") || 
-                    args.Data.Contains("No lyrics found") || 
+                if (args.Data.Contains("some tracks") ||
+                    args.Data.Contains("No lyrics found") ||
                     args.Data.Contains("Lyrics not available"))
                 {
                     hasLyrics = false;
                     errorMessage = "No synced lyrics available";
                 }
             };
-            
+
             process.ErrorDataReceived += (sender, args) =>
             {
                 if (!string.IsNullOrEmpty(args.Data))
@@ -2934,9 +2936,9 @@ document.addEventListener('DOMContentLoaded', function() {
             process.Start();
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
-            
+
             await Task.Run(() => process.WaitForExit());
-            
+
             if (hasLyrics)
             {
                 return "{\"hasLyrics\":true}";

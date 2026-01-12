@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq; // For LINQ methods like .SequenceEqual()
 using TMPro; // Make sure you have TextMeshPro imported
@@ -15,6 +16,10 @@ public class MicDropdownUI : MonoBehaviour
     public TextMeshProUGUI levelText; // Child 2 -> Child 0 -> Child 0
     public TextMeshProUGUI totalScoreText; // Child 6
 
+    [Header("Microphone Visualizer")]
+    [Tooltip("Slider that visualizes microphone amplitude")]
+    public Slider micAmplitudeSlider;
+
     [Header("Profile Configuration")]
     [Tooltip("The name of the profile this UI element will manage...")]
     public string profileIdentifier;
@@ -26,6 +31,15 @@ public class MicDropdownUI : MonoBehaviour
     private bool _isInitialized = false;
     private bool _listenersAttached = false;
     private string _playerPrefsKeyForProfileName;
+
+    // Microphone visualization
+    private Coroutine _micVisualizerCoroutine;
+    private AudioClip _micClip;
+    private int _micSampleRate = 0;
+    private const int MIC_SAMPLE_LENGTH = 512; // Number of samples to read
+    private float _currentAmplitudeValue = 0f; // Current smoothed amplitude value
+    private const float AMPLITUDE_SMOOTHING = 10f; // Speed of smoothing (higher = faster)
+    private string _currentMicName = ""; // Track which mic is currently open
 
     // Dynamic property that always gets the current index from ProfileManager
     private int PlayerIndex
@@ -40,6 +54,18 @@ public class MicDropdownUI : MonoBehaviour
         }
     }
 
+    private void OnEnable()
+    {
+        // Restart visualizer when GameObject is re-enabled (menu reopens)
+        if (_isInitialized && _currentProfile != null && micDropdown != null && micDropdown.value > 0 && micAmplitudeSlider != null)
+        {
+            string selectedMic = micDropdown.options[micDropdown.value].text;
+            if (selectedMic != "--- NONE ---")
+            {
+                StartMicVisualizer(selectedMic);
+            }
+        }
+    }
 
     void Start()
     {
@@ -234,6 +260,8 @@ public class MicDropdownUI : MonoBehaviour
 
     void PopulateMicDropdown()
     {
+        StopMicVisualizer();
+
         if (ProfileManager.Instance == null || _currentProfile == null)
         {
             if (micDropdown != null)
@@ -266,6 +294,13 @@ public class MicDropdownUI : MonoBehaviour
         PlayerPrefs.SetInt("Player" + PlayerIndex + "Mic", currentIndex-1);
 
         if (_listenersAttached) micDropdown.onValueChanged.AddListener(OnMicDropdownChanged);
+
+        // Start visualizer if a mic is selected
+        if (currentIndex > 0 && micAmplitudeSlider != null)
+        {
+            string selectedMic = micOptions[currentIndex];
+            StartMicVisualizer(selectedMic);
+        }
     }
 
     void OnNameInputEndEdit(string newName)
@@ -306,6 +341,115 @@ public class MicDropdownUI : MonoBehaviour
         string selectedMicName = (index == 0) ? string.Empty : micDropdown.options[index].text;
         ProfileManager.Instance.SetProfileMicrophone(_currentProfile.name, selectedMicName);
         PlayerPrefs.SetInt("Player" + PlayerIndex + "Mic", index-1);
+
+        // Update microphone visualizer
+        StopMicVisualizer();
+
+        if (index > 0 && micAmplitudeSlider != null)
+        {
+            StartMicVisualizer(selectedMicName);
+        }
+    }
+
+    private void StartMicVisualizer(string micName)
+    {
+        if (micAmplitudeSlider == null) return;
+
+        _micVisualizerCoroutine = StartCoroutine(MicVisualizerCoroutine(micName));
+    }
+
+    private void StopMicVisualizer()
+    {
+        if (_micVisualizerCoroutine != null)
+        {
+            StopCoroutine(_micVisualizerCoroutine);
+            _micVisualizerCoroutine = null;
+        }
+
+        // Only stop the specific microphone we started
+        if (!string.IsNullOrEmpty(_currentMicName) && Microphone.IsRecording(_currentMicName))
+        {
+            Microphone.End(_currentMicName);
+        }
+        _currentMicName = "";
+        _micClip = null;
+
+        _currentAmplitudeValue = 0f;
+
+        if (micAmplitudeSlider != null)
+        {
+            micAmplitudeSlider.value = 0f;
+        }
+    }
+
+    private IEnumerator MicVisualizerCoroutine(string micName)
+    {
+        if (micAmplitudeSlider == null) yield break;
+
+        _currentMicName = micName;
+
+        // Get the minimum frequency supported by the microphone
+        int minFreq;
+        int maxFreq;
+        Microphone.GetDeviceCaps(micName, out minFreq, out maxFreq);
+
+        // Use 44100Hz if available, otherwise use max supported frequency
+        _micSampleRate = (maxFreq >= 44100) ? 44100 : maxFreq;
+        if (_micSampleRate == 0) _micSampleRate = 44100; // Fallback
+
+        // Start recording
+        _micClip = Microphone.Start(micName, true, 1, _micSampleRate);
+
+        // Wait for microphone to start recording (with timeout)
+        float startTime = Time.time;
+        while (Microphone.GetPosition(micName) <= 0)
+        {
+            if (Time.time - startTime > 3f)
+            {
+                Debug.LogError($"MicDropdownUI: Timeout waiting for microphone '{micName}' to start.");
+                StopMicVisualizer();
+                yield break;
+            }
+            yield return null;
+        }
+
+        float[] samples = new float[MIC_SAMPLE_LENGTH];
+        _currentAmplitudeValue = 0f; // Reset smoothed value
+
+        while (Microphone.IsRecording(micName) && _currentMicName == micName && _micClip != null)
+        {
+            // Read the most recent samples from the microphone clip
+            int micPosition = Microphone.GetPosition(micName);
+            int readPosition = micPosition - MIC_SAMPLE_LENGTH;
+            if (readPosition < 0)
+            {
+                // Handle wrap-around for circular buffer
+                _micClip.GetData(samples, _micClip.samples - MIC_SAMPLE_LENGTH);
+            }
+            else
+            {
+                _micClip.GetData(samples, readPosition);
+            }
+
+            // Calculate RMS (Root Mean Square) amplitude
+            float sum = 0f;
+            for (int i = 0; i < samples.Length; i++)
+            {
+                sum += samples[i] * samples[i];
+            }
+            float rms = Mathf.Sqrt(sum / samples.Length);
+
+            // Amplify the signal for better visualization (microphones can be quiet)
+            float amplified = rms * 10f;
+
+            // Smooth the value using Lerp
+            _currentAmplitudeValue = Mathf.Lerp(_currentAmplitudeValue, amplified, AMPLITUDE_SMOOTHING * Time.deltaTime);
+
+            // Clamp to 0-1 range for slider
+            micAmplitudeSlider.value = Mathf.Clamp01(_currentAmplitudeValue);
+
+            yield return null; // Update every frame
+        }
     }
 
     void CheckForMicChangesAndUpdateDropdown()
@@ -331,6 +475,7 @@ public class MicDropdownUI : MonoBehaviour
             Debug.LogWarning($"'{gameObject.name}': Profile '{deletedProfileName}' this UI was managing has been deleted.", this);
             _currentProfile = null;
             SetUIInteractable(false);
+            StopMicVisualizer();
             if (nameInput != null) nameInput.text = $"{deletedProfileName} (Deleted)";
             if (micDropdown != null)
             {
@@ -342,6 +487,8 @@ public class MicDropdownUI : MonoBehaviour
 
     public void DeactivateProfileAndDestroyGameObject()
     {
+        StopMicVisualizer();
+
         if (ProfileManager.Instance != null && _currentProfile != null)
         {
             int currentIndex = PlayerIndex;
@@ -377,6 +524,8 @@ public class MicDropdownUI : MonoBehaviour
 
     public void RefreshUIForProfile(string newProfileIdentifier = null)
     {
+        StopMicVisualizer();
+
         if (!string.IsNullOrEmpty(newProfileIdentifier))
         {
             profileIdentifier = newProfileIdentifier;
@@ -398,13 +547,18 @@ public class MicDropdownUI : MonoBehaviour
         if (_isInitialized && _currentProfile != null)
         {
             // Optional: Re-fetch profile data in case it changed in ProfileManager's list
-            // _currentProfile = ProfileManager.Instance.GetProfileByName(profileIdentifier); 
+            // _currentProfile = ProfileManager.Instance.GetProfileByName(profileIdentifier);
             // This might not be necessary if _currentProfile is a reference to the object in ProfileManager's list
             // and ProfileManager modifies that object directly.
 
             Debug.Log($"'{gameObject.name}': Externally triggered UI data update for profile '{_currentProfile.name}'.");
             PopulateUIFromProfile();
         }
+    }
+
+    private void OnDestroy()
+    {
+        StopMicVisualizer();
     }
 
 }
