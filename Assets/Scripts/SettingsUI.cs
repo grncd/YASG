@@ -36,7 +36,8 @@ public class SettingsUI : MonoBehaviour
     public List<Color> backgroundsDarken;
     public Image darken;
     public RawImage BG;
-    public GameObject songAdvisor;
+    public AudioSource tabSwitchFX;
+
 
     private void Awake()
     {
@@ -63,6 +64,7 @@ public class SettingsUI : MonoBehaviour
         settingsTabs.GetChild(value).GetComponent<MPImage>().color = Color.white;
         settingsTabs.GetChild(value).GetChild(0).GetComponent<TextMeshProUGUI>().color = Color.black;
         settingsTabs.parent.GetChild(value + 2).gameObject.SetActive(true);
+        tabSwitchFX.Play();
     }
 
 

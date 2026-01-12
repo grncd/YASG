@@ -20,7 +20,8 @@ public class SearchHandler : MonoBehaviour
     public LevelResourcesCompiler LRC;
     public AlertManager alertManager;
     public GameObject selectorMenu;
-    public GameObject actionsMenu;
+    [Tooltip("Loading indicator to show during search")]
+    public GameObject loadingIndicator;
 
     public enum SearchType { None, Search, Favorites, Downloads }
     private SearchType currentSearchType = SearchType.None;
@@ -78,6 +79,10 @@ public class SearchHandler : MonoBehaviour
         }
         if (!string.IsNullOrEmpty(search))
         {
+            if (loadingIndicator != null)
+            {
+                loadingIndicator.SetActive(true);
+            }
             StartCoroutine(SearchRoutine(search));
         }
     }
@@ -518,6 +523,10 @@ public class SearchHandler : MonoBehaviour
                 // Retry with fresh tokens
                 anonymousAccessToken = null;
                 clientToken = null;
+                if (loadingIndicator != null)
+                {
+                    loadingIndicator.SetActive(false);
+                }
             }
         }
     }
@@ -536,6 +545,10 @@ public class SearchHandler : MonoBehaviour
             if (response.data?.searchV2?.tracksV2?.items == null)
             {
                 Debug.Log("No tracks found in anonymous search response.");
+                if (loadingIndicator != null)
+                {
+                    loadingIndicator.SetActive(false);
+                }
                 return;
             }
 
@@ -603,10 +616,19 @@ public class SearchHandler : MonoBehaviour
 
                 SetAlbumCoverFromTrack(track, temp.transform.GetChild(3).GetComponent<MPImage>(), temp.transform.GetChild(0).GetComponent<MPImage>());
             }
+
+            if (loadingIndicator != null)
+            {
+                loadingIndicator.SetActive(false);
+            }
         }
         catch (Exception e)
         {
             Debug.LogError("Error parsing anonymous search response: " + e.Message);
+            if (loadingIndicator != null)
+            {
+                loadingIndicator.SetActive(false);
+            }
         }
     }
 

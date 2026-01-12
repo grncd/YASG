@@ -387,6 +387,37 @@ public class AudioClipPitchProcessor : MonoBehaviour
             yield break;
         }
 
+        // Verify vocal file exists and has content before loading
+        if (!System.IO.File.Exists(vocalTrackPath))
+        {
+            UnityEngine.Debug.LogError($"Vocal file does not exist: {vocalTrackPath}");
+            PlayerPrefs.SetInt("ERR", 1);
+            if (PlayerPrefs.GetInt("multiplayer") == 1)
+            {
+                PlayerData.isIntentionalDisconnect = true;
+            }
+            UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
+            StartCoroutine(FadeOutLoadingScreen());
+            yield break;
+        }
+
+        long vocalFileSize = new System.IO.FileInfo(vocalTrackPath).Length;
+        if (vocalFileSize < 10000) // Less than 10KB is likely corrupted
+        {
+            UnityEngine.Debug.LogError($"Vocal file is too small ({vocalFileSize} bytes), likely corrupted: {vocalTrackPath}");
+            // Delete the corrupted file so it gets re-downloaded next time
+            try { System.IO.File.Delete(vocalTrackPath); } catch { }
+            PlayerPrefs.SetInt("ERR", 1);
+            if (PlayerPrefs.GetInt("multiplayer") == 1)
+            {
+                PlayerData.isIntentionalDisconnect = true;
+            }
+            UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
+            StartCoroutine(FadeOutLoadingScreen());
+            yield break;
+        }
+        UnityEngine.Debug.Log($"Vocal file verified: {vocalTrackPath} ({vocalFileSize} bytes)");
+
         // Vocal track loading (0% to 10% of overall, i.e., 0.0 to AUDIO_LOADING_PHASE_END_PROGRESS / 2)
         // Use Uri to properly escape special characters like # in filenames
         string urlVocal = new Uri(vocalTrackPath).AbsoluteUri;
@@ -427,7 +458,24 @@ public class AudioClipPitchProcessor : MonoBehaviour
                 StartCoroutine(FadeOutLoadingScreen());
                 yield break;
             }
-            UnityEngine.Debug.Log($"Vocal audio loaded successfully: {audioClip.name}, Length: {audioClip.length}s");
+
+            // Verify AudioClip has valid samples
+            if (audioClip.samples <= 0 || audioClip.length <= 0)
+            {
+                UnityEngine.Debug.LogError($"Vocal AudioClip has invalid data (samples: {audioClip.samples}, length: {audioClip.length}s). File may be corrupted: {vocalTrackPath}");
+                // Delete the corrupted file so it gets re-downloaded next time
+                try { System.IO.File.Delete(vocalTrackPath); } catch { }
+                processingProgress = 1f;
+                PlayerPrefs.SetInt("ERR", 1);
+                if (PlayerPrefs.GetInt("multiplayer") == 1)
+                {
+                    PlayerData.isIntentionalDisconnect = true;
+                }
+                UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
+                StartCoroutine(FadeOutLoadingScreen());
+                yield break;
+            }
+            UnityEngine.Debug.Log($"Vocal audio loaded successfully: {audioClip.name}, Length: {audioClip.length}s, Samples: {audioClip.samples}");
         }
         processingProgress = AUDIO_LOADING_PHASE_END_PROGRESS / 2f; // <<< MODIFIED: Vocal loading complete
 
@@ -978,10 +1026,52 @@ public class AudioClipPitchProcessor : MonoBehaviour
             sampleRate = 0; this.audioSamples = new float[0]; return;
         }
 
+        // Ensure audio data is loaded before accessing it
+        if (audioClip.loadState != AudioDataLoadState.Loaded)
+        {
+            UnityEngine.Debug.Log($"[AudioClipPitchProcessor] AudioClip loadState is {audioClip.loadState}, attempting to load audio data...");
+            if (!audioClip.LoadAudioData())
+            {
+                UnityEngine.Debug.LogError("[AudioClipPitchProcessor] Failed to load audio data!");
+                sampleRate = 0; this.audioSamples = new float[0]; return;
+            }
+
+            // Wait for load to complete (with timeout)
+            int maxWaitFrames = 1000;
+            int waitedFrames = 0;
+            while (audioClip.loadState == AudioDataLoadState.Loading && waitedFrames < maxWaitFrames)
+            {
+                System.Threading.Thread.Sleep(10);
+                waitedFrames++;
+            }
+
+            if (audioClip.loadState != AudioDataLoadState.Loaded)
+            {
+                UnityEngine.Debug.LogError($"[AudioClipPitchProcessor] Audio data failed to load. State: {audioClip.loadState}");
+                sampleRate = 0; this.audioSamples = new float[0]; return;
+            }
+        }
+
         sampleRate = audioClip.frequency;
         int totalSamplesOriginal = audioClip.samples * audioClip.channels;
+
+        if (totalSamplesOriginal <= 0)
+        {
+            UnityEngine.Debug.LogError($"[AudioClipPitchProcessor] Invalid sample count: {totalSamplesOriginal}");
+            sampleRate = 0; this.audioSamples = new float[0]; return;
+        }
+
         this.audioSamples = new float[totalSamplesOriginal];
-        audioClip.GetData(this.audioSamples, 0);
+
+        try
+        {
+            audioClip.GetData(this.audioSamples, 0);
+        }
+        catch (System.Exception ex)
+        {
+            UnityEngine.Debug.LogError($"[AudioClipPitchProcessor] GetData failed: {ex.Message}");
+            sampleRate = 0; this.audioSamples = new float[0]; return;
+        }
 
         if (audioClip.channels > 1)
         {
