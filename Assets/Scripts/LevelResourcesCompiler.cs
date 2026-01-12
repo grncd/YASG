@@ -51,7 +51,6 @@ public class LevelResourcesCompiler : MonoBehaviour
     private bool processLocally = false;
     public AlertManager alertManager;
     private bool lyricsError = false;
-    private bool lyricsError2 = false; // Flag for initial lyrics script failure
     public DifficultyHover DIH;
     public DifficultySelector DIH2;
     private float currentPercentage = 0f;
@@ -1244,198 +1243,80 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         stage1.transform.GetChild(1).gameObject.SetActive(true);
 
-        // Check LyricsSource setting: 0 = Syrics (with LRCLib fallback), 1 = LRCLib only
-        int lyricsSource = SettingsManager.Instance?.GetSetting<int>("LyricsSource") ?? 0;
-
-        if (lyricsSource == 0)
+        // Fetch lyrics from LRCLib
+        Track trackForLrcLib = null;
+        if (PlayerPrefs.GetInt("multiplayer") == 1)
         {
-            // --- SYRICS LOGIC ---
-            bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
-            string scriptName = isLinux ? "getlyrics.sh" : "getlyrics.bat";
-            ProcessStartInfo psi = new ProcessStartInfo
+            // In multiplayer, use RoomManager data to avoid stale selectedTrack
+            if (RoomManager.Instance != null && !string.IsNullOrEmpty(RoomManager.Instance.SelectedSong.Value.Title))
             {
-                FileName = Path.Combine(dataPath, scriptName),
-                Arguments = url + " " + dataPath,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+                UnityEngine.Debug.Log("Constructing track from RoomManager selection for LRCLib.");
+                SongData songData = RoomManager.Instance.SelectedSong.Value;
 
-            Process process = new Process { StartInfo = psi };
-            process.ErrorDataReceived += (sender, args) =>
-            {
-                if (string.IsNullOrEmpty(args.Data)) return;
-                UnityEngine.Debug.Log("Error Output: " + args.Data);
-                if (args.Data.Contains("some tracks") || args.Data.Contains("Your application has"))
+                trackForLrcLib = new Track();
+                trackForLrcLib.name = songData.Title;
+
+                trackForLrcLib.artists = new System.Collections.Generic.List<Artist>();
+                Artist newArtist = new Artist();
+                newArtist.name = songData.Artist;
+                trackForLrcLib.artists.Add(newArtist);
+
+                trackForLrcLib.album = new Album();
+                trackForLrcLib.album.name = songData.Album;
+
+                // Parse duration from "mm:ss" string to ms
+                int totalMs = 0;
+                if (!string.IsNullOrEmpty(songData.Length))
                 {
-                    lyricsError2 = true; // Set flag to try fallback
-                }
-            };
-            process.Start();
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-
-            // Wait for process completion or cancellation with timeout
-            int timeoutSeconds = 7;
-            if (SettingsManager.Instance != null)
-            {
-                if (!int.TryParse(SettingsManager.Instance.GetSetting<string>("SyricsTimeout", "7"), out timeoutSeconds)) UnityEngine.Debug.LogError("Error parsing SyricsTimeout");
-            }
-            UnityEngine.Debug.Log($"Lyrics Process Limit (Main): {timeoutSeconds} seconds.");
-            var timeoutLimit = DateTime.Now.AddSeconds(timeoutSeconds);
-
-            await Task.Run(() =>
-            {
-                while (!process.HasExited)
-                {
-                    if (DateTime.Now > timeoutLimit)
+                    string[] parts = songData.Length.Split(':');
+                    if (parts.Length == 2 && int.TryParse(parts[0], out int min) && int.TryParse(parts[1], out int sec))
                     {
-                        try
-                        {
-                            process.Kill();
-                            process.WaitForExit(5000); // Wait up to 5 seconds for process to fully terminate
-                            UnityEngine.Debug.LogWarning($"Lyrics process (Main) timed out HARD after {timeoutSeconds}s.");
-                            lyricsError2 = true;
-                        }
-                        catch (Exception e) { UnityEngine.Debug.LogError($"Error killing timed-out process: {e.Message}"); }
-                        break;
+                        totalMs = (min * 60 + sec) * 1000;
                     }
-                    Thread.Sleep(500); // Check every 0.5s
                 }
-            });
+                trackForLrcLib.duration_ms = totalMs;
 
-            // Ensure process is fully disposed
-            try
-            {
-                if (!process.HasExited)
-                {
-                    process.Kill();
-                    process.WaitForExit(5000);
-                }
-                process.Dispose();
-            }
-            catch (Exception e) { UnityEngine.Debug.LogWarning($"Error disposing lyrics process: {e.Message}"); }
-
-            UnityEngine.Debug.Log("Lyrics script finished.");
-
-            // Check if a lyrics file was actually created recently
-            string downloadsCheckPath = Path.Combine(dataPath, "downloads");
-            bool recentLyricsFound = false;
-            if (Directory.Exists(downloadsCheckPath))
-            {
-                var directoryInfo = new DirectoryInfo(downloadsCheckPath);
-                var recentFiles = directoryInfo.GetFiles("*.*")
-                                               .Where(f => (f.Extension == ".lrc" || f.Extension == ".txt") &&
-                                                           (DateTime.Now - f.CreationTime).TotalSeconds < 20)
-                                               .ToArray();
-                if (recentFiles.Length > 0)
-                {
-                    recentLyricsFound = true;
-                }
-            }
-
-            if (!recentLyricsFound && !lyricsError2)
-            {
-                UnityEngine.Debug.LogWarning("Syrics finished but no new lyrics file found. Forcing fallback.");
-                lyricsError2 = true;
-            }
-            // --- END SYRICS LOGIC ---
-        }
-        else
-        {
-            // LRCLib only mode - skip Syrics entirely
-            UnityEngine.Debug.Log("LyricsSource set to LRCLib only. Skipping Syrics.");
-            lyricsError2 = true; // Force LRCLib path
-        }
-
-        // --- FALLBACK LOGIC ---
-        if (lyricsError2)
-        {
-            lyricsError2 = false; // Reset flag
-            status.text = "Primary source failed. Trying LRCLib...";
-            UnityEngine.Debug.Log("Initial lyric fetch failed. Attempting LRCLib fallback.");
-
-            // In multiplayer, ALWAYS use RoomManager data to avoid stale selectedTrack from previous local session
-            Track trackForLrcLib = null;
-            if (PlayerPrefs.GetInt("multiplayer") == 1)
-            {
-                // --- FIX: Exclusively use RoomManager SelectedSong logic ---
-                // We ignore selectedTrack/lastPrecompiledTrack because they are local caches that might be stale or completely wrong in multiplayer.
-                if (RoomManager.Instance != null && !string.IsNullOrEmpty(RoomManager.Instance.SelectedSong.Value.Title))
-                {
-                    UnityEngine.Debug.Log("Constructing track from RoomManager selection for LRCLib fallback.");
-                    SongData songData = RoomManager.Instance.SelectedSong.Value;
-
-                    trackForLrcLib = new Track();
-                    trackForLrcLib.name = songData.Title;
-
-                    trackForLrcLib.artists = new System.Collections.Generic.List<Artist>();
-                    Artist newArtist = new Artist();
-                    newArtist.name = songData.Artist;
-                    trackForLrcLib.artists.Add(newArtist);
-
-                    trackForLrcLib.album = new Album();
-                    // STRICT: Use the Album name if we have it. Do NOT fallback to Title, as that causes wrong matches.
-                    trackForLrcLib.album.name = songData.Album;
-
-                    // Parse duration from "mm:ss" string to ms
-                    int totalMs = 0;
-                    if (!string.IsNullOrEmpty(songData.Length))
-                    {
-                        string[] parts = songData.Length.Split(':');
-                        if (parts.Length == 2 && int.TryParse(parts[0], out int min) && int.TryParse(parts[1], out int sec))
-                        {
-                            totalMs = (min * 60 + sec) * 1000;
-                        }
-                    }
-                    trackForLrcLib.duration_ms = totalMs;
-
-                    UnityEngine.Debug.Log($"[LRCLib Fallback] Constructed Track -> Name: '{trackForLrcLib.name}', Artist: '{newArtist.name}', Album: '{trackForLrcLib.album.name}', Duration: {totalMs}ms");
-                }
-                else
-                {
-                    UnityEngine.Debug.LogError("LRCLib fallback in multiplayer failed: No valid cached track AND no RoomManager selection found.");
-                    // In multiplayer, notify all clients about the error
-                    if (isMP && PlayerData.LocalPlayerInstance != null)
-                    {
-                        PlayerData.LocalPlayerInstance.RequestReportLyricsError_ServerRpc();
-                    }
-                    else
-                    {
-                        lyricsError = true;
-                        loadingFX.SetActive(false);
-                    }
-                    return;
-                }
+                UnityEngine.Debug.Log($"[LRCLib] Constructed Track -> Name: '{trackForLrcLib.name}', Artist: '{newArtist.name}', Album: '{trackForLrcLib.album.name}', Duration: {totalMs}ms");
             }
             else
             {
-                // Non-multiplayer: safe to use selectedTrack
-                trackForLrcLib = selectedTrack;
-            }
-
-            bool fallbackSuccess = await FetchLyricsFromLrcLib(trackForLrcLib);
-
-            if (!fallbackSuccess)
-            {
-                UnityEngine.Debug.LogError("LRCLib fallback also failed. No lyrics found.");
-                // In multiplayer, notify all clients about the error
+                UnityEngine.Debug.LogError("LRCLib in multiplayer failed: No RoomManager selection found.");
                 if (isMP && PlayerData.LocalPlayerInstance != null)
                 {
                     PlayerData.LocalPlayerInstance.RequestReportLyricsError_ServerRpc();
                 }
                 else
                 {
-                    lyricsError = true; // Trigger the final error UI
+                    lyricsError = true;
                     loadingFX.SetActive(false);
                 }
                 return;
             }
-
-            UnityEngine.Debug.Log("LRCLib fallback successful!");
         }
-        // --- END FALLBACK LOGIC ---
+        else
+        {
+            // Non-multiplayer: use selectedTrack
+            trackForLrcLib = selectedTrack;
+        }
+
+        bool lyricsSuccess = await FetchLyricsFromLrcLib(trackForLrcLib);
+
+        if (!lyricsSuccess)
+        {
+            UnityEngine.Debug.LogError("LRCLib failed. No lyrics found.");
+            if (isMP && PlayerData.LocalPlayerInstance != null)
+            {
+                PlayerData.LocalPlayerInstance.RequestReportLyricsError_ServerRpc();
+            }
+            else
+            {
+                lyricsError = true;
+                loadingFX.SetActive(false);
+            }
+            return;
+        }
+
+        UnityEngine.Debug.Log("LRCLib lyrics fetch successful!");
 
         // Mark Stage 1 as complete
         stage1.transform.GetChild(1).gameObject.SetActive(false);
@@ -1604,188 +1485,53 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
         compiling = true;
 
-        // Check LyricsSource setting: 0 = Syrics (with LRCLib fallback), 1 = LRCLib only
-        int lyricsSource = SettingsManager.Instance?.GetSetting<int>("LyricsSource") ?? 0;
-
-        if (lyricsSource == 0)
+        // Fetch lyrics from LRCLib
+        Track trackForLrcLib = null;
+        if (partyMode || PlayerPrefs.GetInt("multiplayer") == 1)
         {
-            // --- SYRICS LOGIC ---
-            bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
-            string scriptName = isLinux ? "getlyrics.sh" : "getlyrics.bat";
+            // Construct track from parameters - this is the authoritative data for this compile
+            trackForLrcLib = new Track();
+            trackForLrcLib.name = name;
+            trackForLrcLib.artists = new System.Collections.Generic.List<Artist>();
+            Artist newArtist = new Artist();
+            newArtist.name = artist;
+            trackForLrcLib.artists.Add(newArtist);
+            trackForLrcLib.album = new Album();
+            trackForLrcLib.album.name = lastPrecompiledTrack?.album?.name ?? "";
 
-            ProcessStartInfo psi = new ProcessStartInfo
+            // Parse duration from "mm:ss" string to ms if available
+            int totalMs = 0;
+            if (!string.IsNullOrEmpty(length))
             {
-                FileName = Path.Combine(dataPath, scriptName),
-                Arguments = url + " " + dataPath,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            Process process = new Process { StartInfo = psi };
-            process.OutputDataReceived += (sender, args) =>
-            {
-                if (string.IsNullOrEmpty(args.Data)) return;
-                UnityEngine.Debug.Log("Output: " + args.Data);
-                if (args.Data.Contains("some tracks") || args.Data.Contains("Your application has"))
+                string[] parts = length.Split(':');
+                if (parts.Length == 2 && int.TryParse(parts[0], out int min) && int.TryParse(parts[1], out int sec))
                 {
-                    lyricsError2 = true; // Set flag to try fallback
-                }
-            };
-            process.ErrorDataReceived += (sender, args) =>
-            {
-                if (string.IsNullOrEmpty(args.Data)) return;
-                UnityEngine.Debug.Log("Error Output: " + args.Data);
-                if (args.Data.Contains("some tracks") || args.Data.Contains("Your application has"))
-                {
-                    lyricsError2 = true; // Set flag to try fallback
-                }
-            };
-            process.Start();
-            currentBGProcess = process;
-            process.BeginOutputReadLine();
-            process.BeginErrorReadLine();
-
-            // Wait for process completion or cancellation with timeout
-            int timeoutSeconds = 7;
-            if (SettingsManager.Instance != null)
-            {
-                if (!int.TryParse(SettingsManager.Instance.GetSetting<string>("SyricsTimeout", "7"), out timeoutSeconds)) UnityEngine.Debug.LogError("Error parsing SyricsTimeout");
-            }
-            UnityEngine.Debug.Log($"Lyrics Process Limit: {timeoutSeconds} seconds.");
-            var timeoutLimit = DateTime.Now.AddSeconds(timeoutSeconds);
-
-            await Task.Run(() =>
-            {
-                while (!process.HasExited)
-                {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        try
-                        {
-                            process.Kill();
-                            process.WaitForExit(5000);
-                        }
-                        catch { }
-                        break;
-                    }
-
-                    if (DateTime.Now > timeoutLimit)
-                    {
-                        try
-                        {
-                            process.Kill();
-                            process.WaitForExit(5000); // Wait up to 5 seconds for process to fully terminate
-                            UnityEngine.Debug.LogWarning($"Lyrics process timed out HARD after {timeoutSeconds}s.");
-                            lyricsError2 = true;
-                        }
-                        catch (Exception e) { UnityEngine.Debug.LogError($"Error killing timed-out process: {e.Message}"); }
-                        break;
-                    }
-                    Thread.Sleep(500); // Check every 0.5s
-                }
-            }, cancellationToken);
-
-            // Ensure process is fully disposed
-            try
-            {
-                if (!process.HasExited)
-                {
-                    process.Kill();
-                    process.WaitForExit(5000);
-                }
-                process.Dispose();
-            }
-            catch (Exception e) { UnityEngine.Debug.LogWarning($"Error disposing lyrics process: {e.Message}"); }
-
-            UnityEngine.Debug.Log("Lyrics script finished.");
-
-            // Check if a lyrics file was actually created recently
-            string downloadsCheckPath = Path.Combine(dataPath, "downloads");
-            bool recentLyricsFound = false;
-            if (Directory.Exists(downloadsCheckPath))
-            {
-                var directoryInfo = new DirectoryInfo(downloadsCheckPath);
-                var recentFiles = directoryInfo.GetFiles("*.*")
-                                               .Where(f => (f.Extension == ".lrc" || f.Extension == ".txt") &&
-                                                           (DateTime.Now - f.CreationTime).TotalSeconds < 20)
-                                               .ToArray();
-                if (recentFiles.Length > 0)
-                {
-                    recentLyricsFound = true;
+                    totalMs = (min * 60 + sec) * 1000;
                 }
             }
-
-            if (!recentLyricsFound && !lyricsError2)
-            {
-                UnityEngine.Debug.LogWarning("Syrics finished but no new lyrics file found. Forcing fallback.");
-                lyricsError2 = true;
-            }
-            // --- END SYRICS LOGIC ---
+            trackForLrcLib.duration_ms = totalMs;
+            UnityEngine.Debug.Log($"[LRCLib] Constructed Track from params -> Name: '{name}', Artist: '{artist}', Duration: {totalMs}ms");
         }
         else
         {
-            // LRCLib only mode - skip Syrics entirely
-            UnityEngine.Debug.Log("LyricsSource set to LRCLib only. Skipping Syrics.");
-            lyricsError2 = true; // Force LRCLib path
+            // Non-party/non-multiplayer: use selectedTrack
+            trackForLrcLib = selectedTrack;
         }
+
+        bool lyricsSuccess = await FetchLyricsFromLrcLib(trackForLrcLib);
+
+        if (!lyricsSuccess)
+        {
+            UnityEngine.Debug.LogError("LRCLib failed. No lyrics found.");
+            lyricsError = true;
+            loadingFX.SetActive(false);
+            return;
+        }
+
+        UnityEngine.Debug.Log("LRCLib lyrics fetch successful!");
 
         // Check for cancellation after lyrics fetch
         cancellationToken.ThrowIfCancellationRequested();
-
-        // --- FALLBACK LOGIC ---
-        if (lyricsError2)
-        {
-            lyricsError2 = false; // Reset flag
-            status.text = "Primary source failed. Trying LRCLib...";
-            UnityEngine.Debug.Log("Initial lyric fetch failed. Attempting LRCLib fallback.");
-
-            // In party mode/multiplayer, ALWAYS construct track from parameters to avoid stale selectedTrack
-            Track trackForLrcLib = null;
-            if (partyMode || PlayerPrefs.GetInt("multiplayer") == 1)
-            {
-                // Construct track from parameters - this is the authoritative data for this compile
-                trackForLrcLib = new Track();
-                trackForLrcLib.name = name;
-                trackForLrcLib.artists = new System.Collections.Generic.List<Artist>();
-                Artist newArtist = new Artist();
-                newArtist.name = artist;
-                trackForLrcLib.artists.Add(newArtist);
-                trackForLrcLib.album = new Album();
-                trackForLrcLib.album.name = lastPrecompiledTrack?.album?.name ?? "";
-
-                // Parse duration from "mm:ss" string to ms if available
-                int totalMs = 0;
-                if (!string.IsNullOrEmpty(length))
-                {
-                    string[] parts = length.Split(':');
-                    if (parts.Length == 2 && int.TryParse(parts[0], out int min) && int.TryParse(parts[1], out int sec))
-                    {
-                        totalMs = (min * 60 + sec) * 1000;
-                    }
-                }
-                trackForLrcLib.duration_ms = totalMs;
-                UnityEngine.Debug.Log($"[LRCLib Fallback] Constructed Track from params -> Name: '{name}', Artist: '{artist}', Duration: {totalMs}ms");
-            }
-            else
-            {
-                // Non-party/non-multiplayer: safe to use selectedTrack
-                trackForLrcLib = selectedTrack;
-            }
-
-            bool fallbackSuccess = await FetchLyricsFromLrcLib(trackForLrcLib);
-
-            if (!fallbackSuccess)
-            {
-                UnityEngine.Debug.LogError("LRCLib fallback also failed. No lyrics found.");
-                lyricsError = true; // Trigger the final error UI
-                loadingFX.SetActive(false);
-                return;
-            }
-
-            UnityEngine.Debug.Log("LRCLib fallback successful!");
-        }
 
         if (WebServerManager.Instance != null)
         {
