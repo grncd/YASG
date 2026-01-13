@@ -50,15 +50,12 @@ public class ProgressManager : MonoBehaviour
                         case 5:
                             progress[1].value = 1f;
                             break;
-                        case 8:
-                            progress[1].value = 1f;
+                        case 6:
                             progress[2].value = 0.5f;
                             break;
-                        case 9:
+                        case 7:
+                            progress[1].value = 1f;
                             progress[2].value = 1f;
-                            break;
-                        case 10:
-                            progress[3].value = 1f;
                             break;
                     }
                 }
