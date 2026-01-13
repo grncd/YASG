@@ -21,11 +21,11 @@ public class AddProfilesPopup : MonoBehaviour
 
     void OnEnable()
     {
-        SelectorOutline.Instance.defaultObject = transform.GetChild(1).GetChild(0).GetChild(0).GetChild(0).GetChild(0).gameObject;
-        SelectorOutline.Instance.RestrictButtonSelection(gameObject);
+        //SelectorOutline.Instance.defaultObject = transform.GetChild(1).GetChild(0).GetChild(0).GetChild(0).GetChild(0).gameObject;
+        //SelectorOutline.Instance.RestrictButtonSelection(gameObject);
         if (animator != null)
         {
-            animator.Play("ProfileCreationIn"); 
+            animator.Play("ProfileCreationIn");
         }
         for (int i = 1; i < prefabDestination.childCount; i++)
         {
@@ -46,8 +46,8 @@ public class AddProfilesPopup : MonoBehaviour
         if (canDismiss)
         {
             canDismiss = false;
-            SelectorOutline.Instance.defaultObject = transform.parent.GetChild(0).gameObject;
-            SelectorOutline.Instance.UnrestrictAllButtons();
+            //SelectorOutline.Instance.defaultObject = transform.parent.GetChild(0).gameObject;
+            //SelectorOutline.Instance.UnrestrictAllButtons();
             animator.Play("ProfileCreationOut");
             await Task.Delay(TimeSpan.FromSeconds(0.5f));
             gameObject.SetActive(false);
