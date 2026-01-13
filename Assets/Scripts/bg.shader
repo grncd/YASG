@@ -72,31 +72,34 @@ Shader "Custom/OptimizedShaderToyUI"
                     if (any(resolution < 1)) return fixed4(0,0,0,1);
 
                     float s = 0.006, w = 1.0, d = 0.0;
-                    float3 r = float3(resolution, 0);
                     float3 q;
                     float3 p = P(t);
                     float3 ro = p;
                     float3 Z = normalize(P(t + 1.0) - p);
                     float3 X = normalize(float3(Z.z,0,-Z.x));
 
+                    // Precompute values used in inner loop
+                    float sinHalfT = sin(t * 0.5);
+                    float detailFreqBase = 10.0 + sinHalfT;
+                    static const float3 dotWeight = float3(0.75, 0.75, 0.75);
+
                     float3 D;
                     {
-                        float2 uv = i.uv;
-                        float2 pos = (uv * resolution - (resolution * 0.5)) / resolution.y;
+                        float2 pos = (i.uv * resolution - (resolution * 0.5)) * rcp(resolution.y);
                         float angle = sin(p.z * 0.15) * 0.3;
                         pos = rot(angle, pos);
 
-                        float3 temp = float3(pos, 1.0);
                         float3x3 rotMat = float3x3(-X, cross(X, Z), Z);
-                        D = mul(rotMat, temp);
+                        D = mul(rotMat, float3(pos, 1.0));
                     }
 
-                    float3 col = float3(0,0,0);
+                    half3 col = half3(0,0,0);
 
                     // Reduced iteration count and early exit conditions
+                    [loop]
                     for (int steps = 0; s > 0.005 && steps < _MaxSteps; steps++)
                     {
-                        p = ro + D * d;
+                        p = mad(D, d, ro);
                         q = p;
                         q.xy -= P(q.z).xy;
                         s = 2.75 - length(q.xy);
@@ -104,37 +107,38 @@ Shader "Custom/OptimizedShaderToyUI"
                         q.xy *= 0.5;
 
                         w = 0.5;
-                        // Reduced inner loop iterations
-                        for (int j = 0; j < 4; j++) // Reduced from 8
+                        // Unrolled fractal loop - avoids loop overhead
+                        [unroll]
+                        for (int j = 0; j < 4; j++)
                         {
                             q = abs(sin(q)) - 1.0;
-                            float l = 1.6 / dot(q,q);
+                            float l = 1.6 * rcp(dot(q,q));
                             q *= l;
                             w *= l;
                         }
-                        s = length(q) / w;
+                        s = length(q) * rcp(w);
 
-                        col += abs(sin(p)) * 0.025; // Reduced intensity
+                        col += (half3)abs(sin(p)) * 0.025h;
 
-                        // Simplified additional detail loop
+                        // Precomputed detail frequencies - unrolled with MAD
                         float a = 0.2;
-                        [unroll(4)] // Explicit unrolling hint
-                        for (int k = 0; k < 4; k++) // Reduced iterations
+                        float3 pScaled = p * detailFreqBase;
+                        [unroll]
+                        for (int k = 0; k < 4; k++)
                         {
-                            float dotVal = dot(sin(p * a * (10.0 + sin(t * 0.5))),
-                                               float3(0.75, 0.75, 0.75));
-                            s -= abs(dotVal) / a * 0.005; // Reduced intensity
+                            s -= abs(dot(sin(pScaled * a), dotWeight)) * rcp(a) * 0.005;
                             a += a;
                         }
                         d += s;
 
                         // Early exit if color is negligible
-                        if (length(col) < 0.01) break;
+                        if (dot(col, col) < 0.0001h) break;
                     }
 
-                    col *= exp(-d / abs(4.0 + sin(p.z)));
-                    col = pow(col, float3(0.45,0.45,0.45));
-                    return float4(col, 1.0);
+                    float expFactor = exp(-d * rcp(abs(4.0 + sin(p.z))));
+                    col *= (half)expFactor;
+                    col = pow(col, 0.45h);
+                    return half4(col, 1.0h);
                 }
                 ENDCG
             }
