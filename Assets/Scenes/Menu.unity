@@ -18208,7 +18208,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 1559463415}
   m_Direction: 0
   m_Value: 0
-  m_Size: 0.9999999
+  m_Size: 0.99999994
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -29608,6 +29608,7 @@ MonoBehaviour:
   roomPrefab: {fileID: 7839888239016515742, guid: 156c83f7dd2abc9268f535db9cce2a5d, type: 3}
   discoveryPort: 7771
   scanInterval: 1
+  enableSubnetScan: 1
   mainMenuParticles: {fileID: 1093214390}
 --- !u!224 &700296532
 RectTransform:
@@ -77054,7 +77055,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1751332465}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e88fd1dda203e4a40bf913f1d43b6378, type: 3}
   m_Name: 
