@@ -1190,12 +1190,12 @@ public class Biquad
     }
 }
 
-[BurstCompile]
+[BurstCompile(FloatPrecision.Medium, FloatMode.Fast)]
 public struct PitchDetectionJob : IJob
 {
     [ReadOnly] public NativeArray<float> inputSamples;
     public NativeArray<float> windowedSamplesOut; // Working buffer for windowed & filtered samples
-    public NativeArray<float> autocorrelationOut; // Working buffer for autocorrelation
+    public NativeArray<float> autocorrelationOut; // Working buffer for autocorrelation (only used for lag range)
 
     public int sampleRate;
     public float volumeThreshold;
@@ -1211,10 +1211,6 @@ public struct PitchDetectionJob : IJob
 
     private float ProcessBiquad(float input)
     {
-        // Standard difference equation: y[n] = b0*x[n] + b1*x[n-1] + b2*x[n-2] - a1*y[n-1] - a2*y[n-2]
-        // Coeffs.a1 and Coeffs.a2 are stored as the -(actual_a1/a0) and -(actual_a2/a0) values from some conventions,
-        // or directly as (a1/a0) and (a2/a0) from RBJ if the formula is y[n] = ... - a1*y[n-1] ...
-        // The Biquad class now stores a1 and a2 from RBJ, so subtraction is correct here.
         float output = coeffs.b0 * input + coeffs.b1 * filter_x1 + coeffs.b2 * filter_x2
                      - coeffs.a1 * filter_y1 - coeffs.a2 * filter_y2;
 
@@ -1237,125 +1233,134 @@ public struct PitchDetectionJob : IJob
         // --- 0. Initialize Biquad state for this block ---
         filter_x1 = 0f; filter_x2 = 0f; filter_y1 = 0f; filter_y2 = 0f;
 
-        // --- 1. Compute RMS for volume check ---
+        // --- 1. Compute RMS for volume check (unrolled for better vectorization) ---
         float rmsSum = 0f;
-        for (int i = 0; i < size; i++)
+        int i = 0;
+        int unrollLimit = size - 3;
+        for (; i < unrollLimit; i += 4)
+        {
+            float s0 = inputSamples[i];
+            float s1 = inputSamples[i + 1];
+            float s2 = inputSamples[i + 2];
+            float s3 = inputSamples[i + 3];
+            rmsSum += s0 * s0 + s1 * s1 + s2 * s2 + s3 * s3;
+        }
+        for (; i < size; i++)
         {
             rmsSum += inputSamples[i] * inputSamples[i];
         }
-        float rms = Mathf.Sqrt(rmsSum / size);
+        float rms = Unity.Mathematics.math.sqrt(rmsSum / size);
 
         if (rms < volumeThreshold)
         {
             detectedPitchOutput[0] = 0f;
-            // currentPitch2InOut[0] could decay or hold here if desired
             return;
         }
 
-        // --- 2. Apply Hann Window & Biquad Filter ---
-        for (int i = 0; i < size; i++)
+        // --- 2. Precompute Hann window coefficients and apply with Biquad Filter ---
+        float piMult = 2f * Unity.Mathematics.math.PI / (size - 1f);
+        for (i = 0; i < size; i++)
         {
-            float window = 0.5f * (1f - Mathf.Cos(2f * Mathf.PI * i / (size - 1f)));
-            float windowedSample = inputSamples[i] * window;
-            windowedSamplesOut[i] = ProcessBiquad(windowedSample);
+            float window = 0.5f * (1f - Unity.Mathematics.math.cos(piMult * i));
+            windowedSamplesOut[i] = ProcessBiquad(inputSamples[i] * window);
         }
 
-        // --- 3. Compute Autocorrelation ---
-        for (int lag = 0; lag < size; lag++)
-        {
-            float sum = 0f;
-            for (int i = 0; i < size - lag; i++)
-            {
-                sum += windowedSamplesOut[i] * windowedSamplesOut[i + lag];
-            }
-            autocorrelationOut[lag] = sum;
-        }
-
-        // --- 4. Normalize Autocorrelation ---
-        float normFactor = autocorrelationOut[0];
-        if (Mathf.Abs(normFactor) > 1e-6f)
-        {
-            for (int i = 0; i < size; i++)
-            {
-                autocorrelationOut[i] /= normFactor;
-            }
-        }
-        else
-        { // All zero or very small signal after filtering
-            detectedPitchOutput[0] = 0f; // No valid correlation
-            // currentPitch2InOut[0] could decay or hold
-            return;
-        }
-
-        // --- 5. Define Lag Bounds ---
-        // Ensure lag is at least 1 and within array bounds for peak picking and interpolation
-        int minValidLag = Mathf.Max(1, Mathf.FloorToInt((float)sampleRate / maxFrequency));
-        int maxValidLag = Mathf.Min(size - 2, Mathf.FloorToInt((float)sampleRate / minFrequency));
-
+        // --- 3. Define Lag Bounds FIRST (critical optimization) ---
+        int minValidLag = Unity.Mathematics.math.max(1, (int)((float)sampleRate / maxFrequency));
+        int maxValidLag = Unity.Mathematics.math.min(size - 2, (int)((float)sampleRate / minFrequency));
 
         if (minValidLag >= maxValidLag || minValidLag <= 0 || maxValidLag >= size - 1)
         {
-            detectedPitchOutput[0] = currentPitch2InOut[0]; // Not enough range or invalid
+            detectedPitchOutput[0] = currentPitch2InOut[0];
             return;
+        }
+
+        // --- 4. Compute normalization factor (autocorrelation at lag 0) ---
+        float normFactor = 0f;
+        for (i = 0; i < size; i++)
+        {
+            normFactor += windowedSamplesOut[i] * windowedSamplesOut[i];
+        }
+
+        if (normFactor < 1e-6f)
+        {
+            detectedPitchOutput[0] = 0f;
+            return;
+        }
+
+        float invNormFactor = 1f / normFactor;
+
+        // --- 5. Compute Autocorrelation ONLY for relevant lag range ---
+        // This is the KEY optimization: O(n * lagRange) instead of O(n²)
+        // For 80-1000Hz at 44100Hz: lagRange ≈ 500 vs size ≈ 2048
+        // Reduction from ~4M ops to ~1M ops
+
+        // We need lag-1 and lag+1 for peak detection, so compute [minValidLag-1, maxValidLag+1]
+        int lagStart = Unity.Mathematics.math.max(0, minValidLag - 1);
+        int lagEnd = Unity.Mathematics.math.min(size - 1, maxValidLag + 1);
+
+        for (int lag = lagStart; lag <= lagEnd; lag++)
+        {
+            float sum = 0f;
+            int limit = size - lag;
+            int j = 0;
+            // Unroll inner loop for better Burst vectorization
+            int unrollLimitInner = limit - 3;
+            for (; j < unrollLimitInner; j += 4)
+            {
+                sum += windowedSamplesOut[j] * windowedSamplesOut[j + lag]
+                     + windowedSamplesOut[j + 1] * windowedSamplesOut[j + 1 + lag]
+                     + windowedSamplesOut[j + 2] * windowedSamplesOut[j + 2 + lag]
+                     + windowedSamplesOut[j + 3] * windowedSamplesOut[j + 3 + lag];
+            }
+            for (; j < limit; j++)
+            {
+                sum += windowedSamplesOut[j] * windowedSamplesOut[j + lag];
+            }
+            autocorrelationOut[lag] = sum * invNormFactor;
         }
 
         // --- 6. Find Best Lag (Peak Picking) ---
         int bestLag = -1;
-        float maxCorrelation = -1f; // Autocorrelation is normalized, so peaks are <= 1
+        float maxCorrelation = -1f;
         for (int lag = minValidLag; lag <= maxValidLag; lag++)
         {
+            float curr = autocorrelationOut[lag];
             // Check for peak: current point is greater than its immediate neighbors
-            if (autocorrelationOut[lag] > autocorrelationOut[lag - 1] &&
-                autocorrelationOut[lag] > autocorrelationOut[lag + 1])
+            if (curr > autocorrelationOut[lag - 1] && curr > autocorrelationOut[lag + 1])
             {
-                if (autocorrelationOut[lag] > maxCorrelation)
+                if (curr > maxCorrelation)
                 {
-                    maxCorrelation = autocorrelationOut[lag];
+                    maxCorrelation = curr;
                     bestLag = lag;
                 }
             }
         }
 
         if (bestLag == -1)
-        { // No peak found in range
-            detectedPitchOutput[0] = currentPitch2InOut[0]; // Return previous smoothed pitch
+        {
+            detectedPitchOutput[0] = currentPitch2InOut[0];
             return;
         }
 
         // --- 7. Parabolic Interpolation ---
-        // bestLag is guaranteed to be > 0 and < size - 1 due to maxValidLag constraint and peak check
         float alpha = autocorrelationOut[bestLag - 1];
         float beta = autocorrelationOut[bestLag];
         float gamma = autocorrelationOut[bestLag + 1];
-        float peakOffset = 0.5f * (alpha - gamma) / (alpha - 2f * beta + gamma);
-        if (float.IsNaN(peakOffset) || float.IsInfinity(peakOffset))
-        { // Denominator was zero or near-zero
-            peakOffset = 0f;
-        }
-        // Clamp peakOffset to avoid jumping too far, e.g. if peak is very flat or noisy
-        peakOffset = Mathf.Clamp(peakOffset, -0.5f, 0.5f);
-
+        float denom = alpha - 2f * beta + gamma;
+        float peakOffset = (Unity.Mathematics.math.abs(denom) > 1e-9f)
+            ? Unity.Mathematics.math.clamp(0.5f * (alpha - gamma) / denom, -0.5f, 0.5f)
+            : 0f;
 
         float refinedLag = bestLag + peakOffset;
         if (refinedLag <= 0f)
-        { // Safety check
+        {
             detectedPitchOutput[0] = currentPitch2InOut[0];
             return;
         }
+
         float detectedFundamental = (float)sampleRate / refinedLag;
-
-        // --- 8. Temporal Smoothing (like original currentPitch2) ---
-        float pitchChangeThreshold = 25f; // Hz; adjust as needed
-        float outlierSmoothingFactor = 0.75f; // How much to lerp if change is large; adjust
-
-        /*
-        float previousPitch2 = currentPitch2InOut[0];
-        if (previousPitch2 > 0f && Mathf.Abs(detectedFundamental - previousPitch2) > pitchChangeThreshold)
-        {
-            detectedFundamental = Mathf.Lerp(previousPitch2, detectedFundamental, outlierSmoothingFactor);
-        }
-        */
-        currentPitch2InOut[0] = detectedFundamental; // Update state for next job
-        detectedPitchOutput[0] = detectedFundamental; // This is the pitch for this frame
+        currentPitch2InOut[0] = detectedFundamental;
+        detectedPitchOutput[0] = detectedFundamental;
     }
 }
