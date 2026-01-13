@@ -3371,7 +3371,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 3689540073
-  m_fontColor: {r: 0.3443396, g: 1, b: 0.3759922, a: 1}
+  m_fontColor: {r: 0.9137255, g: 0.9137255, b: 0.9137255, a: 0.85882354}
   m_enableVertexGradient: 1
   m_colorMode: 2
   m_fontColorGradient:
@@ -7812,7 +7812,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 1
-  m_ActiveFontFeatures: 00000000
+  m_ActiveFontFeatures: 6e72656b
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -8549,7 +8549,7 @@ MonoBehaviour:
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 1
-  m_ActiveFontFeatures: 00000000
+  m_ActiveFontFeatures: 6e72656b
   m_enableExtraPadding: 0
   checkPaddingRequired: 0
   m_isRichText: 1
@@ -26314,7 +26314,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.1116768, g: 0.333, b: 0.1218292, a: 1}
+  m_Color: {r: 0.34117648, g: 0.34117648, b: 0.34117648, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -26336,7 +26336,7 @@ MonoBehaviour:
   m_MaterialMode: 0
   m_StrokeWidth: 0
   m_OutlineWidth: 4.12
-  m_OutlineColor: {r: 0.313548, g: 0.901, b: 0.3404953, a: 1}
+  m_OutlineColor: {r: 0.6313726, g: 0.6313726, b: 0.6313726, a: 1}
   m_FalloffDistance: 2
   m_ConstrainRotation: 1
   m_ShapeRotation: 0
@@ -33942,7 +33942,7 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-      - m_Target: {fileID: 1751332469}
+      - m_Target: {fileID: 0}
         m_TargetAssemblyTypeName: SelectorOutline, Assembly-CSharp
         m_MethodName: SetDefault
         m_Mode: 2
@@ -76990,7 +76990,6 @@ GameObject:
   - component: {fileID: 1751332468}
   - component: {fileID: 1751332467}
   - component: {fileID: 1751332466}
-  - component: {fileID: 1751332469}
   m_Layer: 0
   m_Name: EventSystem
   m_TagString: Untagged
@@ -77048,27 +77047,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1751332469
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1751332465}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e88fd1dda203e4a40bf913f1d43b6378, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  eventSystem: {fileID: 1751332467}
-  selectorOutline: {fileID: 1373693718}
-  defaultObject: {fileID: 801571333}
-  positionSmoothTime: 0.12
-  sizeSmoothTime: 0.12
-  buttonsToToggle:
-  - {fileID: 808036033}
-  allowedParentProfileAdd: {fileID: 0}
-  allowedParentAlertBox: {fileID: 0}
 --- !u!224 &1756052978 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 6648392157254385905, guid: d4f983bb192877546abdda8830bc19b3, type: 3}
@@ -77729,7 +77707,7 @@ RectTransform:
   m_Father: {fileID: 1332299381}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 5, y: -0.000006198883}
   m_SizeDelta: {x: 10, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -77746,7 +77724,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.313548, g: 0.901, b: 0.3404953, a: 1}
+  m_Color: {r: 0.8, g: 0.8, b: 0.8, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -84063,7 +84041,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4288782753
-  m_fontColor: {r: 0.3443396, g: 1, b: 0.3759922, a: 1}
+  m_fontColor: {r: 0.6313726, g: 0.6313726, b: 0.6313726, a: 1}
   m_enableVertexGradient: 1
   m_colorMode: 2
   m_fontColorGradient:

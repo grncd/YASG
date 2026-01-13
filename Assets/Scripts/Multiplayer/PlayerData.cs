@@ -549,50 +549,89 @@ public class PlayerData : NetworkBehaviour
     // This method runs the background task and reports back.
     private async void CompileAndReport(SongData song)
     {
-        // --- STEP 1: Run compilation (no change) ---
-        await LevelResourcesCompiler.Instance.StartCompile(song.Link, song.Title, song.Artist, song.Length, song.CoverUrl);
-
-        // --- STEP 2: Get all three file paths ---
-        string fullLocation = PlayerPrefs.GetString("fullLocation");
-        string vocalLocation = PlayerPrefs.GetString("vocalLocation");
-
-        // --- NEW: Construct the LRC file path ---
-        string charactersToRemovePattern = @"[/\\:*?""<>|]";
-        string currentSong = PlayerPrefs.GetString("currentSong");
-        string cleanSongName = System.Text.RegularExpressions.Regex.Replace(currentSong, charactersToRemovePattern, string.Empty);
-        string lrcLocation = Path.Combine(PlayerPrefs.GetString("dataPath"), "downloads", cleanSongName + ".txt");
-
-        // --- NEW: Construct the Instrumental file path (always, regardless of host setting) ---
-        // It is always in the same folder as vocalLocation, with [no_vocals] suffix.
-        // Assuming vocalLocation ends with " [vocals].mp3"
-        string instrumentalLocation = vocalLocation.Replace(" [vocals].mp3", " [no_vocals].mp3");
-
-        // Basic validation
-        if (string.IsNullOrEmpty(fullLocation) || string.IsNullOrEmpty(vocalLocation) || !File.Exists(lrcLocation))
+        try
         {
-            Debug.LogError($"Compilation finished, but one or more required files are missing! Full: {fullLocation}, Vocal: {vocalLocation}, LRC: {lrcLocation}");
-            return;
+            Debug.Log("[CompileAndReport] Starting compilation...");
+
+            // --- STEP 1: Run compilation (no change) ---
+            await LevelResourcesCompiler.Instance.StartCompile(song.Link, song.Title, song.Artist, song.Length, song.CoverUrl);
+
+            Debug.Log("[CompileAndReport] Compilation finished, gathering file paths...");
+
+            // --- STEP 2: Get all three file paths ---
+            string fullLocation = PlayerPrefs.GetString("fullLocation");
+            string vocalLocation = PlayerPrefs.GetString("vocalLocation");
+
+            Debug.Log($"[CompileAndReport] fullLocation: {fullLocation}");
+            Debug.Log($"[CompileAndReport] vocalLocation: {vocalLocation}");
+
+            // --- NEW: Construct the LRC file path ---
+            string charactersToRemovePattern = @"[/\\:*?""<>|]";
+            string currentSong = PlayerPrefs.GetString("currentSong");
+            string cleanSongName = System.Text.RegularExpressions.Regex.Replace(currentSong, charactersToRemovePattern, string.Empty);
+            string lrcLocation = Path.Combine(PlayerPrefs.GetString("dataPath"), "downloads", cleanSongName + ".txt");
+
+            Debug.Log($"[CompileAndReport] lrcLocation: {lrcLocation}, exists: {File.Exists(lrcLocation)}");
+
+            // --- NEW: Construct the Instrumental file path (always, regardless of host setting) ---
+            // It is always in the same folder as vocalLocation, with [no_vocals] suffix.
+            // Assuming vocalLocation ends with " [vocals].mp3"
+            string instrumentalLocation = vocalLocation.Replace(" [vocals].mp3", " [no_vocals].mp3");
+
+            Debug.Log($"[CompileAndReport] instrumentalLocation: {instrumentalLocation}, exists: {File.Exists(instrumentalLocation)}");
+
+            // Basic validation
+            if (string.IsNullOrEmpty(fullLocation) || string.IsNullOrEmpty(vocalLocation) || !File.Exists(lrcLocation))
+            {
+                Debug.LogError($"[CompileAndReport] VALIDATION FAILED! Full: '{fullLocation}' (empty: {string.IsNullOrEmpty(fullLocation)}), Vocal: '{vocalLocation}' (empty: {string.IsNullOrEmpty(vocalLocation)}), LRC exists: {File.Exists(lrcLocation)}");
+                return;
+            }
+
+            Debug.Log("[CompileAndReport] Validation passed, preparing file server...");
+
+            // Add all FOUR files to the list to be served.
+            // Note: fullLocation might be the same as instrumentalLocation if host has PlayInstrumental ON.
+            // SimpleHttpFileServer handles duplicate paths gracefully (or we can distinct them).
+            List<string> filesToServe = new List<string> { fullLocation, vocalLocation, lrcLocation, instrumentalLocation }.Distinct().ToList();
+
+            Debug.Log($"[CompileAndReport] Files to serve: {string.Join(", ", filesToServe)}");
+
+            // --- STEP 3: Start the server (no change) ---
+            if (_httpServer == null)
+            {
+                Debug.LogError("[CompileAndReport] _httpServer is NULL!");
+                return;
+            }
+
+            bool serverStarted = _httpServer.StartServer(filesToServe);
+            Debug.Log($"[CompileAndReport] HTTP server started: {serverStarted}");
+            if (!serverStarted)
+            {
+                Debug.LogError("[CompileAndReport] Failed to start HTTP server!");
+                return;
+            }
+
+            // --- STEP 4: Report all four filenames to the main server ---
+            string fullFileName = Path.GetFileName(fullLocation);
+            string vocalFileName = Path.GetFileName(vocalLocation);
+            string lrcFileName = Path.GetFileName(lrcLocation);
+            string instrumentalFileName = Path.GetFileName(instrumentalLocation);
+
+            Debug.Log($"[CompileAndReport] File names - Full: {fullFileName}, Vocal: {vocalFileName}, LRC: {lrcFileName}, Instrumental: {instrumentalFileName}");
+
+            Debug.Log("[CompileAndReport] Calling RequestReportCompilationFinished_ServerRpc...");
+            RequestReportCompilationFinished_ServerRpc(fullFileName, vocalFileName, lrcFileName, instrumentalFileName);
+            Debug.Log("[CompileAndReport] ServerRpc called successfully.");
+
+            Debug.Log("[CompileAndReport] Calling RequestReportReadyForSceneChange_ServerRpc...");
+            RequestReportReadyForSceneChange_ServerRpc();
+            Debug.Log("[CompileAndReport] Master Processor finished all tasks successfully.");
         }
-
-        // Add all FOUR files to the list to be served. 
-        // Note: fullLocation might be the same as instrumentalLocation if host has PlayInstrumental ON.
-        // SimpleHttpFileServer handles duplicate paths gracefully (or we can distinct them).
-        List<string> filesToServe = new List<string> { fullLocation, vocalLocation, lrcLocation, instrumentalLocation }.Distinct().ToList();
-
-        // --- STEP 3: Start the server (no change) ---
-        bool serverStarted = _httpServer.StartServer(filesToServe);
-        if (!serverStarted) { /* ... */ return; }
-
-        // --- STEP 4: Report all four filenames to the main server ---
-        string fullFileName = Path.GetFileName(fullLocation);
-        string vocalFileName = Path.GetFileName(vocalLocation);
-        string lrcFileName = Path.GetFileName(lrcLocation);
-        string instrumentalFileName = Path.GetFileName(instrumentalLocation);
-
-        Debug.Log("CompileAndReport: Reporting all file names to server.");
-        RequestReportCompilationFinished_ServerRpc(fullFileName, vocalFileName, lrcFileName, instrumentalFileName);
-        Debug.Log("Master Processor finished its tasks and is reporting ready status.");
-        RequestReportReadyForSceneChange_ServerRpc();
+        catch (Exception ex)
+        {
+            Debug.LogError($"[CompileAndReport] EXCEPTION CAUGHT: {ex.GetType().Name}: {ex.Message}");
+            Debug.LogError($"[CompileAndReport] Stack trace: {ex.StackTrace}");
+        }
     }
 
 
@@ -688,6 +727,13 @@ public class PlayerData : NetworkBehaviour
             else
             {
                 PlayerPrefs.SetString("fullLocation", fullSavePath);
+            }
+
+            // Add to downloaded songs list
+            if (RoomManager.Instance != null)
+            {
+                SongData song = RoomManager.Instance.SelectedSong.Value;
+                FavoritesManager.AddDownload(song.Title, song.Artist, song.Album, song.Length, song.CoverUrl, song.Link);
             }
 
             // Immediately report ready status
@@ -818,6 +864,13 @@ public class PlayerData : NetworkBehaviour
 
         Debug.Log("All files downloaded and validated. Reporting ready status to server.");
         LevelResourcesCompiler.Instance.status.text = "Ready!";
+
+        // Add to downloaded songs list
+        if (RoomManager.Instance != null)
+        {
+            SongData song = RoomManager.Instance.SelectedSong.Value;
+            FavoritesManager.AddDownload(song.Title, song.Artist, song.Album, song.Length, song.CoverUrl, song.Link);
+        }
 
         if (PlayerData.LocalPlayerInstance != null)
         {
