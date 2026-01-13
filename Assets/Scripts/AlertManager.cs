@@ -37,8 +37,8 @@ public class AlertManager : MonoBehaviour
 
     public void ShowSuccess(string title, string info, string button)
     {
-        SelectorOutline.Instance.defaultObject = this.transform.GetChild(3).GetChild(5).gameObject;
-        SelectorOutline.Instance.RestrictButtonSelection(gameObject);
+        //SelectorOutline.Instance.defaultObject = this.transform.GetChild(3).GetChild(5).gameObject;
+        //SelectorOutline.Instance.RestrictButtonSelection(gameObject);
         this.transform.GetChild(3).GetChild(3).GetComponent<TextMeshProUGUI>().text = title;
         this.transform.GetChild(3).GetChild(4).GetComponent<TextMeshProUGUI>().text = info;
         this.transform.GetChild(3).GetChild(5).GetChild(0).GetComponent<TextMeshProUGUI>().text = button;
@@ -51,8 +51,8 @@ public class AlertManager : MonoBehaviour
     }
     public void ShowSuccess(string title, string info, string button, bool none)
     {
-        SelectorOutline.Instance.defaultObject = this.transform.GetChild(3).GetChild(5).gameObject;
-        SelectorOutline.Instance.RestrictButtonSelection(gameObject);
+        //SelectorOutline.Instance.defaultObject = this.transform.GetChild(3).GetChild(5).gameObject;
+        //SelectorOutline.Instance.RestrictButtonSelection(gameObject);
 
         this.transform.GetChild(3).GetChild(3).GetComponent<TextMeshProUGUI>().text = title;
         this.transform.GetChild(3).GetChild(4).GetComponent<TextMeshProUGUI>().text = info;
@@ -66,8 +66,8 @@ public class AlertManager : MonoBehaviour
 
     public void ShowInfo(string title, string info, string button)
     {
-        SelectorOutline.Instance.defaultObject = this.transform.GetChild(2).GetChild(5).gameObject;
-        SelectorOutline.Instance.RestrictButtonSelection(gameObject);
+        //SelectorOutline.Instance.defaultObject = this.transform.GetChild(2).GetChild(5).gameObject;
+        //SelectorOutline.Instance.RestrictButtonSelection(gameObject);
         this.transform.GetChild(2).GetChild(3).GetComponent<TextMeshProUGUI>().text = title;
         this.transform.GetChild(2).GetChild(4).GetComponent<TextMeshProUGUI>().text = info;
         this.transform.GetChild(2).GetChild(5).GetChild(0).GetComponent<TextMeshProUGUI>().text = button;
@@ -80,8 +80,8 @@ public class AlertManager : MonoBehaviour
 
     public void ShowWarning(string title, string info, string button)
     {
-        SelectorOutline.Instance.defaultObject = this.transform.GetChild(1).GetChild(5).gameObject;
-        SelectorOutline.Instance.RestrictButtonSelection(gameObject);
+        //SelectorOutline.Instance.defaultObject = this.transform.GetChild(1).GetChild(5).gameObject;
+        ////SelectorOutline.Instance.RestrictButtonSelection(gameObject);
         this.transform.GetChild(1).GetChild(3).GetComponent<TextMeshProUGUI>().text = title;
         this.transform.GetChild(1).GetChild(4).GetComponent<TextMeshProUGUI>().text = info;
         this.transform.GetChild(1).GetChild(5).GetChild(0).GetComponent<TextMeshProUGUI>().text = button;
@@ -94,8 +94,8 @@ public class AlertManager : MonoBehaviour
 
     public void ShowError(string title, string info, string button)
     {
-        SelectorOutline.Instance.defaultObject = this.transform.GetChild(0).GetChild(5).gameObject;
-        SelectorOutline.Instance.RestrictButtonSelection(gameObject);
+        ////SelectorOutline.Instance.defaultObject = this.transform.GetChild(0).GetChild(5).gameObject;
+        //SelectorOutline.Instance.RestrictButtonSelection(gameObject);
         this.transform.GetChild(0).GetChild(3).GetComponent<TextMeshProUGUI>().text = title;
         this.transform.GetChild(0).GetChild(4).GetComponent<TextMeshProUGUI>().text = info;
         this.transform.GetChild(0).GetChild(5).GetChild(0).GetComponent<TextMeshProUGUI>().text = button;
@@ -108,8 +108,8 @@ public class AlertManager : MonoBehaviour
 
     public void Dismiss()
     {
-        SelectorOutline.Instance.defaultObject = localGO.transform.GetChild(2).gameObject;
-        SelectorOutline.Instance.UnrestrictAllButtons();
+        //SelectorOutline.Instance.defaultObject = localGO.transform.GetChild(2).gameObject;
+        //SelectorOutline.Instance.UnrestrictAllButtons();
     }
 
     private void Start()

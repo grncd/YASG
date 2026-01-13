@@ -88,7 +88,7 @@ public class SettingsUI : MonoBehaviour
                 canClick = false;
                 ProfileDisplay.Instance.hasSettingsBeenOpened = true;
                 onSettings = !onSettings;
-                SelectorOutline.Instance.defaultObject = settingsContainer.transform.GetChild(2).GetChild(0).gameObject;
+                //SelectorOutline.Instance.defaultObject = settingsContainer.transform.GetChild(2).GetChild(0).gameObject;
                 settingsContainer.SetActive(true);
                 settingsContainer.GetComponent<Animator>().Play("FadeIn");
                 settingsButton.GetComponent<Animator>().Play("SettingsIn");
@@ -110,7 +110,7 @@ public class SettingsUI : MonoBehaviour
                         return;
                     }
                 }
-                SelectorOutline.Instance.defaultObject = settingsButton.gameObject;
+                //SelectorOutline.Instance.defaultObject = settingsButton.gameObject;
                 canClick = false;
                 menuGO.SetActive(true);
                 onSettings = !onSettings;
@@ -138,7 +138,7 @@ public class SettingsUI : MonoBehaviour
                 backButtonMenu.SetActive(false);
                 ProfileDisplay.Instance.hasSettingsBeenOpened = true;
                 onSettings = !onSettings;
-                SelectorOutline.Instance.defaultObject = settingsContainer.transform.GetChild(2).GetChild(0).gameObject;
+                //SelectorOutline.Instance.defaultObject = settingsContainer.transform.GetChild(2).GetChild(0).gameObject;
                 settingsContainer.SetActive(true);
                 settingsContainer.GetComponent<Animator>().Play("FadeIn");
                 menuSettingsButton.GetComponent<Animator>().Play("SettingsIn");
@@ -160,7 +160,7 @@ public class SettingsUI : MonoBehaviour
                         return;
                     }
                 }
-                SelectorOutline.Instance.defaultObject = settingsButton.gameObject;
+                //SelectorOutline.Instance.defaultObject = settingsButton.gameObject;
                 StartCoroutine(FadeParticleSystem(mainMenuParticles, 0f, 0.06666667f, 0.2f));
                 canClick = false;
                 mainGO.SetActive(false);
