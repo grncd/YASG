@@ -717,52 +717,24 @@ public class PlayerData : NetworkBehaviour
         if (!File.Exists(fullSavePath))
         {
             LevelResourcesCompiler.Instance.status.text = $"Downloading full song...";
-            UnityWebRequest fullRequest = new UnityWebRequest(fullUrl, UnityWebRequest.kHttpVerbGET)
+            yield return DownloadFileReliably(fullUrl, fullSavePath, "full song");
+            if (!File.Exists(fullSavePath) || new FileInfo(fullSavePath).Length < minAudioFileSize)
             {
-                downloadHandler = new DownloadHandlerFile(fullSavePath)
-            };
-            yield return fullRequest.SendWebRequest();
-            if (fullRequest.result != UnityWebRequest.Result.Success)
-            {
-                Debug.LogError($"Failed to download full song: {fullRequest.error}");
+                Debug.LogError($"Full song download failed or file is invalid: {fullSavePath}");
                 yield break;
             }
-
-            // Verify file was written and has content
-            yield return null; // Wait a frame for file system to flush
-            if (!File.Exists(fullSavePath) || new FileInfo(fullSavePath).Length < 1000)
-            {
-                Debug.LogError($"Full song file is missing or too small after download: {fullSavePath}");
-                if (File.Exists(fullSavePath)) File.Delete(fullSavePath);
-                yield break;
-            }
-            Debug.Log($"Full song downloaded successfully: {fullSavePath} ({new FileInfo(fullSavePath).Length} bytes)");
         }
 
         // --- Download Vocal Track (only if it doesn't exist) ---
         if (!File.Exists(vocalSavePath))
         {
             LevelResourcesCompiler.Instance.status.text = $"Downloading vocal track...";
-            UnityWebRequest vocalRequest = new UnityWebRequest(vocalUrl, UnityWebRequest.kHttpVerbGET)
+            yield return DownloadFileReliably(vocalUrl, vocalSavePath, "vocal track");
+            if (!File.Exists(vocalSavePath) || new FileInfo(vocalSavePath).Length < minAudioFileSize)
             {
-                downloadHandler = new DownloadHandlerFile(vocalSavePath)
-            };
-            yield return vocalRequest.SendWebRequest();
-            if (vocalRequest.result != UnityWebRequest.Result.Success)
-            {
-                Debug.LogError($"Failed to download vocal track: {vocalRequest.error}");
+                Debug.LogError($"Vocal track download failed or file is invalid: {vocalSavePath}");
                 yield break;
             }
-
-            // Verify file was written and has content
-            yield return null; // Wait a frame for file system to flush
-            if (!File.Exists(vocalSavePath) || new FileInfo(vocalSavePath).Length < 1000)
-            {
-                Debug.LogError($"Vocal track file is missing or too small after download: {vocalSavePath}");
-                if (File.Exists(vocalSavePath)) File.Delete(vocalSavePath);
-                yield break;
-            }
-            Debug.Log($"Vocal track downloaded successfully: {vocalSavePath} ({new FileInfo(vocalSavePath).Length} bytes)");
         }
 
         // --- Download LRC file (only if it doesn't exist as .lrc or .txt) ---
@@ -770,34 +742,20 @@ public class PlayerData : NetworkBehaviour
         {
             Debug.Log($"Downloading LRC file from {lrcUrl}");
             LevelResourcesCompiler.Instance.status.text = $"Downloading lyrics...";
-            UnityWebRequest lrcRequest = new UnityWebRequest(lrcUrl, UnityWebRequest.kHttpVerbGET)
+            yield return DownloadFileReliably(lrcUrl, lrcSavePath, "lyrics", minSizeBytes: 10); // LRC can be small
+            if (!File.Exists(lrcSavePath))
             {
-                downloadHandler = new DownloadHandlerFile(lrcSavePath)
-            };
-            yield return lrcRequest.SendWebRequest();
-            if (lrcRequest.result != UnityWebRequest.Result.Success)
-            {
-                Debug.LogError($"Failed to download LRC file: {lrcRequest.error}");
+                Debug.LogError($"Failed to download LRC file: {lrcSavePath}");
                 yield break;
             }
-            Debug.Log($"Successfully downloaded LRC file to {lrcSavePath}");
         }
 
         // --- Download Instrumental Track (Required for strict verification) ---
-        // We assume Host has it because Host passed strict check.
         if (!File.Exists(instrumentalSavePath))
         {
             LevelResourcesCompiler.Instance.status.text = $"Downloading instrumental...";
-            UnityWebRequest instrumentalRequest = new UnityWebRequest(instrumentalUrl, UnityWebRequest.kHttpVerbGET)
-            {
-                downloadHandler = new DownloadHandlerFile(instrumentalSavePath)
-            };
-            yield return instrumentalRequest.SendWebRequest();
-            if (instrumentalRequest.result != UnityWebRequest.Result.Success)
-            {
-                Debug.LogWarning($"Failed to download instrumental track: {instrumentalRequest.error}");
-                // We proceed even if instrumental fails, but next verification might fail.
-            }
+            yield return DownloadFileReliably(instrumentalUrl, instrumentalSavePath, "instrumental");
+            // We proceed even if instrumental fails, but next verification might fail.
         }
 
         // --- VALIDATE AUDIO FILES BEFORE PROCEEDING ---
@@ -808,21 +766,11 @@ public class PlayerData : NetworkBehaviour
         yield return ValidateAudioFile(vocalSavePath, (isValid) => vocalValid = isValid);
         if (!vocalValid)
         {
-            Debug.LogError($"Vocal track failed validation, deleting and retrying download: {vocalSavePath}");
+            Debug.LogError($"Vocal track failed validation, retrying download: {vocalSavePath}");
             if (File.Exists(vocalSavePath)) File.Delete(vocalSavePath);
 
-            // Retry download
-            LevelResourcesCompiler.Instance.status.text = "Re-downloading vocal track...";
-            UnityWebRequest vocalRetry = new UnityWebRequest(vocalUrl, UnityWebRequest.kHttpVerbGET)
-            {
-                downloadHandler = new DownloadHandlerFile(vocalSavePath)
-            };
-            yield return vocalRetry.SendWebRequest();
-            if (vocalRetry.result != UnityWebRequest.Result.Success)
-            {
-                Debug.LogError($"Failed to re-download vocal track: {vocalRetry.error}");
-                yield break;
-            }
+            // Retry download using reliable method
+            yield return DownloadFileReliably(vocalUrl, vocalSavePath, "vocal track (retry)");
 
             // Validate again
             yield return ValidateAudioFile(vocalSavePath, (isValid) => vocalValid = isValid);
@@ -838,21 +786,11 @@ public class PlayerData : NetworkBehaviour
         yield return ValidateAudioFile(fullSavePath, (isValid) => fullValid = isValid);
         if (!fullValid)
         {
-            Debug.LogError($"Full track failed validation, deleting and retrying download: {fullSavePath}");
+            Debug.LogError($"Full track failed validation, retrying download: {fullSavePath}");
             if (File.Exists(fullSavePath)) File.Delete(fullSavePath);
 
-            // Retry download
-            LevelResourcesCompiler.Instance.status.text = "Re-downloading full song...";
-            UnityWebRequest fullRetry = new UnityWebRequest(fullUrl, UnityWebRequest.kHttpVerbGET)
-            {
-                downloadHandler = new DownloadHandlerFile(fullSavePath)
-            };
-            yield return fullRetry.SendWebRequest();
-            if (fullRetry.result != UnityWebRequest.Result.Success)
-            {
-                Debug.LogError($"Failed to re-download full track: {fullRetry.error}");
-                yield break;
-            }
+            // Retry download using reliable method
+            yield return DownloadFileReliably(fullUrl, fullSavePath, "full song (retry)");
 
             // Validate again
             yield return ValidateAudioFile(fullSavePath, (isValid) => fullValid = isValid);
@@ -888,6 +826,132 @@ public class PlayerData : NetworkBehaviour
         else
         {
             Debug.LogError("Could not report ready status because LocalPlayerInstance was null!");
+        }
+    }
+
+    /// <summary>
+    /// Downloads a file reliably using DownloadHandlerBuffer with Content-Length verification.
+    /// Uses buffer instead of DownloadHandlerFile to ensure complete downloads.
+    /// </summary>
+    private IEnumerator DownloadFileReliably(string url, string savePath, string fileDescription, int maxRetries = 3, long minSizeBytes = 10000)
+    {
+        int attempt = 0;
+        bool success = false;
+
+        while (attempt < maxRetries && !success)
+        {
+            attempt++;
+            if (attempt > 1)
+            {
+                Debug.Log($"Retry attempt {attempt}/{maxRetries} for {fileDescription}...");
+                LevelResourcesCompiler.Instance.status.text = $"Retrying {fileDescription} ({attempt}/{maxRetries})...";
+                yield return new WaitForSeconds(1f); // Wait before retry
+            }
+
+            // Delete any partial file from previous attempt
+            if (File.Exists(savePath))
+            {
+                try { File.Delete(savePath); }
+                catch (Exception e) { Debug.LogWarning($"Could not delete partial file: {e.Message}"); }
+            }
+
+            using (UnityWebRequest www = UnityWebRequest.Get(url))
+            {
+                // Use buffer handler instead of file handler for more control
+                www.downloadHandler = new DownloadHandlerBuffer();
+                www.timeout = 120; // 2 minute timeout
+
+                var operation = www.SendWebRequest();
+
+                // Show progress while downloading
+                while (!operation.isDone)
+                {
+                    if (www.downloadProgress > 0)
+                    {
+                        LevelResourcesCompiler.Instance.status.text = $"Downloading {fileDescription}... {(www.downloadProgress * 100f):F0}%";
+                    }
+                    yield return null;
+                }
+
+                if (www.result != UnityWebRequest.Result.Success)
+                {
+                    Debug.LogWarning($"Download failed for {fileDescription} (attempt {attempt}): {www.error}");
+                    continue; // Retry
+                }
+
+                byte[] data = www.downloadHandler.data;
+                if (data == null || data.Length == 0)
+                {
+                    Debug.LogWarning($"Downloaded data is empty for {fileDescription} (attempt {attempt})");
+                    continue; // Retry
+                }
+
+                // Verify Content-Length if server provided it
+                string contentLengthHeader = www.GetResponseHeader("Content-Length");
+                if (!string.IsNullOrEmpty(contentLengthHeader))
+                {
+                    if (long.TryParse(contentLengthHeader, out long expectedLength))
+                    {
+                        if (data.Length != expectedLength)
+                        {
+                            Debug.LogWarning($"Content-Length mismatch for {fileDescription}: expected {expectedLength}, got {data.Length} (attempt {attempt})");
+                            continue; // Retry - download was incomplete
+                        }
+                    }
+                }
+
+                // Check minimum size
+                if (data.Length < minSizeBytes)
+                {
+                    Debug.LogWarning($"Downloaded {fileDescription} is too small: {data.Length} bytes (min: {minSizeBytes}) (attempt {attempt})");
+                    continue; // Retry
+                }
+
+                // Write to disk with explicit flush
+                try
+                {
+                    // Ensure directory exists
+                    string directory = Path.GetDirectoryName(savePath);
+                    if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                    }
+
+                    using (FileStream fs = new FileStream(savePath, FileMode.Create, FileAccess.Write, FileShare.None))
+                    {
+                        fs.Write(data, 0, data.Length);
+                        fs.Flush(true); // Flush to disk, not just OS buffer
+                    }
+
+                    // Verify the file was written correctly
+                    if (File.Exists(savePath))
+                    {
+                        long writtenSize = new FileInfo(savePath).Length;
+                        if (writtenSize == data.Length)
+                        {
+                            Debug.Log($"Successfully downloaded {fileDescription}: {savePath} ({writtenSize} bytes)");
+                            success = true;
+                        }
+                        else
+                        {
+                            Debug.LogWarning($"File size mismatch after write for {fileDescription}: wrote {data.Length}, file is {writtenSize}");
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"File does not exist after write for {fileDescription}: {savePath}");
+                    }
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"Failed to write {fileDescription} to disk: {e.Message}");
+                }
+            }
+        }
+
+        if (!success)
+        {
+            Debug.LogError($"Failed to download {fileDescription} after {maxRetries} attempts: {url}");
         }
     }
 

@@ -70,7 +70,7 @@ Material:
     - _GlossyReflections: 1
     - _GlowRadius: 1
     - _HighIntensity: 0.18
-    - _LowIntensity: 0.18001404
+    - _LowIntensity: 0.18001403
     - _Metallic: 0
     - _MidIntensity: 0.18
     - _Mode: 0
