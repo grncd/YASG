@@ -245,8 +245,13 @@ public class BGMusic : MonoBehaviour
                             {
                                 shuffleButton.SetActive(true);
                                 string randomFile = musicFiles[UnityEngine.Random.Range(0, musicFiles.Length)];
-                                using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip("file://" + randomFile, AudioType.MPEG))
+                                string fileUrl = "file://" + randomFile;
+                                using (UnityWebRequest www = new UnityWebRequest(fileUrl, UnityWebRequest.kHttpVerbGET))
                                 {
+                                    DownloadHandlerAudioClip handler = new DownloadHandlerAudioClip(fileUrl, AudioType.MPEG);
+                                    handler.compressed = false; // Decompress on load to avoid real-time decoding
+                                    www.downloadHandler = handler;
+
                                     yield return www.SendWebRequest();
 
                                     if (www.result == UnityWebRequest.Result.Success)
@@ -363,8 +368,13 @@ public class BGMusic : MonoBehaviour
         }
 
         AudioClip previewClip;
-        using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip("file://" + tempPreviewFilePath, AudioType.MPEG))
+        string previewFileUrl = "file://" + tempPreviewFilePath;
+        using (UnityWebRequest www = new UnityWebRequest(previewFileUrl, UnityWebRequest.kHttpVerbGET))
         {
+            DownloadHandlerAudioClip handler = new DownloadHandlerAudioClip(previewFileUrl, AudioType.MPEG);
+            handler.compressed = false; // Decompress on load to avoid real-time decoding
+            www.downloadHandler = handler;
+
             yield return www.SendWebRequest();
 
             if (www.result != UnityWebRequest.Result.Success)
