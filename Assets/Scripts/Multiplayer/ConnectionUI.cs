@@ -224,6 +224,14 @@ public class ConnectionUI : MonoBehaviour
         PlayerPrefs.SetString("masterIp", "127.0.0.1");
         PlayerPrefs.Save();
 
+        // Set the Tugboat transport's client address to localhost
+        var tugboat = _networkManager.GetComponent<Tugboat>();
+        if (tugboat != null)
+        {
+            tugboat.SetClientAddress("127.0.0.1");
+            Debug.Log("ConnectionUI: Set Tugboat client address to 127.0.0.1 for local server");
+        }
+
         // Now start the client
         _networkManager.ClientManager.StartConnection();
 
@@ -294,29 +302,30 @@ public class ConnectionUI : MonoBehaviour
             LevelResourcesCompiler.Instance.loadingSecond.SetActive(true);
             LevelResourcesCompiler.Instance.loadingFirst.SetActive(false);
             LevelResourcesCompiler.Instance.BeginLoading();
-            LevelResourcesCompiler.Instance.status.text = "Checking connection...";
+            LevelResourcesCompiler.Instance.status.text = "Checking for room...";
             Debug.Log("ConnectionUI: Loading screen shown");
         }
 
-        // Run ping check on background thread to avoid freezing
-        bool pingSuccess = false;
-        bool pingComplete = false;
+        // Run server availability check on background thread to avoid freezing
+        bool serverAvailable = false;
+        bool checkComplete = false;
+        int gamePort = 7770;
 
         Task.Run(() =>
         {
-            Debug.Log($"ConnectionUI: Starting ping to {targetIp}");
-            pingSuccess = PingHost(targetIp);
-            Debug.Log($"ConnectionUI: Ping complete. Success: {pingSuccess}");
-            pingComplete = true;
+            Debug.Log($"ConnectionUI: Checking if server is available at {targetIp}:{gamePort}");
+            serverAvailable = CheckServerAvailable(targetIp, gamePort);
+            Debug.Log($"ConnectionUI: Server check complete. Available: {serverAvailable}");
+            checkComplete = true;
         });
 
-        // Wait for ping to complete
-        while (!pingComplete)
+        // Wait for check to complete
+        while (!checkComplete)
         {
             yield return null;
         }
 
-        Debug.Log($"ConnectionUI: Ping finished. pingSuccess={pingSuccess}");
+        Debug.Log($"ConnectionUI: Server check finished. serverAvailable={serverAvailable}");
 
         // Hide loading screen
         if (LevelResourcesCompiler.Instance != null)
@@ -325,17 +334,17 @@ public class ConnectionUI : MonoBehaviour
             Debug.Log("ConnectionUI: Loading screen hidden");
         }
 
-        if (!pingSuccess)
+        if (!serverAvailable)
         {
-            Debug.LogWarning($"ConnectionUI: Cannot reach host at {targetIp}");
+            Debug.LogWarning($"ConnectionUI: No room found at {targetIp}:{gamePort}");
 
             // Show error alert
             if (AlertManager.Instance != null)
             {
                 Debug.Log("ConnectionUI: Showing error alert");
                 AlertManager.Instance.ShowError(
-                    "Cannot reach host",
-                    $"The IP address '{targetIp}' is not reachable. Please check the address and make sure the host is running.",
+                    "No room found",
+                    $"No room is running at '{targetIp}'. Make sure the host has created a room and is still connected.",
                     "Dismiss"
                 );
             }
@@ -351,7 +360,7 @@ public class ConnectionUI : MonoBehaviour
             yield break;
         }
 
-        Debug.Log("ConnectionUI: Ping succeeded, proceeding to connect...");
+        Debug.Log("ConnectionUI: Server available, proceeding to connect...");
 
         // Ensure any previous connections are fully stopped before joining
         if (_networkManager.ServerManager.Started)
@@ -365,6 +374,14 @@ public class ConnectionUI : MonoBehaviour
 
         // --- FIX: Explicitly set multiplayer flag ---
         PlayerPrefs.SetInt("multiplayer", 1);
+
+        // Set the Tugboat transport's client address to the target IP
+        var tugboat = _networkManager.GetComponent<Tugboat>();
+        if (tugboat != null)
+        {
+            tugboat.SetClientAddress(targetIp);
+            Debug.Log($"ConnectionUI: Set Tugboat client address to {targetIp}");
+        }
 
         _networkManager.ClientManager.StartConnection();
 
@@ -457,6 +474,33 @@ public class ConnectionUI : MonoBehaviour
             {
                 PingReply reply = ping.Send(ipAddress, timeout);
                 return reply.Status == IPStatus.Success;
+            }
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Checks if there's actually a server listening on the specified port.
+    /// This is more reliable than ping for verifying a game server is running.
+    /// </summary>
+    public bool CheckServerAvailable(string ipAddress, int port, int timeout = 2000)
+    {
+        try
+        {
+            using (var client = new TcpClient())
+            {
+                var result = client.BeginConnect(ipAddress, port, null, null);
+                bool success = result.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(timeout));
+
+                if (success)
+                {
+                    client.EndConnect(result);
+                    return true;
+                }
+                return false;
             }
         }
         catch

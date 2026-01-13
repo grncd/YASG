@@ -108,12 +108,11 @@ public static class SpotifyToYoutubeDownloader
 
         Debug.Log($"[SpotifyToYoutube] Downloading to: {tempFilePath}");
 
-        // Progress reporter - maps download progress (0-1) to overall progress (0.5-0.9)
-        var progress = new Progress<double>(p =>
+        // Progress reporter - uses simple IProgress to avoid SynchronizationContext overhead in builds
+        var progress = new SimpleProgress<double>(p =>
         {
             double overallProgress = 0.5 + (p * 0.4); // 50% -> 90%
             OnProgress?.Invoke(overallProgress);
-            Debug.Log($"[SpotifyToYoutube] Download Progress: {p * 100:F1}%");
         });
 
         await youtube.Videos.Streams.DownloadAsync(audioStreamInfo, tempFilePath, progress);
@@ -169,5 +168,25 @@ public static class SpotifyToYoutubeDownloader
                 }
             }
         });
+    }
+}
+
+/// <summary>
+/// Simple IProgress implementation that doesn't use SynchronizationContext.
+/// Progress<T> captures the sync context and marshals callbacks to it, which can cause
+/// blocking/stuttering in Unity builds where the context behaves differently than in the editor.
+/// </summary>
+public class SimpleProgress<T> : IProgress<T>
+{
+    private readonly Action<T> _handler;
+
+    public SimpleProgress(Action<T> handler)
+    {
+        _handler = handler;
+    }
+
+    public void Report(T value)
+    {
+        _handler?.Invoke(value);
     }
 }
