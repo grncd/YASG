@@ -227,7 +227,24 @@ public class SettingsManager : MonoBehaviour
         {
             if (key == "VocalProcessingMethod")
             {
-                if (PlayerPrefs.GetInt("demucsInstalled") != 1 && Convert.ToInt32(value) == 1 && PlayerPrefs.GetInt("setupDone") == 1)
+                int newMethod = Convert.ToInt32(value);
+
+                // Check if user is trying to select Demucs on mobile
+                if (newMethod == 1 && IsMobilePlatform())
+                {
+                    // Revert to VocalRemover and show error
+                    Debug.LogWarning("[SettingsManager] Demucs is not supported on mobile devices.");
+                    AlertManager.Instance?.ShowError(
+                        "Demucs is not supported on mobile devices",
+                        "Demucs requires a desktop environment with GPU support. Please use VocalRemover.org instead.",
+                        "OK"
+                    );
+                    setting.Value = 0; // Revert to VocalRemover
+                    SaveSettings();
+                    return;
+                }
+
+                if (PlayerPrefs.GetInt("demucsInstalled") != 1 && newMethod == 1 && PlayerPrefs.GetInt("setupDone") == 1)
                 {
                     LevelResourcesCompiler.Instance.RunFullInstall();
                 }
@@ -250,6 +267,17 @@ public class SettingsManager : MonoBehaviour
             _settings.Add(key, new Setting { Value = value, Category = SettingCategory.Misc, UIType = UIType.TextInput, FormalName = key });
         }
         SaveSettings();
+    }
+
+    /// <summary>
+    /// Checks if the current platform is a mobile platform (Android, iOS, or WebGL).
+    /// </summary>
+    private bool IsMobilePlatform()
+    {
+        RuntimePlatform platform = Application.platform;
+        return platform == RuntimePlatform.Android ||
+               platform == RuntimePlatform.IPhonePlayer ||
+               platform == RuntimePlatform.WebGLPlayer;
     }
 
     /// <summary>

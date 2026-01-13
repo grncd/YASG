@@ -1914,9 +1914,226 @@ public class LevelResourcesCompiler : MonoBehaviour
     private IEnumerator RunFullInstallCoroutine()
     {
         processIsRunning = true;
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+        string pythonExe = isLinux ? Path.Combine(dataPath, "venv", "bin", "python3") : Path.Combine(dataPath, "venv", "Scripts", "python.exe");
 
+        // Step 0: Download setup files
+        Debug.Log("[RunFullInstall] Downloading setup files...");
+        QueueForMainThread(() => status.text = "Downloading setup files...");
+        yield return StartCoroutine(DownloadSetupFilesForFullInstall(dataPath, isLinux));
+
+        // Step 1: Check if Python venv exists
+        bool venvExists = File.Exists(pythonExe);
+        Debug.Log($"[RunFullInstall] Python venv exists: {venvExists}, path: {pythonExe}");
+
+        // Step 2: Run preinstall if venv doesn't exist
+        if (!venvExists)
+        {
+            Debug.Log("[RunFullInstall] Python venv not found. Running preinstall first...");
+            QueueForMainThread(() => status.text = "Installing Python... This may take a while.");
+            yield return StartCoroutine(RunPreinstallCoroutine());
+        }
+
+        // Step 3: Run final install
+        Debug.Log("[RunFullInstall] Starting final install...");
+        QueueForMainThread(() => status.text = "Installing Demucs...");
+        yield return StartCoroutine(RunFinalInstallCoroutine());
+
+        CleanUpProcess();
+    }
+
+    /// <summary>
+    /// Downloads setup files needed for Demucs installation.
+    /// </summary>
+    private IEnumerator DownloadSetupFilesForFullInstall(string dataPath, bool isLinux)
+    {
+        string scriptExt = isLinux ? ".sh" : ".bat";
+        string setupUtilitiesPath = Path.Combine(dataPath, "setuputilities");
+        Directory.CreateDirectory(setupUtilitiesPath);
+
+        // Files to download
+        string batUrl = $"https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/pyinstall{scriptExt}";
+        string pyUrl = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/fullinstall.py";
+        string py2Url = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/updatechecker.py";
+        string mainPyUrl = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/main.py";
+
+        string batPath = Path.Combine(setupUtilitiesPath, $"pyinstall{scriptExt}");
+        string pyPath = Path.Combine(setupUtilitiesPath, "fullinstall.py");
+        string py2Path = Path.Combine(setupUtilitiesPath, "updatechecker.py");
+        string vocalRemoverPath = Path.Combine(dataPath, "vocalremover");
+
+        // Create vocalremover folder
+        Directory.CreateDirectory(vocalRemoverPath);
+        Directory.CreateDirectory(Path.Combine(vocalRemoverPath, "input"));
+
+        // Download files
+        using (UnityWebRequest www = UnityWebRequest.Get(batUrl))
+        {
+            yield return www.SendWebRequest();
+            if (www.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"Failed to download pyinstall: {www.error}");
+            }
+            else
+            {
+                File.WriteAllBytes(batPath, www.downloadHandler.data);
+                // Grant execute permission on Linux
+                if (isLinux)
+                {
+                    GrantExecutePermission(batPath);
+                }
+            }
+        }
+        using (UnityWebRequest www = UnityWebRequest.Get(pyUrl))
+        {
+            yield return www.SendWebRequest();
+            if (www.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"Failed to download fullinstall.py: {www.error}");
+            }
+            else
+            {
+                File.WriteAllBytes(pyPath, www.downloadHandler.data);
+            }
+        }
+        using (UnityWebRequest www = UnityWebRequest.Get(py2Url))
+        {
+            yield return www.SendWebRequest();
+            if (www.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"Failed to download updatechecker.py: {www.error}");
+            }
+            else
+            {
+                File.WriteAllBytes(py2Path, www.downloadHandler.data);
+            }
+        }
+        using (UnityWebRequest www = UnityWebRequest.Get(mainPyUrl))
+        {
+            yield return www.SendWebRequest();
+            if (www.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"Failed to download main.py: {www.error}");
+            }
+            else
+            {
+                File.WriteAllBytes(Path.Combine(vocalRemoverPath, "main.py"), www.downloadHandler.data);
+            }
+        }
+
+        Debug.Log("[RunFullInstall] Setup files downloaded successfully.");
+    }
+
+    /// <summary>
+    /// Runs the preinstall process to set up Python venv.
+    /// </summary>
+    private IEnumerator RunPreinstallCoroutine()
+    {
         activeProcess = new Process();
         string dataPath = PlayerPrefs.GetString("dataPath");
+        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+
+        string scriptName = isLinux ? "pyinstall.sh" : "pyinstall.bat";
+        string scriptPath = Path.Combine(dataPath, "setuputilities", scriptName);
+
+        if (!File.Exists(scriptPath))
+        {
+            Debug.LogError($"Preinstall script not found at: {scriptPath}");
+            QueueForMainThread(() => status.text = "Error: Preinstall script not found.");
+            processIsRunning = false;
+            yield break;
+        }
+
+        Debug.Log($"[RunPreinstall] Starting preinstall with script: {scriptPath}");
+        activeProcess.StartInfo.FileName = scriptPath;
+        activeProcess.StartInfo.WorkingDirectory = dataPath;
+        activeProcess.StartInfo.UseShellExecute = false;
+        activeProcess.StartInfo.CreateNoWindow = true;
+        activeProcess.StartInfo.RedirectStandardOutput = true;
+        activeProcess.StartInfo.RedirectStandardError = true;
+        activeProcess.EnableRaisingEvents = true;
+
+        bool preinstallCompleted = false;
+
+        activeProcess.OutputDataReceived += (sender, args) =>
+        {
+            if (!string.IsNullOrEmpty(args.Data))
+            {
+                QueueForMainThread(() =>
+                {
+                    Debug.Log($"[Preinstall] {args.Data}");
+                    Match match = Regex.Match(args.Data, @"\[\s*(\d{1,3})%\s*\]\s*(.*)");
+                    if (match.Success)
+                    {
+                        string message = match.Groups[2].Value.Trim();
+                        string percentageStr = match.Groups[1].Value;
+
+                        status.text = message;
+                        if (int.TryParse(percentageStr, out int percentage))
+                        {
+                            progressBar.value = percentage / 100.0f;
+                        }
+
+                        if (message.Contains("Setup completed"))
+                        {
+                            preinstallCompleted = true;
+                        }
+                    }
+                });
+            }
+        };
+
+        activeProcess.ErrorDataReceived += (sender, args) =>
+        {
+            if (!string.IsNullOrEmpty(args.Data))
+            {
+                QueueForMainThread(() =>
+                {
+                    Debug.Log($"[Preinstall Error] {args.Data}");
+                });
+            }
+        };
+
+        try
+        {
+            activeProcess.Start();
+            activeProcess.BeginOutputReadLine();
+            activeProcess.BeginErrorReadLine();
+            Debug.Log("[RunPreinstall] Preinstall process started.");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Failed to start preinstall: {e.Message}");
+            QueueForMainThread(() => status.text = "Error: Failed to start preinstall.");
+            processIsRunning = false;
+            yield break;
+        }
+
+        while (!activeProcess.HasExited)
+        {
+            yield return null;
+        }
+
+        Debug.Log($"[RunPreinstall] Preinstall finished with exit code: {activeProcess.ExitCode}.");
+
+        // Close the preinstall process
+        activeProcess.Close();
+        activeProcess = null;
+
+        // Small delay before final install
+        yield return new WaitForSeconds(0.5f);
+    }
+
+    /// <summary>
+    /// Runs the final install process to set up Demucs.
+    /// </summary>
+    private IEnumerator RunFinalInstallCoroutine()
+    {
+        activeProcess = new Process();
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+        string pythonExe = isLinux ? Path.Combine(dataPath, "venv", "bin", "python3") : Path.Combine(dataPath, "venv", "Scripts", "python.exe");
 
         string scriptPath = Path.Combine(dataPath, "setuputilities", "fullinstall.py");
         if (!File.Exists(scriptPath))
@@ -1926,17 +2143,10 @@ public class LevelResourcesCompiler : MonoBehaviour
             processIsRunning = false;
             yield break;
         }
-        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
-        if (isLinux)
-        {
-            activeProcess.StartInfo.FileName = Path.Combine(dataPath, "venv", "bin", "python3");
-        }
-        else
-        {
-            activeProcess.StartInfo.FileName = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
-        }
-        activeProcess.StartInfo.Arguments = $" -u \"{scriptPath}\" true";
 
+        activeProcess.StartInfo.FileName = pythonExe;
+        activeProcess.StartInfo.Arguments = $" -u \"{scriptPath}\" true";
+        activeProcess.StartInfo.WorkingDirectory = dataPath;
         activeProcess.StartInfo.UseShellExecute = false;
         activeProcess.StartInfo.CreateNoWindow = true;
         activeProcess.StartInfo.RedirectStandardOutput = true;
@@ -1964,15 +2174,12 @@ public class LevelResourcesCompiler : MonoBehaviour
             activeProcess.Start();
             activeProcess.BeginOutputReadLine();
             activeProcess.BeginErrorReadLine();
-            Debug.Log($"Process '{Path.GetFileName(activeProcess.StartInfo.FileName)}' started successfully.");
+            Debug.Log("[RunFinalInstall] Final install process started.");
         }
         catch (Exception e)
         {
-            Debug.LogError($"Failed to start process: {e.Message}");
-            QueueForMainThread(() =>
-            {
-                status.text = "Error: Failed to start.";
-            });
+            Debug.LogError($"Failed to start final install: {e.Message}");
+            QueueForMainThread(() => status.text = "Error: Failed to start.");
             processIsRunning = false;
             yield break;
         }
@@ -1982,9 +2189,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             yield return null;
         }
 
-        Debug.Log($"Process finished with exit code: {activeProcess.ExitCode}.");
-
-        CleanUpProcess();
+        Debug.Log($"[RunFinalInstall] Final install finished with exit code: {activeProcess.ExitCode}.");
     }
 
     private void ParseFinalInstallOutputLine(string line)
@@ -2034,6 +2239,24 @@ public class LevelResourcesCompiler : MonoBehaviour
         if (status != null)
         {
             status.text = "An error occurred. Check console.";
+        }
+    }
+
+    private void GrantExecutePermission(string path)
+    {
+        try
+        {
+            Process chmod = new Process();
+            chmod.StartInfo.FileName = "chmod";
+            chmod.StartInfo.Arguments = $"+x \"{path}\"";
+            chmod.StartInfo.UseShellExecute = false;
+            chmod.StartInfo.CreateNoWindow = true;
+            chmod.Start();
+            chmod.WaitForExit();
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Failed to chmod {path}: {e.Message}");
         }
     }
 
@@ -2292,85 +2515,90 @@ public class LevelResourcesCompiler : MonoBehaviour
                 }
             }
 
-            string dataPath = PlayerPrefs.GetString("dataPath");
-            string pythonExe;
-            bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
-            if (isLinux)
+            // Only run Python script update checker if Demucs is installed
+            // VocalRemover.org users don't need Python, so skip this entirely for them
+            if (PlayerPrefs.GetInt("demucsInstalled") == 1)
             {
-                pythonExe = Path.Combine(dataPath, "venv", "bin", "python3");
-            }
-            else
-            {
-                pythonExe = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
-            }
-            string scriptPath = Path.Combine(dataPath, "setuputilities", "updatechecker.py");
-            if (!File.Exists(pythonExe) || !File.Exists(scriptPath))
-            {
-                // Optionally log missing files, but do nothing else
-                Debug.LogWarning("Update check: Python or script not found.");
-                return;
-            }
-
-            // Send notification that update check is starting
-            NotificationCenter.Info("Update Check", "Checking for script updates...");
-
-            var psi = new ProcessStartInfo
-            {
-                FileName = pythonExe,
-                Arguments = $" -u \"{scriptPath}\"",
-                WorkingDirectory = Path.GetDirectoryName(scriptPath),
-                CreateNoWindow = true,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                WindowStyle = ProcessWindowStyle.Hidden
-            };
-
-            bool hadUpdates = false;
-            List<string> updatedFiles = new List<string>();
-
-            using (var process = new Process { StartInfo = psi })
-            {
-                process.OutputDataReceived += (sender, args) =>
+                string dataPath = PlayerPrefs.GetString("dataPath");
+                string pythonExe;
+                bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+                if (isLinux)
                 {
-                    if (!string.IsNullOrEmpty(args.Data))
+                    pythonExe = Path.Combine(dataPath, "venv", "bin", "python3");
+                }
+                else
+                {
+                    pythonExe = Path.Combine(dataPath, "venv", "Scripts", "python.exe");
+                }
+                string scriptPath = Path.Combine(dataPath, "setuputilities", "updatechecker.py");
+                if (!File.Exists(pythonExe) || !File.Exists(scriptPath))
+                {
+                    // Optionally log missing files, but do nothing else
+                    Debug.LogWarning("Update check: Python or script not found.");
+                    return;
+                }
+
+                // Send notification that update check is starting
+                NotificationCenter.Info("Update Check", "Checking for script updates...");
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = pythonExe,
+                    Arguments = $" -u \"{scriptPath}\"",
+                    WorkingDirectory = Path.GetDirectoryName(scriptPath),
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    WindowStyle = ProcessWindowStyle.Hidden
+                };
+
+                bool hadUpdates = false;
+                List<string> updatedFiles = new List<string>();
+
+                using (var process = new Process { StartInfo = psi })
+                {
+                    process.OutputDataReceived += (sender, args) =>
                     {
-                        Debug.Log($"[UpdateChecker] {args.Data}");
-                        // Check if any file was updated
-                        if (args.Data.Contains("updated."))
+                        if (!string.IsNullOrEmpty(args.Data))
                         {
-                            hadUpdates = true;
-                            // Extract filename from message like "filename.py updated."
-                            string filename = args.Data.Replace(" updated.", "").Trim();
-                            updatedFiles.Add(filename);
+                            Debug.Log($"[UpdateChecker] {args.Data}");
+                            // Check if any file was updated
+                            if (args.Data.Contains("updated."))
+                            {
+                                hadUpdates = true;
+                                // Extract filename from message like "filename.py updated."
+                                string filename = args.Data.Replace(" updated.", "").Trim();
+                                updatedFiles.Add(filename);
+                            }
                         }
-                    }
-                };
+                    };
 
-                process.ErrorDataReceived += (sender, args) =>
+                    process.ErrorDataReceived += (sender, args) =>
+                    {
+                        if (!string.IsNullOrEmpty(args.Data) && !args.Data.Contains("pip"))
+                            Debug.LogError($"[UpdateChecker STDERR] {args.Data}");
+                    };
+
+                    process.Start();
+                    process.BeginOutputReadLine();
+                    process.BeginErrorReadLine();
+
+                    await Task.Run(() => process.WaitForExit());
+                }
+
+                // Send appropriate notification based on results
+                if (hadUpdates)
                 {
-                    if (!string.IsNullOrEmpty(args.Data) && !args.Data.Contains("pip"))
-                        Debug.LogError($"[UpdateChecker STDERR] {args.Data}");
-                };
-
-                process.Start();
-                process.BeginOutputReadLine();
-                process.BeginErrorReadLine();
-
-                await Task.Run(() => process.WaitForExit());
-            }
-
-            // Send appropriate notification based on results
-            if (hadUpdates)
-            {
-                string updateInfo = updatedFiles.Count == 1
-                    ? $"{updatedFiles[0]} was updated."
-                    : $"{updatedFiles.Count} files were updated.";
-                NotificationCenter.Success("Scripts Updated", updateInfo);
-            }
-            else
-            {
-                NotificationCenter.Info("Update Check Complete", "All scripts are up to date.");
+                    string updateInfo = updatedFiles.Count == 1
+                        ? $"{updatedFiles[0]} was updated."
+                        : $"{updatedFiles.Count} files were updated.";
+                    NotificationCenter.Success("Scripts Updated", updateInfo);
+                }
+                else
+                {
+                    NotificationCenter.Info("Update Check Complete", "All scripts are up to date.");
+                }
             }
         }
         catch (Exception e)

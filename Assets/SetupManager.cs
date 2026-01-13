@@ -15,22 +15,10 @@ using System.Threading.Tasks;
 
 public class SetupManager : MonoBehaviour
 {
-    [Header("Retrieved Credentials")]
-    public string spdc;
-    private string apikey;
-    private string clientID;
     private string method;
     public Animator transitionAnim;
 
-
     [Header("UI Elements")]
-    public TextMeshProUGUI statusTextLogin;
-    public Slider loginProgress;
-    public SetupPage preLoginPage;
-    public SetupPage loginPage;
-    public ConsoleLogHandler loginConsole;
-    public SetupPage manualLoginPage;
-    public Button manualLoginPageButton;
     public TextMeshProUGUI statusTextPreinstall;
     public Slider preinstallProgress;
     public SetupPage preinstallPage;
@@ -47,11 +35,12 @@ public class SetupManager : MonoBehaviour
     public AudioSource audioSource;
     public AudioSource completeFX;
 
-    [Header("Skip Login Option")]
-    [Tooltip("If true, login pages will be skipped entirely (uses anonymous Spotify API)")]
-    public bool skipLogin = true;
-    public SetupPage postLoginPage;
-    public SetupPage additionalLoginPage;
+
+    [Header("Conditional Setup Flow")]
+    [Tooltip("The page where the user selects Demucs or VocalRemover.org")]
+    public SetupPage methodSelectionPage;
+    [Tooltip("The final completion page")]
+    public SetupPage completionPage;
 
     [Header("Auto-Setup UI References (for testing builds)")]
     public SetupPage welcomePage;
@@ -59,15 +48,14 @@ public class SetupManager : MonoBehaviour
     public Button pathButton;
     public Button welcomeNextButton;
     public Button tosAgreeButton;
-    public Button useSharedApiButton;
     public Button goToMenuButton;
-    public Button demucsNextButton;
 
 
     private Process activeProcess;
     private bool processIsRunning = false;
     private ActiveProcessType currentProcessType = ActiveProcessType.None;
-    private enum ActiveProcessType { None, Login, Preinstall, FinalInstall }
+    private bool shouldStartFinalInstall = false;
+    private enum ActiveProcessType { None, Preinstall, FinalInstall }
 
     // This queue holds Actions (methods) that are sent from background threads
     // and need to be executed safely on Unity's main thread.
@@ -85,19 +73,6 @@ public class SetupManager : MonoBehaviour
             {
                 // Dequeue the action and invoke it.
                 executionQueue.Dequeue().Invoke();
-            }
-        }
-
-        // Shortcut: Ctrl+L on PreLoginPage to skip to Manual Login
-        if (preLoginPage != null && preLoginPage.gameObject.activeInHierarchy)
-        {
-            if ((Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) && Input.GetKeyDown(KeyCode.L))
-            {
-                UnityEngine.Debug.Log("Shortcut detected: Skipping to Manual Login.");
-                preLoginPage.gameObject.SetActive(false);
-                if (manualLoginPage != null) manualLoginPage.gameObject.SetActive(true);
-                // Ensure other pages are off just in case
-                if (loginPage != null) loginPage.gameObject.SetActive(false);
             }
         }
 
@@ -172,40 +147,30 @@ public class SetupManager : MonoBehaviour
         bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
         string scriptExt = isLinux ? ".sh" : ".bat";
 
+        // Only download files needed for Demucs setup
         string batUrl = $"https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/pyinstall{scriptExt}";
-        string pyUrl = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/spotifydc.py";
-        string py2Url = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/fullinstall.py";
-        string py3Url = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/updatechecker.py";
+        string pyUrl = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/fullinstall.py";
+        string py2Url = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/updatechecker.py";
+        string mainPyUrl = "https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/main.py";
 
         string batPath = Path.Combine(setupUtilitiesPath, $"pyinstall{scriptExt}");
-        string pyPath = Path.Combine(setupUtilitiesPath, "spotifydc.py");
-        string py2Path = Path.Combine(setupUtilitiesPath, "fullinstall.py");
-        string py3Path = Path.Combine(setupUtilitiesPath, "updatechecker.py");
+        string pyPath = Path.Combine(setupUtilitiesPath, "fullinstall.py");
+        string py2Path = Path.Combine(setupUtilitiesPath, "updatechecker.py");
+        string vocalRemoverPath = Path.Combine(dataPath, "vocalremover");
 
         statusTextPreinstall.text = "Downloading setup files...";
         yield return StartCoroutine(DownloadFile(batUrl, batPath));
         yield return StartCoroutine(DownloadFile(pyUrl, pyPath));
         yield return StartCoroutine(DownloadFile(py2Url, py2Path));
-        yield return StartCoroutine(DownloadFile(py3Url, py3Path));
 
-        string lyricsScript = $"getlyrics{scriptExt}";
-        string songScript = $"downloadsong{scriptExt}";
-
-        string lyricsPath = Path.Combine(dataPath, lyricsScript);
-        string songPath = Path.Combine(dataPath, songScript);
-
-        yield return StartCoroutine(DownloadFile($"https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/{lyricsScript}", lyricsPath));
-        yield return StartCoroutine(DownloadFile($"https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/{songScript}", songPath));
-
-        Directory.CreateDirectory(Path.Combine(dataPath, "vocalremover", "input"));
-        yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/main.py", Path.Combine(dataPath, "vocalremover", "main.py")));
-        yield return StartCoroutine(DownloadFile("https://raw.githubusercontent.com/grncd/YASGsetuputilities/refs/heads/main/vr.py", Path.Combine(dataPath, "vocalremover", "vr.py")));
+        // Create vocalremover folder and download main.py (needed for both methods)
+        Directory.CreateDirectory(vocalRemoverPath);
+        Directory.CreateDirectory(Path.Combine(vocalRemoverPath, "input"));
+        yield return StartCoroutine(DownloadFile(mainPyUrl, Path.Combine(vocalRemoverPath, "main.py")));
 
         if (isLinux)
         {
             GrantExecutePermission(batPath);
-            GrantExecutePermission(lyricsPath);
-            GrantExecutePermission(songPath);
         }
 
         StartCoroutine(RunProcessCoroutine());
@@ -430,34 +395,17 @@ public class SetupManager : MonoBehaviour
         }
     }
 
-    public void StartLogin()
-    {
-        if (processIsRunning)
-        {
-            UnityEngine.Debug.LogWarning("A process is already running.");
-            return;
-        }
-
-        if (statusTextLogin != null) statusTextLogin.text = "Starting...";
-        if (loginProgress != null) loginProgress.value = 0;
-
-        apikey = "";
-        clientID = "";
-        spdc = "";
-
-        currentProcessType = ActiveProcessType.Login;
-        StartCoroutine(RunProcessCoroutine());
-    }
-
     private IEnumerator RunProcessCoroutine()
     {
         processIsRunning = true;
+        UnityEngine.Debug.Log($"[RunProcessCoroutine] Starting process of type: {currentProcessType}");
 
         activeProcess = new Process();
         string dataPath = PlayerPrefs.GetString("dataPath");
         bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
 
         string pythonExe = isLinux ? Path.Combine(dataPath, "venv", "bin", "python3") : Path.Combine(dataPath, "venv", "Scripts", "python.exe");
+        UnityEngine.Debug.Log($"[RunProcessCoroutine] Python path: {pythonExe}, Exists: {File.Exists(pythonExe)}");
 
         if (currentProcessType == ActiveProcessType.Preinstall)
         {
@@ -471,23 +419,14 @@ public class SetupManager : MonoBehaviour
                 yield break;
             }
             activeProcess.StartInfo.FileName = scriptPath;
-        }
-        else if (currentProcessType == ActiveProcessType.Login)
-        {
-            string scriptPath = Path.Combine(dataPath, "setuputilities", "spotifydc.py");
-            if (!File.Exists(scriptPath))
-            {
-                UnityEngine.Debug.LogError($"Script not found at: {scriptPath}");
-                QueueForMainThread(() => statusTextLogin.text = "Error: Script not found.");
-                processIsRunning = false;
-                yield break;
-            }
-            activeProcess.StartInfo.FileName = pythonExe;
-            activeProcess.StartInfo.Arguments = $"-u \"{scriptPath}\"";
+            UnityEngine.Debug.Log($"[RunProcessCoroutine] Starting preinstall with script: {scriptPath}");
         }
         else if (currentProcessType == ActiveProcessType.FinalInstall)
         {
             string scriptPath = Path.Combine(dataPath, "setuputilities", "fullinstall.py");
+            UnityEngine.Debug.Log($"[RunProcessCoroutine] FinalInstall script path: {scriptPath}, Exists: {File.Exists(scriptPath)}");
+            UnityEngine.Debug.Log($"[RunProcessCoroutine] Method selected: {method}");
+
             if (!File.Exists(scriptPath))
             {
                 UnityEngine.Debug.LogError($"Script not found at: {scriptPath}");
@@ -506,6 +445,7 @@ public class SetupManager : MonoBehaviour
             {
                 SettingsManager.Instance.SetSetting("VocalProcessingMethod", 0);
             }
+            UnityEngine.Debug.Log($"[RunProcessCoroutine] Starting final install with command: {pythonExe} {activeProcess.StartInfo.Arguments}");
         }
 
         activeProcess.StartInfo.WorkingDirectory = dataPath;
@@ -545,7 +485,7 @@ public class SetupManager : MonoBehaviour
             QueueForMainThread(() =>
             {
                 if (currentProcessType == ActiveProcessType.Preinstall) statusTextPreinstall.text = "Error: Failed to start.";
-                if (currentProcessType == ActiveProcessType.Login) statusTextLogin.text = "Error: Failed to start.";
+                if (currentProcessType == ActiveProcessType.FinalInstall) statusTextFinalInstall.text = "Error: Failed to start.";
             });
             processIsRunning = false;
             yield break;
@@ -559,18 +499,18 @@ public class SetupManager : MonoBehaviour
 
         UnityEngine.Debug.Log($"Process finished with exit code: {activeProcess.ExitCode}.");
 
-        if (currentProcessType == ActiveProcessType.Login)
-        {
-            if (string.IsNullOrEmpty(apikey) || string.IsNullOrEmpty(clientID))
-            {
-                UnityEngine.Debug.Log("Login process finished without retrieving valid credentials. Switching to Manual Login.");
-                QueueForMainThread(() => SwitchToManualLogin());
-            }
-        }
-
-
+        // Save the process type before cleanup (cleanup resets it to None)
+        ActiveProcessType completedProcessType = currentProcessType;
         CleanUpProcess();
 
+        // If preinstall just completed and we need to start final install
+        if (shouldStartFinalInstall && completedProcessType == ActiveProcessType.Preinstall)
+        {
+            shouldStartFinalInstall = false;
+            UnityEngine.Debug.Log("[RunProcessCoroutine] Preinstall completed, starting final install.");
+            yield return new WaitForSeconds(0.5f); // Small delay for page transition
+            StartFinalInstall();
+        }
     }
 
     private void ParseOutputLine(string line)
@@ -580,11 +520,6 @@ public class SetupManager : MonoBehaviour
         {
             if (preinstallConsole != null) preinstallConsole.AddLog(line);
             ParsePreinstallOutputLine(line);
-        }
-        else if (currentProcessType == ActiveProcessType.Login)
-        {
-            if (loginConsole != null) loginConsole.AddLog(line);
-            ParseLoginOutputLine(line);
         }
         else if (currentProcessType == ActiveProcessType.FinalInstall)
         {
@@ -614,106 +549,13 @@ public class SetupManager : MonoBehaviour
             }
             if (message.Contains("Setup completed"))
             {
-                if (skipLogin)
-                {
-                    preinstallPage.NextPage();
-                    preLoginPage.NextPage();
-                    loginPage.NextPage();
-                    manualLoginPage.NextPage();
-                    preinstallProgress.value = 1f;
-                }
-                else
-                {
-                    preinstallPage.NextPage();
-                }
+                preinstallProgress.value = 1f;
+                preinstallPage.NextPage(); // Go to Full Install page
+                // Set flag to start final install after this process exits
+                shouldStartFinalInstall = true;
             }
 
         }
-    }
-
-    private void ParseLoginOutputLine(string line)
-    {
-        UnityEngine.Debug.Log($"[Login] {line}");
-
-        if (line.Contains("Stopping process."))
-        {
-            UnityEngine.Debug.Log("['Stopping process.' detected] Killing process to trigger manual login fallback.");
-            try
-            {
-                if (activeProcess != null && !activeProcess.HasExited)
-                {
-                    activeProcess.Kill();
-                }
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogError($"Failed to kill process: {e.Message}");
-            }
-            return;
-        }
-
-        // Robustness Check: Ensure UI elements are valid before updating
-        if (statusTextLogin == null || loginProgress == null) return;
-        if (line.Contains("Script finished. Closing browser.") || line.Contains("Script finished successfully!"))
-        {
-            loginPage.NextPage();
-            manualLoginPage.NextPage();
-        }
-        else if (line.Contains("Still on create page after app creation attempt."))
-        {
-            loginPage.NextPage();
-        }
-        if (line.Contains("Please log in")) { statusTextLogin.text = "Waiting for you to log into Spotify..."; }
-        else if (line.Contains("Redirected to open.spotify.com")) { statusTextLogin.text = "Login successful! Retrieving cookie..."; }
-        else if (line.StartsWith("sp_dc cookie:"))
-        {
-            spdc = line.Split(new[] { ':' }, 2)[1].Trim();
-            // Create syrics folder and config.json inside it
-            string syricsFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "syrics");
-            Directory.CreateDirectory(syricsFolder);
-
-            // Write config.json with the required content
-            string configPath = Path.Combine(syricsFolder, "config.json");
-            string configJson = "{\n" +
-                $"    \"sp_dc\": \"{spdc}\",\n" +
-                "    \"download_path\": \"downloads\",\n" +
-                "    \"create_folder\": true,\n" +
-                "    \"album_folder_name\": \"{name} - {artists}\",\n" +
-                "    \"play_folder_name\": \"{name} - {owner}\",\n" +
-                "    \"file_name\": \"{name}\",\n" +
-                "    \"synced_lyrics\": true,\n" +
-                "    \"force_download\": false\n" +
-                "}";
-            try
-            {
-                File.WriteAllText(configPath, configJson);
-                UnityEngine.Debug.Log($"Created config.json at {configPath}");
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogError($"Failed to write config.json: {e.Message}");
-            }
-
-            statusTextLogin.text = "Cookie found! Generating API Keys...";
-            // Save spdc to key.txt in dataPath
-            string dataPath = PlayerPrefs.GetString("dataPath");
-            string keyFilePath = Path.Combine(dataPath, "key.txt");
-            try
-            {
-                File.WriteAllText(keyFilePath, spdc + Environment.NewLine);
-                UnityEngine.Debug.Log($"Saved spdc to {keyFilePath}");
-            }
-            catch (Exception e)
-            {
-                UnityEngine.Debug.LogError($"Failed to save spdc to key.txt: {e.Message}");
-            }
-        }
-        else if (line.StartsWith("Client Secret:")) { apikey = line.Split(new[] { ':' }, 2)[1].Trim(); statusTextLogin.text = "API Key retrieved!"; PlayerPrefs.SetString("APIKEY", apikey); }
-        else if (line.StartsWith("Client ID:")) { clientID = line.Split(new[] { ':' }, 2)[1].Trim(); statusTextLogin.text = "Client ID retrieved!"; PlayerPrefs.SetString("CLIENTID", clientID); }
-        else if (line.Contains("Extracting bearer token from network traffic...")) { loginProgress.value = 0.25f; }
-        else if (line.Contains("Checking TOS acceptance status...")) { loginProgress.value = 0.5f; }
-        else if (line.Contains("Creating Spotify developer application...")) { loginProgress.value = 0.75f; }
-        else if (line.Contains("Application created successfully!")) { loginProgress.value = 1f; }
     }
 
     private void ParseFinalInstallOutputLine(string line)
@@ -749,10 +591,10 @@ public class SetupManager : MonoBehaviour
                 UnityEngine.Debug.LogWarning($"[FinalInstall] No match for line: {line}");
             }
         }
-        if (line.Contains("Setup Complete!"))
+        if (line.Contains("Setup Complete!") || line.Contains("Setup Complete") || line.Contains("Installation complete"))
         {
             finalInstallPage.NextPage();
-            completeFX.Play();
+            if (completeFX != null) completeFX.Play();
             UnityEngine.Debug.Log("Final installation completed successfully.");
         }
     }
@@ -801,10 +643,6 @@ public class SetupManager : MonoBehaviour
         {
             preinstallConsole.AddLog(line);
         }
-        else if (currentProcessType == ActiveProcessType.Login && loginConsole != null)
-        {
-            loginConsole.AddLog(line);
-        }
         else if (currentProcessType == ActiveProcessType.FinalInstall && finalInstallConsole != null)
         {
             finalInstallConsole.AddLog(line);
@@ -822,11 +660,6 @@ public class SetupManager : MonoBehaviour
         if (currentProcessType == ActiveProcessType.Preinstall && statusTextPreinstall != null)
         {
             statusTextPreinstall.text = "An error occurred. Check logs for details.";
-        }
-        else if (currentProcessType == ActiveProcessType.Login && statusTextLogin != null)
-        {
-            statusTextLogin.text = "An error occurred. You might need to use another account.";
-            loginPage.NextPage();
         }
         else if (currentProcessType == ActiveProcessType.FinalInstall && statusTextFinalInstall != null)
         {
@@ -849,33 +682,9 @@ public class SetupManager : MonoBehaviour
                 statusTextPreinstall.text = "Setup failed. Check console for errors.";
             }
         }
-        else if (currentProcessType == ActiveProcessType.Login && statusTextLogin != null)
-        {
-            if (exitCode == 0 && !string.IsNullOrEmpty(spdc) && !string.IsNullOrEmpty(apikey))
-            {
-                statusTextLogin.text = "Success! Credentials have been saved.";
-            }
-            else
-            {
-                statusTextLogin.text = "Process finished, but failed to get credentials.";
-            }
-        }
-    }
-
-    private void SwitchToManualLogin()
-    {
-        if (loginPage != null) loginPage.gameObject.SetActive(false);
-        if (manualLoginPage != null) manualLoginPage.gameObject.SetActive(true);
     }
 
 
-    public void SkipLogin()
-    {
-        preinstallProgress.value = 1f;
-        preLoginPage.NextPage();
-        loginPage.NextPage();
-        manualLoginPage.NextPage();
-    }
 
 
     private void CleanUpProcess()
@@ -928,13 +737,93 @@ public class SetupManager : MonoBehaviour
         demucsButton.OutlineColor = new Color(0f, 0f, 0f, 0.772549f);
     }
 
+    /// <summary>
+    /// Called when the user confirms their vocal processing method selection.
+    /// Routes to the appropriate setup path based on selection.
+    /// </summary>
+    public void ConfirmMethodSelection()
+    {
+        if (string.IsNullOrEmpty(method))
+        {
+            UnityEngine.Debug.LogWarning("No method selected!");
+            return;
+        }
+
+        if (method == "vr")
+        {
+            // VocalRemover.org path: No Python needed, just create folders and complete
+            UnityEngine.Debug.Log("[Setup] VocalRemover.org selected - skipping Python installation.");
+            StartVocalRemoverSetup();
+        }
+        else if (method == "demucs")
+        {
+            // Demucs path: Need Python, preinstall, and final install
+            UnityEngine.Debug.Log("[Setup] Demucs selected - starting full installation.");
+            StartPreinstall();
+            // Navigate to preinstall page so user can see progress
+            if (methodSelectionPage != null && preinstallPage != null)
+            {
+                methodSelectionPage.GoToPage(preinstallPage);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Lightweight setup for VocalRemover.org users - no Python needed.
+    /// Just creates necessary folders and goes to completion.
+    /// </summary>
+    private void StartVocalRemoverSetup()
+    {
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        if (string.IsNullOrEmpty(dataPath))
+        {
+            UnityEngine.Debug.LogError("Data path is not set!");
+            return;
+        }
+
+        try
+        {
+            // Create only the essential folders
+            string downloadsPath = Path.Combine(dataPath, "downloads");
+            string outputPath = Path.Combine(dataPath, "output", "htdemucs");
+
+            Directory.CreateDirectory(downloadsPath);
+            Directory.CreateDirectory(outputPath);
+
+            UnityEngine.Debug.Log($"[Setup] Created folders: {downloadsPath}, {outputPath}");
+
+            // Set the vocal processing method to VocalRemover.org (0)
+            SettingsManager.Instance.SetSetting("VocalProcessingMethod", 0);
+
+            // Mark setup as NOT having demucs installed
+            PlayerPrefs.SetInt("demucsInstalled", 0);
+            PlayerPrefs.Save();
+
+            // Navigate directly to the completion page
+            if (methodSelectionPage != null && completionPage != null)
+            {
+                methodSelectionPage.GoToPage(completionPage);
+            }
+            else
+            {
+                UnityEngine.Debug.LogError("[Setup] methodSelectionPage or completionPage is not assigned in the inspector!");
+            }
+        }
+        catch (Exception e)
+        {
+            UnityEngine.Debug.LogError($"[Setup] Failed to create folders: {e.Message}");
+        }
+    }
+
     public void StartFinalInstall()
     {
         if (processIsRunning)
         {
-            UnityEngine.Debug.LogWarning("A process is already running.");
+            UnityEngine.Debug.LogWarning("[StartFinalInstall] A process is already running.");
             return;
         }
+
+        UnityEngine.Debug.Log("[StartFinalInstall] Starting final install process...");
 
         // Initial UI state
         if (statusTextFinalInstall != null) statusTextFinalInstall.text = "Starting...";
@@ -956,24 +845,6 @@ public class SetupManager : MonoBehaviour
 #else
         Application.Quit();
 #endif
-    }
-
-    public void ManualAPIKey(string key)
-    {
-        PlayerPrefs.SetString("APIKEY", key);
-        if ((PlayerPrefs.GetString("APIKEY").Length == 32 || PlayerPrefs.GetString("APIKEY").Length == 16) && (PlayerPrefs.GetString("CLIENTID").Length == 32 || PlayerPrefs.GetString("CLIENTID").Length == 16))
-        {
-            manualLoginPageButton.interactable = true;
-        }
-    }
-
-    public void ManualClientID(string id)
-    {
-        PlayerPrefs.SetString("CLIENTID", id);
-        if ((PlayerPrefs.GetString("APIKEY").Length == 32 || PlayerPrefs.GetString("APIKEY").Length == 16) && (PlayerPrefs.GetString("CLIENTID").Length == 32 || PlayerPrefs.GetString("CLIENTID").Length == 16))
-        {
-            manualLoginPageButton.interactable = true;
-        }
     }
 
     /// <summary>
@@ -1010,37 +881,34 @@ public class SetupManager : MonoBehaviour
 
         yield return new WaitForSeconds(0.5f);
 
-        // Step 2.5: Click path button to confirm data path
-        UnityEngine.Debug.Log("[AutoSetup] Step 2.5: Clicking path button");
+        // Step 3: Click path button to confirm data path (goes to method selection)
+        UnityEngine.Debug.Log("[AutoSetup] Step 3: Clicking path button");
         if (pathButton != null)
         {
             pathButton.onClick.Invoke();
         }
 
-        // Step 3: Wait for preinstall to finish
-        UnityEngine.Debug.Log("[AutoSetup] Step 3: Waiting for preinstall to complete");
-        yield return new WaitUntil(() => preinstallProgress != null && preinstallProgress.value >= 0.99f);
-        yield return new WaitForSeconds(1f); // Extra buffer for page transition
+        yield return new WaitForSeconds(0.5f);
 
-        // Step 4: Skip login entirely (using anonymous API)
-        UnityEngine.Debug.Log("[AutoSetup] Step 4: Skipping login (using anonymous Spotify API)");
-        SkipLogin();
+        // Step 4: Select Demucs and confirm (this triggers preinstall)
+        UnityEngine.Debug.Log("[AutoSetup] Step 4: Selecting Demucs and confirming method");
+        ToggleDemucs();
+        ConfirmMethodSelection();
 
         yield return new WaitForSeconds(0.5f);
 
-        // Step 6: Select Demucs and click Next
-        UnityEngine.Debug.Log("[AutoSetup] Step 6: Selecting Demucs and starting final install");
-        ToggleDemucs();
-        demucsNextButton.onClick.Invoke();
-        yield return new WaitForSeconds(0.3f);
+        // Step 5: Wait for preinstall to finish
+        UnityEngine.Debug.Log("[AutoSetup] Step 5: Waiting for preinstall to complete");
+        yield return new WaitUntil(() => preinstallProgress != null && preinstallProgress.value >= 0.99f);
+        yield return new WaitForSeconds(1f); // Extra buffer for page transition
 
-        // Step 7: Wait for final install to complete
-        UnityEngine.Debug.Log("[AutoSetup] Step 7: Waiting for final install to complete");
+        // Step 6: Wait for final install to complete
+        UnityEngine.Debug.Log("[AutoSetup] Step 6: Waiting for final install to complete");
         yield return new WaitUntil(() => finalInstallProgress != null && finalInstallProgress.value >= 0.99f);
         yield return new WaitForSeconds(1f); // Extra buffer for completion animation
 
-        // Step 8: Click "Go to menu"
-        UnityEngine.Debug.Log("[AutoSetup] Step 8: Clicking 'Go to menu'");
+        // Step 7: Click "Go to menu"
+        UnityEngine.Debug.Log("[AutoSetup] Step 7: Clicking 'Go to menu'");
         if (goToMenuButton != null)
         {
             goToMenuButton.onClick.Invoke();
