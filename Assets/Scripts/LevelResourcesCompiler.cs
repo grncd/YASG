@@ -957,10 +957,11 @@ public class LevelResourcesCompiler : MonoBehaviour
                 spotifyDuration = TimeSpan.FromMilliseconds(selectedTrack.duration_ms);
                 albumName = selectedTrack.album?.name;
             }
-            else if (lastPrecompiledTrack != null)
+            else
             {
-                spotifyDuration = TimeSpan.FromMilliseconds(lastPrecompiledTrack.duration_ms);
-                albumName = lastPrecompiledTrack.album?.name;
+                // selectedTrack is null and lastPrecompiledTrack might be stale
+                // Don't use stale data - let YouTube match by relevance instead
+                Debug.LogWarning("[DownloadSong] selectedTrack is null, proceeding without duration filtering");
             }
 
             await SpotifyToYoutubeDownloader.DownloadClosestMatch(artist, name, spotifyDuration, expectedAudioPath, albumName);
@@ -1371,11 +1372,38 @@ public class LevelResourcesCompiler : MonoBehaviour
                 {
                     spotifyDuration = TimeSpan.FromMilliseconds(selectedTrack.duration_ms);
                     albumName = selectedTrack.album?.name;
+                    Debug.Log($"[StartCompile] Using duration from selectedTrack: {spotifyDuration}");
                 }
-                else if (lastPrecompiledTrack != null)
+                else
                 {
-                    spotifyDuration = TimeSpan.FromMilliseconds(lastPrecompiledTrack.duration_ms);
-                    albumName = lastPrecompiledTrack.album?.name;
+                    // selectedTrack is null, so lastPrecompiledTrack might be stale (from previous song)
+                    // Don't use it - parse the length parameter instead
+                    Debug.LogWarning("[StartCompile] selectedTrack is null, attempting to parse length parameter as fallback");
+
+                    // Try to parse the length string (format: "2:46" or "2:46.123")
+                    if (!string.IsNullOrEmpty(length))
+                    {
+                        try
+                        {
+                            string[] parts = length.Split(':');
+                            if (parts.Length == 2)
+                            {
+                                int minutes = int.Parse(parts[0]);
+                                double seconds = double.Parse(parts[1]);
+                                spotifyDuration = TimeSpan.FromSeconds(minutes * 60 + seconds);
+                                Debug.Log($"[StartCompile] Parsed duration from length parameter '{length}': {spotifyDuration}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogError($"[StartCompile] Failed to parse length '{length}': {ex.Message}");
+                        }
+                    }
+
+                    if (spotifyDuration == TimeSpan.Zero)
+                    {
+                        Debug.LogError("[StartCompile] Could not determine song duration, YouTube matching may be inaccurate!");
+                    }
                 }
 
                 // Subscribe to progress events
@@ -1573,14 +1601,20 @@ public class LevelResourcesCompiler : MonoBehaviour
             {
                 try
                 {
-                    // Get duration and album from lastPrecompiledTrack for better matching
+                    // Get duration and album from selectedTrack for better matching
                     TimeSpan spotifyDuration = TimeSpan.Zero;
                     string albumName = null;
 
-                    if (lastPrecompiledTrack != null)
+                    if (selectedTrack != null)
                     {
-                        spotifyDuration = TimeSpan.FromMilliseconds(lastPrecompiledTrack.duration_ms);
-                        albumName = lastPrecompiledTrack.album?.name;
+                        spotifyDuration = TimeSpan.FromMilliseconds(selectedTrack.duration_ms);
+                        albumName = selectedTrack.album?.name;
+                    }
+                    else
+                    {
+                        // selectedTrack is null and lastPrecompiledTrack might be stale
+                        // Don't use stale data - let YouTube match by relevance instead
+                        Debug.LogWarning("[T-Mode] selectedTrack is null, proceeding without duration filtering");
                     }
 
                     await SpotifyToYoutubeDownloader.DownloadClosestMatch(artist, name, spotifyDuration, expectedAudioPath, albumName);
