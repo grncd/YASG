@@ -263,17 +263,12 @@ public static class SpotifyToYoutubeDownloader
         });
     }
 
-    /// <summary>
-    /// Checks if a word appears in the text as a complete word (not as part of another word).
-    /// For example, "Che" should match "che - sos" but not "Che'Nelle".
-    /// </summary>
+
     private static bool IsWordMatch(string text, string word)
     {
         if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(word))
             return false;
 
-        // Use regex to match word boundaries
-        // \b matches word boundaries, but we also want to match around common separators like - and '
         string pattern = $@"(?:^|[\s\-\[\]\(\)\""]){System.Text.RegularExpressions.Regex.Escape(word)}(?:$|[\s\-\[\]\(\)\""])";
         return System.Text.RegularExpressions.Regex.IsMatch(text, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
