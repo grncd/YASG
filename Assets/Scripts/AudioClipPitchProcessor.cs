@@ -162,6 +162,9 @@ public class AudioClipPitchProcessor : MonoBehaviour
         {
             BG.material = backgrounds[SettingsManager.Instance.GetSetting<int>("InGameBG") - 1];
             darken.color = backgroundDarkens[SettingsManager.Instance.GetSetting<int>("InGameBG") - 1];
+            // Apply resolution scale to the background material
+            float resolutionScale = SettingsManager.Instance.GetBGResolutionScale();
+            BG.material.SetFloat("_ResolutionScale", resolutionScale);
         }
         showPitch = SettingsManager.Instance.GetSetting<bool>("ShowDetectedPitch");
 

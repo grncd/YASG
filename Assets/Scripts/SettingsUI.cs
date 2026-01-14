@@ -230,6 +230,9 @@ public class SettingsUI : MonoBehaviour
         {
             BG.material = backgrounds[SettingsManager.Instance.GetSetting<int>("MenuBG")];
             darken.color = backgroundsDarken[SettingsManager.Instance.GetSetting<int>("MenuBG")];
+            // Apply resolution scale to the background material
+            float resolutionScale = SettingsManager.Instance.GetBGResolutionScale();
+            BG.material.SetFloat("_ResolutionScale", resolutionScale);
         }
     }
 

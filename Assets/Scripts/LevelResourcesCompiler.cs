@@ -1504,7 +1504,8 @@ public class LevelResourcesCompiler : MonoBehaviour
         GetComponent<AudioSource>().clip = stage3FX;
         GetComponent<AudioSource>().Play();
 
-        status.text = "Loading Main Scene...";
+        if (PlayerPrefs.GetInt("multiplayer") == 0) status.text = "Loading Main Scene...";
+        if (PlayerPrefs.GetInt("multiplayer") == 1) status.text = "Waiting for other players...";
         stage4.transform.GetChild(1).gameObject.SetActive(true);
         await Task.Delay(1010);
         if (PlayerPrefs.GetInt("multiplayer") == 0) LoadMain();

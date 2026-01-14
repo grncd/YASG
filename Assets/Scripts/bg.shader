@@ -5,6 +5,7 @@ Shader "Custom/OptimizedShaderToyUI"
         _MainTex("Texture", 2D) = "white" {}
         _TimeMult("Time Multiplier", Float) = 0.5
         _MaxSteps("Max Ray Steps", Int) = 50 // Configurable max steps
+        _ResolutionScale("Resolution Scale", Range(0.1, 1.0)) = 1.0 // Lower for better performance, will appear blurry
     }
         SubShader
         {
@@ -21,6 +22,7 @@ Shader "Custom/OptimizedShaderToyUI"
                 sampler2D _MainTex;
                 float _TimeMult;
                 int _MaxSteps;
+                float _ResolutionScale;
 
                 struct appdata
                 {
@@ -67,6 +69,15 @@ Shader "Custom/OptimizedShaderToyUI"
                 {
                     float t = _Time.y * _TimeMult;
                     float2 resolution = _ScreenParams.xy;
+
+                    // Apply resolution scaling with bilinear filtering for blur
+                    float2 pixelSize = 1.0 / (_ScreenParams.xy * _ResolutionScale);
+                    float2 uvInPixel = frac(i.uv / pixelSize);
+                    float2 pixelUV = floor(i.uv / pixelSize) * pixelSize;
+
+                    // Smooth interpolation factor at pixel edges
+                    float2 smoothUV = smoothstep(0.0, 1.0, uvInPixel);
+                    i.uv = lerp(pixelUV, pixelUV + pixelSize, smoothUV);
 
                     // Early exit conditions and early optimization
                     if (any(resolution < 1)) return fixed4(0,0,0,1);
