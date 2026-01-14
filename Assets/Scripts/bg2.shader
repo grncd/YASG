@@ -8,6 +8,7 @@ Shader "Custom/ShaderToyUI_Audio_Reactive"
         _HighIntensity("High Frequency Intensity", Range(0, 5)) = 0.0
         // --- NEW PROPERTY ---
         _GlowRadius("Glow Radius", Range(0.1, 1.0)) = 0.6
+        _ResolutionScale("Resolution Scale", Range(0.1, 1.0)) = 1.0 // Lower for better performance, will appear blurry
     }
         SubShader
     {
@@ -25,6 +26,7 @@ Shader "Custom/ShaderToyUI_Audio_Reactive"
             float _MidIntensity;
             float _HighIntensity;
             float _GlowRadius; // New variable for the radius
+            float _ResolutionScale;
 
             struct appdata
             {
@@ -81,6 +83,16 @@ Shader "Custom/ShaderToyUI_Audio_Reactive"
             {
                 float time = _Time.y * _TimeMult;
                 float2 resolution = _ScreenParams.xy;
+
+                // Apply resolution scaling with bilinear filtering for blur
+                float2 pixelSize = 1.0 / (_ScreenParams.xy * _ResolutionScale);
+                float2 uvInPixel = frac(i.uv / pixelSize);
+                float2 pixelUV = floor(i.uv / pixelSize) * pixelSize;
+
+                // Smooth interpolation factor at pixel edges
+                float2 smoothUV = smoothstep(0.0, 1.0, uvInPixel);
+                i.uv = lerp(pixelUV, pixelUV + pixelSize, smoothUV);
+
                 float2 uv = i.uv * 2.0 - 1.0;
                 uv.x *= resolution.x / resolution.y;
 

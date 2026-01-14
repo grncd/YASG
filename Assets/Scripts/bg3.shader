@@ -21,6 +21,7 @@ Shader "Custom/FractalRaymarching"
         _ColorFalloffPower("Color Falloff Power", Range(0.5, 5.0)) = 2.0
         _ToneMappingScale("Tone Mapping Scale", Range(1000, 50000)) = 20000
         _NoiseIntensity("Noise Intensity", Range(0.0, 1.0)) = 1.0
+        _ResolutionScale("Resolution Scale", Range(0.1, 1.0)) = 1.0 // Lower for better performance, will appear blurry
     }
 
         SubShader
@@ -73,6 +74,7 @@ Shader "Custom/FractalRaymarching"
             float _ColorFalloffPower;
             float _ToneMappingScale;
             float _NoiseIntensity;
+            float _ResolutionScale;
 
             v2f vert(appdata v)
             {
@@ -92,6 +94,15 @@ Shader "Custom/FractalRaymarching"
 
             fixed4 frag(v2f i) : SV_Target
             {
+                // Apply resolution scaling with bilinear filtering for blur
+                float2 pixelSize = 1.0 / (_ScreenParams.xy * _ResolutionScale);
+                float2 uvInPixel = frac(i.uv / pixelSize);
+                float2 pixelUV = floor(i.uv / pixelSize) * pixelSize;
+
+                // Smooth interpolation factor at pixel edges
+                float2 smoothUV = smoothstep(0.0, 1.0, uvInPixel);
+                i.uv = lerp(pixelUV, pixelUV + pixelSize, smoothUV);
+
                 float2 C = i.uv * _ScreenParams.xy; // Convert UV to screen coordinates
                 float2 r = _ScreenParams.xy; // Screen resolution
 

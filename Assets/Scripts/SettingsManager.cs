@@ -182,6 +182,7 @@ public class SettingsManager : MonoBehaviour
             { "MenuBG", new Setting { Value = IsMobilePlatform() ? 2 : 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Background", Description = "Defines the background that will be displayed in the menu.", DropdownOptions = new List<string> { "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
             { "InGameBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "In-Game Background", Description = "Defines the background that will be displayed in-game.", DropdownOptions = new List<string> { "None", "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
             { "AudioReactiveBGInGame", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Background", Description = "Defines if the background will be audio-reactive or not. Currently, this only works if you are using the Rainbow Tunnel BG."  } },
+            { "BGResolution", new Setting { Value = 1, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Background Resolution", Description = "Lower this to improve GPU performance. Lower resolutions will appear blurry instead of pixelated.", DropdownOptions = new List<string> { "0.25x (Very Low)", "0.5x (Low)", "0.75x (Medium)", "1.0x (Native)" } } },
 
             { "FullReset", new Setting { Value = false, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "FULL RESET", Description = "Turn this on and REOPEN THE GAME to go back to the setup screen. THIS WILL DELETE ALL OF YOUR YASG DATA."  } }
         };
@@ -195,6 +196,15 @@ public class SettingsManager : MonoBehaviour
     {
         string json = JsonConvert.SerializeObject(_settings, Formatting.Indented);
         File.WriteAllText(_settingsFilePath, json);
+    }
+
+    /// <summary>
+    /// Gets the background resolution scale value (converted from dropdown index).
+    /// </summary>
+    public float GetBGResolutionScale()
+    {
+        int dropdownIndex = GetSetting<int>("BGResolution", 3);
+        return GetBGResolutionValue(dropdownIndex);
     }
 
     /// <summary>
@@ -215,6 +225,21 @@ public class SettingsManager : MonoBehaviour
             }
         }
         return defaultValue;
+    }
+
+    /// <summary>
+    /// Converts BGResolution dropdown index to actual resolution value.
+    /// </summary>
+    private float GetBGResolutionValue(int dropdownIndex)
+    {
+        switch (dropdownIndex)
+        {
+            case 0: return 0.25f;
+            case 1: return 0.5f;
+            case 2: return 0.75f;
+            case 3: return 1.0f;
+            default: return 1.0f;
+        }
     }
 
     /// <summary>
