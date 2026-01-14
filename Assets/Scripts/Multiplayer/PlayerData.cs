@@ -559,17 +559,24 @@ public class PlayerData : NetworkBehaviour
             Debug.Log("[CompileAndReport] Compilation finished, gathering file paths...");
 
             // --- STEP 2: Get all three file paths ---
-            string fullLocation = PlayerPrefs.GetString("fullLocation");
             string vocalLocation = PlayerPrefs.GetString("vocalLocation");
 
-            Debug.Log($"[CompileAndReport] fullLocation: {fullLocation}");
+            // --- IMPORTANT: For HTTP server, ALWAYS use the original downloaded file, not the instrumental!
+            // The instrumental path in PlayerPrefs might be set based on host's playback preference,
+            // but we need to serve the original file for all clients to use correctly.
+            string dataPath = PlayerPrefs.GetString("dataPath");
+            string expectedFileName = $"{song.Artist} - {song.Title}.mp3";
+            expectedFileName = string.Join("_", expectedFileName.Split(Path.GetInvalidFileNameChars()));
+            string fullLocation = Path.Combine(dataPath, "downloads", expectedFileName);
+
+            Debug.Log($"[CompileAndReport] fullLocation (original): {fullLocation}, exists: {File.Exists(fullLocation)}");
             Debug.Log($"[CompileAndReport] vocalLocation: {vocalLocation}");
 
             // --- NEW: Construct the LRC file path ---
             string charactersToRemovePattern = @"[/\\:*?""<>|]";
             string currentSong = PlayerPrefs.GetString("currentSong");
             string cleanSongName = System.Text.RegularExpressions.Regex.Replace(currentSong, charactersToRemovePattern, string.Empty);
-            string lrcLocation = Path.Combine(PlayerPrefs.GetString("dataPath"), "downloads", cleanSongName + ".txt");
+            string lrcLocation = Path.Combine(dataPath, "downloads", cleanSongName + ".txt");
 
             Debug.Log($"[CompileAndReport] lrcLocation: {lrcLocation}, exists: {File.Exists(lrcLocation)}");
 
@@ -647,7 +654,7 @@ public class PlayerData : NetworkBehaviour
         Debug.Log($"[CompileAndReport] Master processor found {masterProcessorIps.Count} IP addresses: {string.Join(", ", masterProcessorIps)}");
 
         // Pass the lrcFileName and instrumentalFileName to the broadcast method
-        RoomManager.Instance.BroadcastDownloadInfo_Server(masterProcessorIps, fullFileName, vocalFileName, lrcFileName, instrumentalFileName);
+        RoomManager.Instance.BroadcastDownloadInfo_Server(masterProcessorIps.ToArray(), fullFileName, vocalFileName, lrcFileName, instrumentalFileName);
     }
 
     /// <summary>

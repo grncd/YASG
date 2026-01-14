@@ -263,15 +263,21 @@ public class PlayerPerformance : MonoBehaviour
 
     public void Judge()
     {
+        // Check if this component is still valid (player hasn't left)
+        if (this == null || judgmentGlow == null || judgmentText == null)
+        {
+            return;
+        }
+
         if (currentRatio < 0.45f)
         {
             Color temp = new Color(1f, 0.6941f, 0.2784f);
             judgmentGlow.color = temp;
             judgmentText.text = "Meh...";
             judgmentText.color = temp;
-            judgmentGlow.GetComponent<Animator>().Play("JudgmentGlow", -1, 0f);
-            judgmentText.GetComponent<Animator>().Play("Judgment", -1, 0f);
-            mehParticles.Play();
+            judgmentGlow.GetComponent<Animator>()?.Play("JudgmentGlow", -1, 0f);
+            judgmentText.GetComponent<Animator>()?.Play("Judgment", -1, 0f);
+            mehParticles?.Play();
             mehCount++;
         }
         else if (currentRatio < 0.915f)
@@ -280,9 +286,9 @@ public class PlayerPerformance : MonoBehaviour
             judgmentGlow.color = temp;
             judgmentText.text = "Great!";
             judgmentText.color = temp;
-            judgmentGlow.GetComponent<Animator>().Play("JudgmentGlow", -1, 0f);
-            judgmentText.GetComponent<Animator>().Play("Judgment", -1, 0f);
-            greatParticles.Play();
+            judgmentGlow.GetComponent<Animator>()?.Play("JudgmentGlow", -1, 0f);
+            judgmentText.GetComponent<Animator>()?.Play("Judgment", -1, 0f);
+            greatParticles?.Play();
             greatCount++;
         }
         else
@@ -291,9 +297,9 @@ public class PlayerPerformance : MonoBehaviour
             judgmentGlow.color = temp;
             judgmentText.text = "Perfect!";
             judgmentText.color = temp;
-            judgmentGlow.GetComponent<Animator>().Play("JudgmentGlow", -1, 0f);
-            judgmentText.GetComponent<Animator>().Play("Judgment", -1, 0f);
-            perfectParticles.Play();
+            judgmentGlow.GetComponent<Animator>()?.Play("JudgmentGlow", -1, 0f);
+            judgmentText.GetComponent<Animator>()?.Play("Judgment", -1, 0f);
+            perfectParticles?.Play();
             perfectCount++;
         }
     }
