@@ -3990,14 +3990,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4a982d9c98460934e9c59fbc68022132, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  targetInputField: {fileID: 0}
-  fadeDuration: 0.25
-  canvasGroup: {fileID: 0}
-  eventSystem: {fileID: 1751332467}
-  defaultKey: {fileID: 158726056}
-  allowedParent: {fileID: 87530074}
-  cachedButtons: []
-  allowedButtons: []
 --- !u!1 &90999361
 GameObject:
   m_ObjectHideFlags: 0
@@ -15238,7 +15230,7 @@ MonoBehaviour:
   m_MinValue: 0
   m_MaxValue: 1
   m_WholeNumbers: 0
-  m_Value: 1
+  m_Value: 0
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
@@ -73392,11 +73384,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1674350180}
   m_CullTransparentMesh: 1
---- !u!1 &1674942075 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 5110780718429985304, guid: 4267e314497614f46afacc746169ac6f, type: 3}
-  m_PrefabInstance: {fileID: 1391542845}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1675438132
 GameObject:
   m_ObjectHideFlags: 0
@@ -78524,14 +78511,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4a982d9c98460934e9c59fbc68022132, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  targetInputField: {fileID: 0}
-  fadeDuration: 0.25
-  canvasGroup: {fileID: 0}
-  eventSystem: {fileID: 1751332467}
-  defaultKey: {fileID: 1674942075}
-  allowedParent: {fileID: 1783882796}
-  cachedButtons: []
-  allowedButtons: []
 --- !u!1 &1785176529
 GameObject:
   m_ObjectHideFlags: 0
