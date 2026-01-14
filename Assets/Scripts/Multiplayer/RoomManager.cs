@@ -176,12 +176,12 @@ public class RoomManager : NetworkBehaviour
     }
 
     [Server]
-    public void BroadcastDownloadInfo_Server(string masterIp, string fullFileName, string vocalFileName, string lrcFileName, string instrumentalFileName) // Add lrcFileName and instrumentalFileName
+    public void BroadcastDownloadInfo_Server(string[] masterIps, string fullFileName, string vocalFileName, string lrcFileName, string instrumentalFileName) // Add lrcFileName and instrumentalFileName
     {
         // Send the download info (including lrcFileName and instrumentalFileName) to all clients
         foreach (var conn in ServerManager.Clients.Values)
         {
-            conn.FirstObject?.GetComponent<PlayerData>()?.DownloadFiles_ObserversRpc(masterIp, fullFileName, vocalFileName, lrcFileName, instrumentalFileName);
+            conn.FirstObject?.GetComponent<PlayerData>()?.DownloadFiles_ObserversRpc(masterIps, fullFileName, vocalFileName, lrcFileName, instrumentalFileName);
         }
     }
 
@@ -334,6 +334,23 @@ public class RoomManager : NetworkBehaviour
         foreach (var conn in ServerManager.Clients.Values)
         {
             conn.FirstObject?.GetComponent<PlayerData>()?.ShowLyricsError_ObserversRpc();
+        }
+    }
+
+    [Server]
+    public void HandleDownloadError_Server()
+    {
+        if (!IsServer) return;
+
+        Debug.Log("Server handling download error - resetting all player states and notifying clients.");
+
+        // Reset all player states back to initial room state
+        ResetAllPlayersState_Server();
+
+        // Broadcast the error to all clients
+        foreach (var conn in ServerManager.Clients.Values)
+        {
+            conn.FirstObject?.GetComponent<PlayerData>()?.ShowDownloadError_ObserversRpc();
         }
     }
 

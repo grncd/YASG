@@ -418,6 +418,49 @@ public class AudioClipPitchProcessor : MonoBehaviour
         }
         UnityEngine.Debug.Log($"Vocal file verified: {vocalTrackPath} ({vocalFileSize} bytes)");
 
+        // Defensive: Ensure file is accessible by reading a small portion first
+        // This helps catch race conditions where file isn't fully flushed to disk
+        bool fileAccessible = false;
+        for (int i = 0; i < 10; i++)
+        {
+            bool tryFailed = false;
+            try
+            {
+                using (var testStream = System.IO.File.OpenRead(vocalTrackPath))
+                {
+                    // Try to read first 1KB to ensure file is accessible
+                    byte[] buffer = new byte[1024];
+                    int bytesRead = testStream.Read(buffer, 0, buffer.Length);
+                    fileAccessible = true;
+                    UnityEngine.Debug.Log($"Vocal file accessibility check passed (read {bytesRead} bytes)");
+                    break;
+                }
+            }
+            catch (System.IO.IOException ex)
+            {
+                UnityEngine.Debug.LogWarning($"Vocal file not accessible yet (attempt {i + 1}/10): {ex.Message}");
+                tryFailed = true;
+            }
+
+            if (tryFailed && i < 9)
+            {
+                yield return new WaitForSeconds(0.1f);
+            }
+        }
+
+        if (!fileAccessible)
+        {
+            UnityEngine.Debug.LogError($"Vocal file is not accessible after 10 attempts: {vocalTrackPath}");
+            PlayerPrefs.SetInt("ERR", 1);
+            if (PlayerPrefs.GetInt("multiplayer") == 1)
+            {
+                PlayerData.isIntentionalDisconnect = true;
+            }
+            UnityEngine.SceneManagement.SceneManager.LoadScene("Menu");
+            StartCoroutine(FadeOutLoadingScreen());
+            yield break;
+        }
+
         // Vocal track loading (0% to 10% of overall, i.e., 0.0 to AUDIO_LOADING_PHASE_END_PROGRESS / 2)
         // Use Uri to properly escape special characters like # in filenames
         string urlVocal = new Uri(vocalTrackPath).AbsoluteUri;

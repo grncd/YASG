@@ -648,7 +648,14 @@ public class VocalRemoverAPI : MonoBehaviour
                 try
                 {
                     File.WriteAllBytes(outputPath, downloadedData);
-                    Debug.Log($"-> Downloaded {trackType} track: {downloadedData.Length} bytes");
+
+                    // Ensure file is fully flushed to disk
+                    using (var stream = File.OpenRead(outputPath))
+                    {
+                        stream.Flush();
+                    }
+
+                    Debug.Log($"-> Downloaded {trackType} track: {downloadedData.Length} bytes to {outputPath}");
                     writeSuccess = true;
                 }
                 catch (Exception ex)

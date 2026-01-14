@@ -302,30 +302,29 @@ public class ConnectionUI : MonoBehaviour
             LevelResourcesCompiler.Instance.loadingSecond.SetActive(true);
             LevelResourcesCompiler.Instance.loadingFirst.SetActive(false);
             LevelResourcesCompiler.Instance.BeginLoading();
-            LevelResourcesCompiler.Instance.status.text = "Checking for room...";
+            LevelResourcesCompiler.Instance.status.text = "Checking connection...";
             Debug.Log("ConnectionUI: Loading screen shown");
         }
 
-        // Run server availability check on background thread to avoid freezing
-        bool serverAvailable = false;
-        bool checkComplete = false;
-        int gamePort = 7770;
+        // Run ping check on background thread to avoid freezing
+        bool pingSuccess = false;
+        bool pingComplete = false;
 
         Task.Run(() =>
         {
-            Debug.Log($"ConnectionUI: Checking if server is available at {targetIp}:{gamePort}");
-            serverAvailable = CheckServerAvailable(targetIp, gamePort);
-            Debug.Log($"ConnectionUI: Server check complete. Available: {serverAvailable}");
-            checkComplete = true;
+            Debug.Log($"ConnectionUI: Starting ping to {targetIp}");
+            pingSuccess = PingHost(targetIp);
+            Debug.Log($"ConnectionUI: Ping complete. Success: {pingSuccess}");
+            pingComplete = true;
         });
 
-        // Wait for check to complete
-        while (!checkComplete)
+        // Wait for ping to complete
+        while (!pingComplete)
         {
             yield return null;
         }
 
-        Debug.Log($"ConnectionUI: Server check finished. serverAvailable={serverAvailable}");
+        Debug.Log($"ConnectionUI: Ping finished. pingSuccess={pingSuccess}");
 
         // Hide loading screen
         if (LevelResourcesCompiler.Instance != null)
@@ -334,17 +333,17 @@ public class ConnectionUI : MonoBehaviour
             Debug.Log("ConnectionUI: Loading screen hidden");
         }
 
-        if (!serverAvailable)
+        if (!pingSuccess)
         {
-            Debug.LogWarning($"ConnectionUI: No room found at {targetIp}:{gamePort}");
+            Debug.LogWarning($"ConnectionUI: Cannot reach host at {targetIp}");
 
             // Show error alert
             if (AlertManager.Instance != null)
             {
                 Debug.Log("ConnectionUI: Showing error alert");
                 AlertManager.Instance.ShowError(
-                    "No room found",
-                    $"No room is running at '{targetIp}'. Make sure the host has created a room and is still connected.",
+                    "Cannot reach host",
+                    $"The IP address '{targetIp}' is not reachable. Please check the address and make sure the host is running.",
                     "Dismiss"
                 );
             }
@@ -360,7 +359,7 @@ public class ConnectionUI : MonoBehaviour
             yield break;
         }
 
-        Debug.Log("ConnectionUI: Server available, proceeding to connect...");
+        Debug.Log("ConnectionUI: Host reachable, proceeding to connect...");
 
         // Ensure any previous connections are fully stopped before joining
         if (_networkManager.ServerManager.Started)
@@ -383,7 +382,64 @@ public class ConnectionUI : MonoBehaviour
             Debug.Log($"ConnectionUI: Set Tugboat client address to {targetIp}");
         }
 
+        // Show connecting status
+        if (LevelResourcesCompiler.Instance != null)
+        {
+            LevelResourcesCompiler.Instance.loadingCanvas.SetActive(true);
+            LevelResourcesCompiler.Instance.loadingSecond.SetActive(true);
+            LevelResourcesCompiler.Instance.loadingFirst.SetActive(false);
+            LevelResourcesCompiler.Instance.BeginLoading();
+            LevelResourcesCompiler.Instance.status.text = "Connecting to room...";
+        }
+
         _networkManager.ClientManager.StartConnection();
+
+        // Wait for connection with timeout
+        float connectionTimeout = 8f;
+        float startTime = Time.time;
+        bool connected = false;
+
+        while (Time.time - startTime < connectionTimeout)
+        {
+            if (_networkManager.ClientManager.Started && _networkManager.ClientManager.Connection != null && _networkManager.ClientManager.Connection.IsActive)
+            {
+                connected = true;
+                break;
+            }
+            yield return null;
+        }
+
+        // Hide loading screen
+        if (LevelResourcesCompiler.Instance != null)
+        {
+            LevelResourcesCompiler.Instance.LoadingDone();
+        }
+
+        if (!connected)
+        {
+            Debug.LogWarning($"ConnectionUI: Connection to {targetIp} timed out");
+
+            // Stop the failed connection attempt
+            if (_networkManager.ClientManager.Started)
+            {
+                _networkManager.ClientManager.StopConnection();
+            }
+
+            if (AlertManager.Instance != null)
+            {
+                AlertManager.Instance.ShowError(
+                    "Connection failed",
+                    $"Could not connect to room at '{targetIp}'. Make sure the host has created a room and try again.",
+                    "Dismiss"
+                );
+            }
+
+            RevertToMenuState();
+            _isJoining = false;
+            yield break;
+        }
+
+        Debug.Log("ConnectionUI: Connected successfully!");
 
         if (lobbyPanel != null)
         {
