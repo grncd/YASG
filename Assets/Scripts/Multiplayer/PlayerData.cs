@@ -479,11 +479,26 @@ public class PlayerData : NetworkBehaviour
     [ServerRpc(RequireOwnership = true)]
     public void RequestTransferMasterProcessor_ServerRpc(NetworkObject newMasterPlayer)
     {
-        if (!this.IsMasterProcessor.Value) return;
+        // SECURITY CHECK: Only the CURRENT host can assign master processor.
+        if (!this.IsHost.Value) return;
         PlayerData targetPlayerData = newMasterPlayer.GetComponent<PlayerData>();
         if (targetPlayerData == null) return;
-        this.IsMasterProcessor.Value = false;
+
+        // Remove master processor role from whoever currently has it
+        foreach (var playerConn in ServerManager.Clients.Values)
+        {
+            if (playerConn.FirstObject == null) continue;
+            PlayerData player = playerConn.FirstObject.GetComponent<PlayerData>();
+            if (player != null && player.IsMasterProcessor.Value)
+            {
+                player.IsMasterProcessor.Value = false;
+                Debug.Log($"Removed master processor role from {player.PlayerName.Value}");
+            }
+        }
+
+        // Assign master processor role to the new player
         targetPlayerData.IsMasterProcessor.Value = true;
+        Debug.Log($"Assigned master processor role to {targetPlayerData.PlayerName.Value}");
     }
 
     [ServerRpc(RequireOwnership = true)]
@@ -626,8 +641,12 @@ public class PlayerData : NetworkBehaviour
 
             Debug.Log($"[CompileAndReport] File names - Full: {fullFileName}, Vocal: {vocalFileName}, LRC: {lrcFileName}, Instrumental: {instrumentalFileName}");
 
+            // Get all possible local IPs (LAN, VPN, etc.) on the CLIENT side before calling the ServerRpc
+            var masterProcessorIps = GetLocalIPAddresses();
+            Debug.Log($"[CompileAndReport] Master processor found {masterProcessorIps.Count} IP addresses: {string.Join(", ", masterProcessorIps)}");
+
             Debug.Log("[CompileAndReport] Calling RequestReportCompilationFinished_ServerRpc...");
-            RequestReportCompilationFinished_ServerRpc(fullFileName, vocalFileName, lrcFileName, instrumentalFileName);
+            RequestReportCompilationFinished_ServerRpc(masterProcessorIps.ToArray(), fullFileName, vocalFileName, lrcFileName, instrumentalFileName);
             Debug.Log("[CompileAndReport] ServerRpc called successfully.");
 
             Debug.Log("[CompileAndReport] Calling RequestReportReadyForSceneChange_ServerRpc...");
@@ -643,18 +662,15 @@ public class PlayerData : NetworkBehaviour
 
 
     [ServerRpc(RequireOwnership = true)]
-    public void RequestReportCompilationFinished_ServerRpc(string fullFileName, string vocalFileName, string lrcFileName, string instrumentalFileName) // Add lrcFileName and instrumentalFileName
+    public void RequestReportCompilationFinished_ServerRpc(string[] masterProcessorIps, string fullFileName, string vocalFileName, string lrcFileName, string instrumentalFileName)
     {
         if (!this.IsMasterProcessor.Value) return;
 
         Debug.Log($"Server received compilation finished report from {Owner.ClientId}.");
-
-        // Get all possible local IPs (LAN, VPN, etc.) instead of just one
-        var masterProcessorIps = GetLocalIPAddresses();
-        Debug.Log($"[CompileAndReport] Master processor found {masterProcessorIps.Count} IP addresses: {string.Join(", ", masterProcessorIps)}");
+        Debug.Log($"[CompileAndReport] Using master processor IPs from client: {string.Join(", ", masterProcessorIps)}");
 
         // Pass the lrcFileName and instrumentalFileName to the broadcast method
-        RoomManager.Instance.BroadcastDownloadInfo_Server(masterProcessorIps.ToArray(), fullFileName, vocalFileName, lrcFileName, instrumentalFileName);
+        RoomManager.Instance.BroadcastDownloadInfo_Server(masterProcessorIps, fullFileName, vocalFileName, lrcFileName, instrumentalFileName);
     }
 
     /// <summary>
@@ -710,48 +726,67 @@ public class PlayerData : NetworkBehaviour
         // Try each IP until we find one that works
         string workingIp = null;
         int gamePort = 8080;
+        int maxRetries = 10;
 
-        foreach (string testIp in masterIps)
+        // Retry all IPs multiple times with delays (server might need time to fully start)
+        for (int retry = 1; retry <= maxRetries; retry++)
         {
-            Debug.Log($"DownloadFiles_Coroutine: Testing connection to {testIp}:{gamePort}...");
-            bool ipWorks = false;
+            Debug.Log($"DownloadFiles_Coroutine: Retry attempt {retry}/{maxRetries}");
 
-            // Quick TCP connection test
-            try
+            foreach (string testIp in masterIps)
             {
-                using (var client = new System.Net.Sockets.TcpClient())
+                Debug.Log($"DownloadFiles_Coroutine: Testing connection to {testIp}:{gamePort}...");
+                bool ipWorks = false;
+
+                // Quick TCP connection test
+                try
                 {
-                    var result = client.BeginConnect(testIp, gamePort, null, null);
-                    bool success = result.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(2));
-                    if (success)
+                    using (var client = new System.Net.Sockets.TcpClient())
                     {
-                        client.EndConnect(result);
-                        ipWorks = true;
-                        Debug.Log($"DownloadFiles_Coroutine: Successfully connected to {testIp}:{gamePort}");
+                        var result = client.BeginConnect(testIp, gamePort, null, null);
+                        bool success = result.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(2));
+                        if (success)
+                        {
+                            client.EndConnect(result);
+                            ipWorks = true;
+                            Debug.Log($"DownloadFiles_Coroutine: Successfully connected to {testIp}:{gamePort}");
+                        }
                     }
                 }
-            }
-            catch
-            {
-                Debug.Log($"DownloadFiles_Coroutine: Cannot connect to {testIp}:{gamePort}");
+                catch
+                {
+                    Debug.Log($"DownloadFiles_Coroutine: Cannot connect to {testIp}:{gamePort}");
+                }
+
+                if (ipWorks)
+                {
+                    workingIp = testIp;
+                    break;
+                }
             }
 
-            if (ipWorks)
+            if (!string.IsNullOrEmpty(workingIp))
             {
-                workingIp = testIp;
                 break;
+            }
+
+            // Wait before next retry (but not after the last attempt)
+            if (retry < maxRetries)
+            {
+                Debug.Log($"DownloadFiles_Coroutine: All IPs failed on retry {retry}, waiting 2 seconds before next retry...");
+                yield return new WaitForSeconds(2f);
             }
         }
 
         if (string.IsNullOrEmpty(workingIp))
         {
-            Debug.LogError($"DownloadFiles_Coroutine: Could not connect to ANY of the provided IPs: {string.Join(", ", masterIps)}");
+            Debug.LogError($"DownloadFiles_Coroutine: Could not connect to ANY of the provided IPs after {maxRetries} retries: {string.Join(", ", masterIps)}");
             // Show error to user
             if (AlertManager.Instance != null)
             {
                 AlertManager.Instance.ShowError(
                     "Connection failed",
-                    $"Could not connect to the master processor at any of the available IPs. Please check your network connection.",
+                    $"Could not connect to the master processor at any of the available IPs after {maxRetries} attempts. Please check your network connection.",
                     "Dismiss"
                 );
             }

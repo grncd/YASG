@@ -1238,7 +1238,14 @@ public class LevelResourcesCompiler : MonoBehaviour
         loadingSecond.SetActive(true);
         loadingSecond.transform.GetChild(4).gameObject.SetActive(true);
         loadingFirst.SetActive(false);
+
         BeginLoading(true);
+
+        if (stageProgress != null)
+        {
+            stageProgress.SetActive(true);
+        }
+
         loadingFX.SetActive(true);
         status.text = "Fetching lyrics...";
         compiling = true;

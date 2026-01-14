@@ -7,7 +7,10 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 using FishNet;
+using FishNet.Connection;
 using System;
+using FishNet.Managing;
+using FishNet.Transporting;
 
 public struct SongData
 {
@@ -69,6 +72,12 @@ public class RoomManager : NetworkBehaviour
         CurrentRoomName.OnChange += OnRoomNameChanged;
         CreatorName.OnChange += OnCreatorNameChanged;
         SelectedSong.OnChange += OnSelectedSongChanged;
+
+        // Subscribe to player disconnection events on the server
+        if (IsServer)
+        {
+            ServerManager.OnRemoteConnectionState += OnRemoteConnectionState;
+        }
     }
 
     public override void OnStopNetwork()
@@ -77,6 +86,72 @@ public class RoomManager : NetworkBehaviour
         CurrentRoomName.OnChange -= OnRoomNameChanged;
         CreatorName.OnChange -= OnCreatorNameChanged;
         SelectedSong.OnChange -= OnSelectedSongChanged;
+
+        // Unsubscribe from player disconnection events
+        if (IsServer)
+        {
+            ServerManager.OnRemoteConnectionState -= OnRemoteConnectionState;
+        }
+    }
+
+    /// <summary>
+    /// Called when a remote client disconnects from the server.
+    /// Handles host migration if the disconnecting player was the host (but not the room creator).
+    /// Handles master processor migration if the disconnecting player had the role.
+    /// </summary>
+    private void OnRemoteConnectionState(NetworkConnection conn, RemoteConnectionStateArgs args)
+    {
+        // Only handle disconnections (Stopped state)
+        if (args.ConnectionState != RemoteConnectionState.Stopped) return;
+
+        Debug.Log($"Player disconnected: ClientId {conn.ClientId}");
+
+        // Get the disconnecting player's data
+        if (conn.FirstObject == null) return;
+        PlayerData disconnectingPlayer = conn.FirstObject.GetComponent<PlayerData>();
+        if (disconnectingPlayer == null) return;
+
+        // Get all remaining players for migration
+        var remainingPlayers = ServerManager.Clients.Values
+            .Select(c => c.FirstObject?.GetComponent<PlayerData>())
+            .Where(p => p != null && p != disconnectingPlayer)
+            .ToList();
+
+        // If the disconnecting player was the host but NOT the room creator, migrate host
+        if (disconnectingPlayer.IsHost.Value && disconnectingPlayer.PlayerName.Value != CreatorName.Value)
+        {
+            Debug.Log($"Host {disconnectingPlayer.PlayerName.Value} left the room. Migrating host to a random player...");
+
+            if (remainingPlayers.Count > 0)
+            {
+                // Pick a random player
+                PlayerData newHost = remainingPlayers[UnityEngine.Random.Range(0, remainingPlayers.Count)];
+                newHost.IsHost.Value = true;
+                Debug.Log($"Migrated host role to {newHost.PlayerName.Value}");
+            }
+            else
+            {
+                Debug.LogWarning("No remaining players to migrate host to.");
+            }
+        }
+
+        // If the disconnecting player was the master processor, migrate the role
+        if (disconnectingPlayer.IsMasterProcessor.Value)
+        {
+            Debug.Log($"Master processor {disconnectingPlayer.PlayerName.Value} left the room. Migrating master processor role to a random player...");
+
+            if (remainingPlayers.Count > 0)
+            {
+                // Pick a random player
+                PlayerData newMasterProcessor = remainingPlayers[UnityEngine.Random.Range(0, remainingPlayers.Count)];
+                newMasterProcessor.IsMasterProcessor.Value = true;
+                Debug.Log($"Migrated master processor role to {newMasterProcessor.PlayerName.Value}");
+            }
+            else
+            {
+                Debug.LogWarning("No remaining players to migrate master processor to.");
+            }
+        }
     }
 
     // --- Server-Side Methods ---
