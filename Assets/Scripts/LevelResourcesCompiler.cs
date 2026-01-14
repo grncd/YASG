@@ -968,7 +968,16 @@ public class LevelResourcesCompiler : MonoBehaviour
         catch (Exception ex)
         {
             UnityEngine.Debug.LogError($"YouTube download failed: {ex.Message}");
-            alertManager.ShowError("An error occurred downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
+
+            // Check if multiplayer - if so, broadcast error to all clients
+            if (PlayerPrefs.GetInt("multiplayer") == 1)
+            {
+                PlayerData.LocalPlayerInstance?.ReportDownloadError_ServerRpc();
+            }
+            else
+            {
+                alertManager.ShowError("An error occurred downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
+            }
             LoadingDone();
             loadingFX.SetActive(false);
             mainPanel.SetActive(true);
@@ -1396,7 +1405,16 @@ public class LevelResourcesCompiler : MonoBehaviour
             {
                 if (BGMusic.Instance != null) BGMusic.Instance.StopPreview();
                 UnityEngine.Debug.LogError($"YouTube download failed: {ex.Message}");
-                alertManager.ShowError("An error occurred downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
+
+                // Check if multiplayer - if so, broadcast error to all clients
+                if (PlayerPrefs.GetInt("multiplayer") == 1)
+                {
+                    PlayerData.LocalPlayerInstance?.ReportDownloadError_ServerRpc();
+                }
+                else
+                {
+                    alertManager.ShowError("An error occurred downloading your song.", "This is likely due to connectivity issues, or due to some rare inconsistency. Please try again.", "Dismiss");
+                }
                 LoadingDone();
                 loadingFX.SetActive(false);
                 mainPanel.SetActive(true);
@@ -1571,6 +1589,16 @@ public class LevelResourcesCompiler : MonoBehaviour
                 catch (Exception ex)
                 {
                     UnityEngine.Debug.LogError($"YouTube download failed: {ex.Message}");
+
+                    // In multiplayer, broadcast the error and stop T-Mode
+                    if (PlayerPrefs.GetInt("multiplayer") == 1)
+                    {
+                        LoadingDone();
+                        loadingFX.SetActive(false);
+                        PlayerData.LocalPlayerInstance?.ReportDownloadError_ServerRpc();
+                        return; // Exit T-Mode immediately
+                    }
+
                     success = false;
                 }
             }

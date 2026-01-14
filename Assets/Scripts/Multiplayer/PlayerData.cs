@@ -641,28 +641,117 @@ public class PlayerData : NetworkBehaviour
         if (!this.IsMasterProcessor.Value) return;
 
         Debug.Log($"Server received compilation finished report from {Owner.ClientId}.");
-        string masterProcessorIp = Owner.GetAddress();
+
+        // Get all possible local IPs (LAN, VPN, etc.) instead of just one
+        var masterProcessorIps = GetLocalIPAddresses();
+        Debug.Log($"[CompileAndReport] Master processor found {masterProcessorIps.Count} IP addresses: {string.Join(", ", masterProcessorIps)}");
 
         // Pass the lrcFileName and instrumentalFileName to the broadcast method
-        RoomManager.Instance.BroadcastDownloadInfo_Server(masterProcessorIp, fullFileName, vocalFileName, lrcFileName, instrumentalFileName);
+        RoomManager.Instance.BroadcastDownloadInfo_Server(masterProcessorIps, fullFileName, vocalFileName, lrcFileName, instrumentalFileName);
+    }
+
+    /// <summary>
+    /// Gets all local IPv4 addresses (excluding loopback).
+    /// Used for HTTP server so clients can try multiple IPs (LAN, VPN, etc.).
+    /// </summary>
+    private System.Collections.Generic.List<string> GetLocalIPAddresses()
+    {
+        var ips = new System.Collections.Generic.List<string>();
+        try
+        {
+            // Get all network interfaces
+            var host = System.Net.Dns.GetHostEntry(System.Net.Dns.GetHostName());
+            foreach (var ip in host.AddressList)
+            {
+                // We want IPv4, not IPv6, and not loopback (127.0.0.1)
+                if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork &&
+                    !System.Net.IPAddress.IsLoopback(ip))
+                {
+                    ips.Add(ip.ToString());
+                }
+            }
+
+            if (ips.Count == 0)
+            {
+                Debug.LogWarning("[GetLocalIPAddresses] No non-loopback IPv4 addresses found");
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[GetLocalIPAddresses] Error getting local IPs: {ex.Message}");
+        }
+
+        return ips;
     }
 
 
     // [ClientRpc] - The server tells non-master clients to download the files.
     [ObserversRpc]
-    public void DownloadFiles_ObserversRpc(string masterIp, string fullFileName, string vocalFileName, string lrcFileName, string instrumentalFileName) // Add lrcFileName and instrumentalFileName
+    public void DownloadFiles_ObserversRpc(string[] masterIps, string fullFileName, string vocalFileName, string lrcFileName, string instrumentalFileName)
     {
         if (!IsOwner) return; // Only the actual client who owns this object should run the download logic
         if (this.IsMasterProcessor.Value) return;
 
-        Debug.Log($"Received RPC to download files from {masterIp}.");
-        StartCoroutine(DownloadFiles_Coroutine(fullFileName, vocalFileName, lrcFileName, instrumentalFileName)); // Pass it to the coroutine
+        Debug.Log($"Received RPC to download files from {masterIps.Length} possible IPs: {string.Join(", ", masterIps)}");
+        StartCoroutine(DownloadFiles_Coroutine(masterIps, fullFileName, vocalFileName, lrcFileName, instrumentalFileName));
     }
 
-    private IEnumerator DownloadFiles_Coroutine(string fullFileName, string vocalFileName, string lrcFileName, string instrumentalFileName)
+    private IEnumerator DownloadFiles_Coroutine(string[] masterIps, string fullFileName, string vocalFileName, string lrcFileName, string instrumentalFileName)
     {
         string dataPath = PlayerPrefs.GetString("dataPath");
-        string masterIp = PlayerPrefs.GetString("masterIp");
+
+        // Try each IP until we find one that works
+        string workingIp = null;
+        int gamePort = 8080;
+
+        foreach (string testIp in masterIps)
+        {
+            Debug.Log($"DownloadFiles_Coroutine: Testing connection to {testIp}:{gamePort}...");
+            bool ipWorks = false;
+
+            // Quick TCP connection test
+            try
+            {
+                using (var client = new System.Net.Sockets.TcpClient())
+                {
+                    var result = client.BeginConnect(testIp, gamePort, null, null);
+                    bool success = result.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(2));
+                    if (success)
+                    {
+                        client.EndConnect(result);
+                        ipWorks = true;
+                        Debug.Log($"DownloadFiles_Coroutine: Successfully connected to {testIp}:{gamePort}");
+                    }
+                }
+            }
+            catch
+            {
+                Debug.Log($"DownloadFiles_Coroutine: Cannot connect to {testIp}:{gamePort}");
+            }
+
+            if (ipWorks)
+            {
+                workingIp = testIp;
+                break;
+            }
+        }
+
+        if (string.IsNullOrEmpty(workingIp))
+        {
+            Debug.LogError($"DownloadFiles_Coroutine: Could not connect to ANY of the provided IPs: {string.Join(", ", masterIps)}");
+            // Show error to user
+            if (AlertManager.Instance != null)
+            {
+                AlertManager.Instance.ShowError(
+                    "Connection failed",
+                    $"Could not connect to the master processor at any of the available IPs. Please check your network connection.",
+                    "Dismiss"
+                );
+            }
+            yield break;
+        }
+
+        Debug.Log($"DownloadFiles_Coroutine: Using working IP: {workingIp}");
 
         // --- Construct Save Paths ---
         string downloadDir = Path.Combine(dataPath, "downloads");
@@ -754,10 +843,10 @@ public class PlayerData : NetworkBehaviour
         // If we reach here, at least one file is missing, so we proceed with downloading.
 
         // --- Construct Download URLs ---
-        string fullUrl = $"http://{masterIp}:8080/{Uri.EscapeDataString(fullFileName)}";
-        string vocalUrl = $"http://{masterIp}:8080/{Uri.EscapeDataString(vocalFileName)}";
-        string lrcUrl = $"http://{masterIp}:8080/{Uri.EscapeDataString(lrcFileName)}";
-        string instrumentalUrl = $"http://{masterIp}:8080/{Uri.EscapeDataString(instrumentalFileName)}";
+        string fullUrl = $"http://{workingIp}:8080/{Uri.EscapeDataString(fullFileName)}";
+        string vocalUrl = $"http://{workingIp}:8080/{Uri.EscapeDataString(vocalFileName)}";
+        string lrcUrl = $"http://{workingIp}:8080/{Uri.EscapeDataString(lrcFileName)}";
+        string instrumentalUrl = $"http://{workingIp}:8080/{Uri.EscapeDataString(instrumentalFileName)}";
 
         // --- Download Full Song (only if it doesn't exist) ---
         if (!File.Exists(fullSavePath))
@@ -1112,6 +1201,20 @@ public class PlayerData : NetworkBehaviour
         RoomManager.Instance?.HandleLyricsError_Server();
     }
 
+    [ServerRpc(RequireOwnership = true)]
+    public void ReportDownloadError_ServerRpc()
+    {
+        // Only the master processor should report download errors
+        if (!this.IsMasterProcessor.Value)
+        {
+            Debug.LogWarning($"Client {Owner.ClientId} tried to report download error, but is not the master processor.");
+            return;
+        }
+
+        Debug.Log("Master processor is reporting download error to all clients.");
+        RoomManager.Instance?.HandleDownloadError_Server();
+    }
+
     [ObserversRpc]
     public void ShowLyricsError_ObserversRpc()
     {
@@ -1123,6 +1226,32 @@ public class PlayerData : NetworkBehaviour
             AlertManager.Instance.ShowError(
                 "This song does not have lyrics.",
                 "The song you've selected either has no lyrics or we couldn't find any synced lyrics for it. If this song has lyrics and you'd like to add them, <b>use the Add Lyrics button</b> located in the menu.",
+                "Dismiss"
+            );
+        }
+
+        // Close the loading screen
+        if (LevelResourcesCompiler.Instance != null)
+        {
+            LevelResourcesCompiler.Instance.LoadingDone();
+            if (LevelResourcesCompiler.Instance.loadingFX != null)
+            {
+                LevelResourcesCompiler.Instance.loadingFX.SetActive(false);
+            }
+        }
+    }
+
+    [ObserversRpc]
+    public void ShowDownloadError_ObserversRpc()
+    {
+        Debug.Log("Received download error notification from server.");
+
+        // Show the error alert
+        if (AlertManager.Instance != null)
+        {
+            AlertManager.Instance.ShowError(
+                "Download failed",
+                "The master processor encountered an error downloading the song from YouTube. This could be due to connectivity issues or the video being unavailable. Please try again with a different song.",
                 "Dismiss"
             );
         }

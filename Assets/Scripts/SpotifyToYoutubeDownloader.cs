@@ -24,7 +24,7 @@ public static class SpotifyToYoutubeDownloader
 
         // Progress: 0% - Starting search
         OnProgress?.Invoke(0.0);
-        Debug.Log($"[SpotifyToYoutube] Searching for: '{query}'");
+        Debug.Log($"[SpotifyToYoutube] Searching for: '{query}' (Spotify duration: {spotifyDuration})");
 
         // 1. Search and get top results (0% -> 20%)
         var searchResults = await youtube.Search.GetVideosAsync(query).CollectAsync(10);
@@ -42,10 +42,63 @@ public static class SpotifyToYoutubeDownloader
         }
 
         // 2. Find and download the best available match (20% -> 50%)
-        // Sort candidates by duration match, then try them in order, skipping unavailable videos
-        var candidates = searchResults
+        // Filter out lyrics videos (usually unofficial with worse quality), unless the track itself has "lyrics" in the name
+        bool trackHasLyricsInName = trackName.Contains("lyrics", StringComparison.OrdinalIgnoreCase);
+        var filteredResults = searchResults
+            .Where(v => trackHasLyricsInName || !v.Title.Contains("lyrics", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        // If all results were lyrics videos, fall back to unfiltered list
+        if (filteredResults.Count == 0)
+        {
+            Debug.LogWarning("[SpotifyToYoutube] All results were lyrics videos, using unfiltered list");
+            filteredResults = searchResults.ToList();
+        }
+
+        // Three-tier candidate selection (prioritized matching):
+        // Tier 1: Videos matching "artist - track" or "track - artist" pattern (best match)
+        // Tier 2: Videos containing both artist AND track name as separate words
+        // Tier 3: All other videos (fallback)
+        string pattern1 = $"{artist} - {trackName}";
+        string pattern2 = $"{trackName} - {artist}";
+        string pattern3 = $"{artist}-{trackName}";
+        string pattern4 = $"{trackName}-{artist}";
+
+        var tier1 = filteredResults
+            .Where(v => v.Title.Contains(pattern1, StringComparison.OrdinalIgnoreCase) ||
+                        v.Title.Contains(pattern2, StringComparison.OrdinalIgnoreCase) ||
+                        v.Title.Contains(pattern3, StringComparison.OrdinalIgnoreCase) ||
+                        v.Title.Contains(pattern4, StringComparison.OrdinalIgnoreCase))
             .OrderBy(v => Math.Abs((v.Duration ?? TimeSpan.Zero).TotalSeconds - spotifyDuration.TotalSeconds))
             .ToList();
+
+        // For tier 2, check that artist appears as a word boundary (not part of another word)
+        var tier2 = filteredResults
+            .Where(v => !tier1.Contains(v))
+            .Where(v => IsWordMatch(v.Title, artist) && IsWordMatch(v.Title, trackName))
+            .OrderBy(v => Math.Abs((v.Duration ?? TimeSpan.Zero).TotalSeconds - spotifyDuration.TotalSeconds))
+            .ToList();
+
+        var tier3 = filteredResults
+            .Where(v => !tier1.Contains(v) && !tier2.Contains(v))
+            .OrderBy(v => Math.Abs((v.Duration ?? TimeSpan.Zero).TotalSeconds - spotifyDuration.TotalSeconds))
+            .ToList();
+
+        // Combine: prioritize tier 1, then tier 2, then tier 3
+        var candidates = tier1.Concat(tier2).Concat(tier3).ToList();
+
+        if (tier1.Count > 0)
+        {
+            Debug.Log($"[SpotifyToYoutube] Found {tier1.Count} videos with exact pattern match ('{pattern1}' or similar)");
+        }
+        else if (tier2.Count > 0)
+        {
+            Debug.Log($"[SpotifyToYoutube] Found {tier2.Count} videos matching both artist and track name as words");
+        }
+        else
+        {
+            Debug.LogWarning($"[SpotifyToYoutube] No good title matches found, using duration-only sorting");
+        }
 
         StreamManifest streamManifest = null;
         IStreamInfo audioStreamInfo = null;
@@ -115,7 +168,47 @@ public static class SpotifyToYoutubeDownloader
             OnProgress?.Invoke(overallProgress);
         });
 
-        await youtube.Videos.Streams.DownloadAsync(audioStreamInfo, tempFilePath, progress);
+        // Download with retry logic (5 attempts)
+        int maxRetries = 5;
+        Exception lastDownloadException = null;
+        bool downloadSuccess = false;
+
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                if (attempt > 1)
+                {
+                    Debug.Log($"[SpotifyToYoutube] Retry attempt {attempt}/{maxRetries} for download...");
+                }
+
+                await youtube.Videos.Streams.DownloadAsync(audioStreamInfo, tempFilePath, progress);
+                downloadSuccess = true;
+                break;
+            }
+            catch (Exception ex)
+            {
+                lastDownloadException = ex;
+                Debug.LogWarning($"[SpotifyToYoutube] Download attempt {attempt}/{maxRetries} failed: {ex.Message}");
+
+                if (attempt < maxRetries)
+                {
+                    // Wait before retry with exponential backoff
+                    await Task.Delay(1000 * attempt);
+                }
+            }
+        }
+
+        if (!downloadSuccess)
+        {
+            // Clean up temp file if it was partially downloaded
+            if (System.IO.File.Exists(tempFilePath))
+            {
+                try { System.IO.File.Delete(tempFilePath); } catch { }
+            }
+
+            throw new Exception($"Download failed after {maxRetries} attempts. Last error: {lastDownloadException?.Message}");
+        }
 
         Debug.Log($"[SpotifyToYoutube] Download Complete! Converting to MP3...");
         OnProgress?.Invoke(0.9);
@@ -168,6 +261,21 @@ public static class SpotifyToYoutubeDownloader
                 }
             }
         });
+    }
+
+    /// <summary>
+    /// Checks if a word appears in the text as a complete word (not as part of another word).
+    /// For example, "Che" should match "che - sos" but not "Che'Nelle".
+    /// </summary>
+    private static bool IsWordMatch(string text, string word)
+    {
+        if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(word))
+            return false;
+
+        // Use regex to match word boundaries
+        // \b matches word boundaries, but we also want to match around common separators like - and '
+        string pattern = $@"(?:^|[\s\-\[\]\(\)\""]){System.Text.RegularExpressions.Regex.Escape(word)}(?:$|[\s\-\[\]\(\)\""])";
+        return System.Text.RegularExpressions.Regex.IsMatch(text, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
 }
 
