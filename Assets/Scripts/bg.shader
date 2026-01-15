@@ -6,6 +6,7 @@ Shader "Custom/OptimizedShaderToyUI"
         _TimeMult("Time Multiplier", Float) = 0.5
         _MaxSteps("Max Ray Steps", Int) = 50 // Configurable max steps
         _ResolutionScale("Resolution Scale", Range(0.1, 1.0)) = 1.0 // Lower for better performance, will appear blurry
+        _TargetFPS("Target FPS", Range(30, 120)) = 60.0 // Target frame rate for background rendering
     }
         SubShader
         {
@@ -23,6 +24,7 @@ Shader "Custom/OptimizedShaderToyUI"
                 float _TimeMult;
                 int _MaxSteps;
                 float _ResolutionScale;
+                float _TargetFPS;
 
                 struct appdata
                 {
@@ -67,7 +69,9 @@ Shader "Custom/OptimizedShaderToyUI"
 
                 fixed4 frag(v2f i) : SV_Target
                 {
-                    float t = _Time.y * _TimeMult;
+                    // Quantize time to target FPS to reduce GPU load on high refresh rate monitors
+                    // Apply time multiplier AFTER quantization to avoid affecting FPS
+                    float t = floor(_Time.y * _TargetFPS) / _TargetFPS * _TimeMult;
                     float2 resolution = _ScreenParams.xy;
 
                     // Apply resolution scaling with bilinear filtering for blur

@@ -22,6 +22,7 @@ Shader "Custom/FractalRaymarching"
         _ToneMappingScale("Tone Mapping Scale", Range(1000, 50000)) = 20000
         _NoiseIntensity("Noise Intensity", Range(0.0, 1.0)) = 1.0
         _ResolutionScale("Resolution Scale", Range(0.1, 1.0)) = 1.0 // Lower for better performance, will appear blurry
+        _TargetFPS("Target FPS", Range(30, 120)) = 60.0 // Target frame rate for background rendering
     }
 
         SubShader
@@ -75,6 +76,7 @@ Shader "Custom/FractalRaymarching"
             float _ToneMappingScale;
             float _NoiseIntensity;
             float _ResolutionScale;
+            float _TargetFPS;
 
             v2f vert(appdata v)
             {
@@ -113,7 +115,8 @@ Shader "Custom/FractalRaymarching"
                 float4 p; // Current 3D position along ray
                 float4 O; // Saved position for lighting
 
-                float time = _Time.y * _TimeSpeed;
+                // Quantize time to target FPS to reduce GPU load on high refresh rate monitors
+                float time = floor(_Time.y * _TargetFPS * _TimeSpeed) / _TargetFPS;
 
                 for (; iteration < _MaxIterations; z += _StepSize * d)
                 {
