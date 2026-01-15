@@ -78,8 +78,15 @@ public class PlayerListItemUI : MonoBehaviour
 
     private void OnPlayerNameChanged(string oldName, string newName, bool asServer)
     {
-        playerNameText.text = newName;
-
+        // Append "(You)" to the local player's name (client-side only)
+        if (_playerData.IsOwner)
+        {
+            playerNameText.text = newName + " (You)";
+        }
+        else
+        {
+            playerNameText.text = newName;
+        }
     }
 
     private void OnLevelChanged(int oldLevel, int newLevel, bool asServer)
