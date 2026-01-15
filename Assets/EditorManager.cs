@@ -48,6 +48,15 @@ public class EditorManager : MonoBehaviour
     private MusicPlayer player;
 
     public LrcLibPublisherWithChallenge publisher;
+    public GameObject createCustomSong;
+    private bool hasConfirmedLyricsOverride = false;
+    private string lastAttemptedTrackUrl = null;
+
+    [System.Serializable]
+    private class LrcLibResponse
+    {
+        public string syncedLyrics;
+    }
 
     // --- SYNCING STATE FIELDS ---
     private List<LyricSyncItem> activeLyricItems = new List<LyricSyncItem>();
@@ -636,10 +645,142 @@ public class EditorManager : MonoBehaviour
         return $"{minutes}:{remainingSeconds:D2}";
     }
 
+    private async Task<bool> CheckLyricsExistOnLrcLib(string trackName, string artistName, string albumName, float duration)
+    {
+        string trackNameEncoded = UnityWebRequest.EscapeURL(trackName);
+        string artistNameEncoded = UnityWebRequest.EscapeURL(artistName);
+        string albumNameEncoded = UnityWebRequest.EscapeURL(albumName);
+        int durationSeconds = Mathf.RoundToInt(duration);
+
+        string url = $"https://lrclib.net/api/get?track_name={trackNameEncoded}&artist_name={artistNameEncoded}&album_name={albumNameEncoded}&duration={durationSeconds}";
+
+        // Show loading screen (full setup)
+        var lrc = LevelResourcesCompiler.Instance;
+        lrc.loadingCanvas.SetActive(true);
+        lrc.loadingSecond.SetActive(true);
+        lrc.loadingSecond.transform.GetChild(4).gameObject.SetActive(true);
+        lrc.loadingFirst.SetActive(false);
+        lrc.BeginLoading();
+        if (lrc.stageProgress != null)
+        {
+            lrc.stageProgress.SetActive(true);
+        }
+        lrc.loadingFX.SetActive(true);
+        lrc.status.text = "Checking for existing lyrics...";
+
+        // Retry logic for transient errors
+        int maxRetries = 10;
+        int attempt = 0;
+
+        while (attempt < maxRetries)
+        {
+            attempt++;
+            using (UnityWebRequest request = UnityWebRequest.Get(url))
+            {
+                request.SetRequestHeader("User-Agent", "YASG");
+                await request.SendWebRequest();
+
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    string error = request.error ?? "";
+                    string errorLower = error.ToLowerInvariant();
+
+                    // Check for transient/retryable errors
+                    bool isRetryable = errorLower.Contains("curl error 52") ||
+                                       errorLower.Contains("curl error 42") ||
+                                       errorLower.Contains("empty reply") ||
+                                       errorLower.Contains("connection reset") ||
+                                       errorLower.Contains("connection refused") ||
+                                       errorLower.Contains("timed out") ||
+                                       errorLower.Contains("timeout") ||
+                                       request.result == UnityWebRequest.Result.ConnectionError;
+
+                    if (isRetryable && attempt < maxRetries)
+                    {
+                        UnityEngine.Debug.LogWarning($"LRCLib transient error: {error}, retrying... ({attempt}/{maxRetries})");
+                        lrc.status.text = $"Retrying LRCLib... ({attempt}/{maxRetries})";
+                        await Task.Delay(1000 * attempt); // Exponential backoff
+                        continue;
+                    }
+
+                    // Hide loading screen before returning
+                    lrc.LowpassTransition(false);
+                    lrc.blurAnim.Play("BlurOut");
+                    lrc.loadingAnim.Play("LoadingOut");
+                    await Task.Delay(500);
+                    lrc.loadingCanvas.SetActive(false);
+                    lrc.loadingSecond.SetActive(false);
+                    lrc.loadingFX.SetActive(false);
+
+                    UnityEngine.Debug.LogWarning($"LRCLib check failed: {request.error}");
+                    return false;
+                }
+
+                // Hide loading screen before processing response
+                lrc.LowpassTransition(false);
+                lrc.blurAnim.Play("BlurOut");
+                lrc.loadingAnim.Play("LoadingOut");
+                await Task.Delay(500);
+                lrc.loadingCanvas.SetActive(false);
+                lrc.loadingSecond.SetActive(false);
+                lrc.loadingFX.SetActive(false);
+
+                string jsonResponse = request.downloadHandler.text;
+                if (string.IsNullOrEmpty(jsonResponse) || jsonResponse.Trim() == "null")
+                {
+                    return false;
+                }
+
+                LrcLibResponse response = JsonUtility.FromJson<LrcLibResponse>(jsonResponse);
+
+                // Return true if synced lyrics exist
+                return !string.IsNullOrEmpty(response.syncedLyrics);
+            }
+        }
+
+        // Hide loading screen after max retries
+        lrc.LowpassTransition(false);
+        lrc.blurAnim.Play("BlurOut");
+        lrc.loadingAnim.Play("LoadingOut");
+        await Task.Delay(500);
+        lrc.loadingCanvas.SetActive(false);
+        lrc.loadingSecond.SetActive(false);
+        lrc.loadingFX.SetActive(false);
+
+        UnityEngine.Debug.LogError($"LRCLib failed after {maxRetries} retries.");
+        return false;
+    }
+
     // --- (Unchanged File Loading & Other Helpers) ---
     #region Unchanged File Loading & Other Helpers
     public async void StartEditing(string track, string artist, string album, int dt, string url)
     {
+        // Check if this is a different track than the last attempted edit
+        if (lastAttemptedTrackUrl != url)
+        {
+            lastAttemptedTrackUrl = url;
+            hasConfirmedLyricsOverride = false;
+        }
+
+        // Check if lyrics exist on LRCLib, unless user has confirmed override
+        if (!hasConfirmedLyricsOverride)
+        {
+            bool hasLyrics = await CheckLyricsExistOnLrcLib(track, artist, album, dt / 1000f);
+            if (hasLyrics)
+            {
+                AlertManager.Instance.ShowWarning(
+                    "Lyrics Already Exist",
+                    $"This song already has synced lyrics on LRCLib. If you want to edit the lyrics anyway, click the song again to confirm.",
+                    "OK"
+                );
+                hasConfirmedLyricsOverride = true;
+                return;
+            }
+        }
+
+        // Reset confirmation flag for next time
+        hasConfirmedLyricsOverride = false;
+
         saveIndex = 0;
         selectorGO.SetActive(false);
         transform.GetChild(1).GetComponent<CanvasGroup>().alpha = 0f;
@@ -653,6 +794,11 @@ public class EditorManager : MonoBehaviour
         trackUrl = url;
         songInfo.text = $"{artist} - {track}";
         isCustom = false;
+
+        if (createCustomSong != null)
+        {
+            createCustomSong.SetActive(false);
+        }
 
         PlayerPrefs.SetString("currentSong", track);
         PlayerPrefs.SetString("currentArtist", artist);

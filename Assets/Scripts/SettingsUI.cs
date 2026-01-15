@@ -285,8 +285,6 @@ public class SettingsUI : MonoBehaviour
         int rtWidth = Mathf.RoundToInt(screenWidth * resolutionScale);
         int rtHeight = Mathf.RoundToInt(screenHeight * resolutionScale);
 
-        Debug.Log($"[SettingsUI] Creating RenderTexture at {rtWidth}x{rtHeight} (scale: {resolutionScale})");
-
         // Create new render texture with no alpha channel to avoid transparency issues
         bgRenderTexture = new RenderTexture(rtWidth, rtHeight, 0, RenderTextureFormat.RGB111110Float);
         bgRenderTexture.filterMode = FilterMode.Bilinear; // Blurry upscaling
@@ -297,15 +295,9 @@ public class SettingsUI : MonoBehaviour
         // Set target FPS on the material
         currentBgMaterial.SetFloat("_TargetFPS", 60.0f);
 
-        // Verify the property was set
-        float targetFPS = currentBgMaterial.GetFloat("_TargetFPS");
-        UnityEngine.Debug.Log($"[SettingsUI] Material _TargetFPS set to: {targetFPS}");
-
         // Display the render texture
         BG.texture = bgRenderTexture;
         BG.material = null; // Don't use material directly
-
-        Debug.Log($"[SettingsUI] BG texture set to RenderTexture. BG.texture: {BG.texture}, BG.material: {BG.material}");
 
         // Start update coroutine
         bgUpdateCoroutine = StartCoroutine(UpdateBackgroundRenderTexture());
@@ -316,9 +308,6 @@ public class SettingsUI : MonoBehaviour
         // Wait for end of frame to render
         WaitForEndOfFrame wait = new WaitForEndOfFrame();
         int frameSkip = 0;
-        int frameCount = 0;
-
-        Debug.Log("[SettingsUI] Background render coroutine started");
 
         while (bgRenderTexture != null && currentBgMaterial != null)
         {
@@ -327,18 +316,10 @@ public class SettingsUI : MonoBehaviour
             {
                 // Blit the material to the render texture
                 Graphics.Blit(null, bgRenderTexture, currentBgMaterial);
-                frameCount++;
-
-                if (frameCount % 60 == 0) // Log every 60 updates
-                {
-                    Debug.Log($"[SettingsUI] Background rendering at {bgRenderTexture.width}x{bgRenderTexture.height}");
-                }
             }
             frameSkip++;
             yield return wait;
         }
-
-        Debug.Log("[SettingsUI] Background render coroutine stopped");
     }
 
     private void OnDestroy()

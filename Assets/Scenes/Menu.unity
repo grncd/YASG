@@ -54815,6 +54815,7 @@ MonoBehaviour:
   songInfo: {fileID: 575757400}
   lyricsScroller: {fileID: 1035203608}
   publisher: {fileID: 1124323262}
+  createCustomSong: {fileID: 0}
 --- !u!82 &1124323260
 AudioSource:
   m_ObjectHideFlags: 0
@@ -64479,13 +64480,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 'Main lyrics provided by <b><size=35>syrics</size></b>
-
-    <link="https://github.com/akashrchandran/syrics"><u>https://github.com/akashrchandran/syrics</u></link>
-
-
-    Fallback
-    lyrics / custom lyric database provided by <b><size=35>LRCLib</size></b>
+  m_text: 'Main lyrics / custom lyric database provided by <b><size=35>LRCLib</size></b>
 
     <link="https://lrclib.net/"><u>https://lrclib.net/</u></link>
 

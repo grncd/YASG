@@ -235,8 +235,6 @@ public class AudioClipPitchProcessor : MonoBehaviour
         int rtWidth = Mathf.RoundToInt(screenWidth * resolutionScale);
         int rtHeight = Mathf.RoundToInt(screenHeight * resolutionScale);
 
-        UnityEngine.Debug.Log($"[AudioClipPitchProcessor] Creating RenderTexture at {rtWidth}x{rtHeight} (scale: {resolutionScale})");
-
         // Create new render texture with no alpha channel to avoid transparency issues
         bgRenderTexture = new RenderTexture(rtWidth, rtHeight, 0, RenderTextureFormat.RGB111110Float);
         bgRenderTexture.filterMode = FilterMode.Bilinear; // Blurry upscaling
@@ -251,8 +249,6 @@ public class AudioClipPitchProcessor : MonoBehaviour
         BG.texture = bgRenderTexture;
         BG.material = null; // Don't use material directly
 
-        UnityEngine.Debug.Log($"[AudioClipPitchProcessor] BG texture set to RenderTexture. BG.texture: {BG.texture}, BG.material: {BG.material}");
-
         // Start update coroutine
         bgUpdateCoroutine = StartCoroutine(UpdateBackgroundRenderTexture());
     }
@@ -262,9 +258,6 @@ public class AudioClipPitchProcessor : MonoBehaviour
         // Wait for end of frame to render
         WaitForEndOfFrame wait = new WaitForEndOfFrame();
         int frameSkip = 0;
-        int frameCount = 0;
-
-        UnityEngine.Debug.Log("[AudioClipPitchProcessor] Background render coroutine started");
 
         while (bgRenderTexture != null && currentBgMaterial != null)
         {
@@ -273,18 +266,10 @@ public class AudioClipPitchProcessor : MonoBehaviour
             {
                 // Blit the material to the render texture
                 Graphics.Blit(null, bgRenderTexture, currentBgMaterial);
-                frameCount++;
-
-                if (frameCount % 60 == 0) // Log every 60 updates
-                {
-                    UnityEngine.Debug.Log($"[AudioClipPitchProcessor] Background rendering at {bgRenderTexture.width}x{bgRenderTexture.height}");
-                }
             }
             frameSkip++;
             yield return wait;
         }
-
-        UnityEngine.Debug.Log("[AudioClipPitchProcessor] Background render coroutine stopped");
     }
 
     public static void DeletePitchData(string audioClipPath)
