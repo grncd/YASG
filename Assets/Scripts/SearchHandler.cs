@@ -904,6 +904,7 @@ public class SearchHandler : MonoBehaviour
                         {
                             // LRC.PreCompile will receive the original source URL (e.g., Spotify URL)
                             // for the 'urlToPlay' parameter.
+                            UnityEngine.Debug.Log(currentSong.url);
                             LRC.PreCompile(currentSong.url, currentSong.name, currentSong.artist, currentSong.length, currentAdaptedTrack);
                         });
                     }

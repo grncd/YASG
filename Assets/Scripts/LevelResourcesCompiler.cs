@@ -942,7 +942,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         loadingSecond.SetActive(true);
         loadingSecond.transform.GetChild(4).gameObject.SetActive(false);
         loadingFirst.SetActive(false);
-        BeginLoading(true);
+        BeginLoading();
         loadingFX.SetActive(true);
         status.text = "Downloading song for playback...";
 
