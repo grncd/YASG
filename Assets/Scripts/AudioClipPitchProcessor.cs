@@ -108,6 +108,13 @@ public class AudioClipPitchProcessor : MonoBehaviour
     public List<Color> backgroundDarkens;
     public Image darken;
     private bool showPitch;
+
+    // Background rendering optimization
+    private RenderTexture bgRenderTexture;
+    private Material currentBgMaterial;
+    private Coroutine bgUpdateCoroutine;
+    private int currentBgIndex = -1;
+    private float currentResolutionScale = -1f;
     public AudioMixerGroup mixerForMusic;
     public TextMeshProUGUI tempDebugText;
 
@@ -160,13 +167,19 @@ public class AudioClipPitchProcessor : MonoBehaviour
         }
         else
         {
-            BG.material = backgrounds[SettingsManager.Instance.GetSetting<int>("InGameBG") - 1];
-            darken.color = backgroundDarkens[SettingsManager.Instance.GetSetting<int>("InGameBG") - 1];
-            // Apply resolution scale to the background material
+            BG.gameObject.SetActive(true);
+            int bgIndex = SettingsManager.Instance.GetSetting<int>("InGameBG") - 1;
             float resolutionScale = SettingsManager.Instance.GetBGResolutionScale();
-            BG.material.SetFloat("_ResolutionScale", resolutionScale);
-            // Lock background to 60 FPS to save GPU on high refresh rate monitors
-            BG.material.SetFloat("_TargetFPS", 60.0f);
+
+            // Check if background or resolution changed
+            if (bgIndex != currentBgIndex || resolutionScale != currentResolutionScale)
+            {
+                currentBgIndex = bgIndex;
+                currentResolutionScale = resolutionScale;
+                currentBgMaterial = backgrounds[bgIndex];
+                darken.color = backgroundDarkens[bgIndex];
+                SetupBackgroundRenderTexture();
+            }
         }
         showPitch = SettingsManager.Instance.GetSetting<bool>("ShowDetectedPitch");
 
@@ -195,6 +208,83 @@ public class AudioClipPitchProcessor : MonoBehaviour
             for (int i = 0; i < hashBytes.Length; i++) sb.Append(hashBytes[i].ToString("x2"));
             return sb.ToString();
         }
+    }
+
+    private void SetupBackgroundRenderTexture()
+    {
+        // Stop existing coroutine
+        if (bgUpdateCoroutine != null)
+        {
+            StopCoroutine(bgUpdateCoroutine);
+            bgUpdateCoroutine = null;
+        }
+
+        // Release old render texture
+        if (bgRenderTexture != null)
+        {
+            bgRenderTexture.Release();
+            bgRenderTexture = null;
+        }
+
+        // Get resolution scale (0.25, 0.5, 0.75, or 1.0)
+        float resolutionScale = SettingsManager.Instance.GetBGResolutionScale();
+
+        // Calculate render texture size
+        int screenWidth = Screen.width;
+        int screenHeight = Screen.height;
+        int rtWidth = Mathf.RoundToInt(screenWidth * resolutionScale);
+        int rtHeight = Mathf.RoundToInt(screenHeight * resolutionScale);
+
+        UnityEngine.Debug.Log($"[AudioClipPitchProcessor] Creating RenderTexture at {rtWidth}x{rtHeight} (scale: {resolutionScale})");
+
+        // Create new render texture with no alpha channel to avoid transparency issues
+        bgRenderTexture = new RenderTexture(rtWidth, rtHeight, 0, RenderTextureFormat.RGB111110Float);
+        bgRenderTexture.filterMode = FilterMode.Bilinear; // Blurry upscaling
+        bgRenderTexture.useMipMap = false;
+        bgRenderTexture.autoGenerateMips = false;
+        bgRenderTexture.Create();
+
+        // Set target FPS on the material
+        currentBgMaterial.SetFloat("_TargetFPS", 60.0f);
+
+        // Display the render texture
+        BG.texture = bgRenderTexture;
+        BG.material = null; // Don't use material directly
+
+        UnityEngine.Debug.Log($"[AudioClipPitchProcessor] BG texture set to RenderTexture. BG.texture: {BG.texture}, BG.material: {BG.material}");
+
+        // Start update coroutine
+        bgUpdateCoroutine = StartCoroutine(UpdateBackgroundRenderTexture());
+    }
+
+    private IEnumerator UpdateBackgroundRenderTexture()
+    {
+        // Wait for end of frame to render
+        WaitForEndOfFrame wait = new WaitForEndOfFrame();
+        int frameSkip = 0;
+        int frameCount = 0;
+
+        UnityEngine.Debug.Log("[AudioClipPitchProcessor] Background render coroutine started");
+
+        while (bgRenderTexture != null && currentBgMaterial != null)
+        {
+            // Update every other frame for additional performance (skip 1 frame)
+            if (frameSkip % 2 == 0)
+            {
+                // Blit the material to the render texture
+                Graphics.Blit(null, bgRenderTexture, currentBgMaterial);
+                frameCount++;
+
+                if (frameCount % 60 == 0) // Log every 60 updates
+                {
+                    UnityEngine.Debug.Log($"[AudioClipPitchProcessor] Background rendering at {bgRenderTexture.width}x{bgRenderTexture.height}");
+                }
+            }
+            frameSkip++;
+            yield return wait;
+        }
+
+        UnityEngine.Debug.Log("[AudioClipPitchProcessor] Background render coroutine stopped");
     }
 
     public static void DeletePitchData(string audioClipPath)
@@ -354,6 +444,13 @@ public class AudioClipPitchProcessor : MonoBehaviour
         {
             hannWindowNative.Dispose();
             nativeResourcesInitialized = false;
+        }
+
+        // Clean up render texture
+        if (bgRenderTexture != null)
+        {
+            bgRenderTexture.Release();
+            bgRenderTexture = null;
         }
     }
 
