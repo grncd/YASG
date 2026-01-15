@@ -9,6 +9,7 @@ Shader "Custom/ShaderToyUI_Audio_Reactive"
         // --- NEW PROPERTY ---
         _GlowRadius("Glow Radius", Range(0.1, 1.0)) = 0.6
         _ResolutionScale("Resolution Scale", Range(0.1, 1.0)) = 1.0 // Lower for better performance, will appear blurry
+        _TargetFPS("Target FPS", Range(30, 120)) = 60.0 // Target frame rate for background rendering
     }
         SubShader
     {
@@ -27,6 +28,7 @@ Shader "Custom/ShaderToyUI_Audio_Reactive"
             float _HighIntensity;
             float _GlowRadius; // New variable for the radius
             float _ResolutionScale;
+            float _TargetFPS;
 
             struct appdata
             {
@@ -81,7 +83,8 @@ Shader "Custom/ShaderToyUI_Audio_Reactive"
 
             fixed4 frag(v2f i) : SV_Target
             {
-                float time = _Time.y * _TimeMult;
+                // Quantize time to target FPS to reduce GPU load on high refresh rate monitors
+                float time = floor(_Time.y * _TargetFPS * _TimeMult) / _TargetFPS;
                 float2 resolution = _ScreenParams.xy;
 
                 // Apply resolution scaling with bilinear filtering for blur

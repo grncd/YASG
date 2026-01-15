@@ -233,6 +233,8 @@ public class SettingsUI : MonoBehaviour
             // Apply resolution scale to the background material
             float resolutionScale = SettingsManager.Instance.GetBGResolutionScale();
             BG.material.SetFloat("_ResolutionScale", resolutionScale);
+            // Lock background to 60 FPS to save GPU on high refresh rate monitors
+            BG.material.SetFloat("_TargetFPS", 60.0f);
         }
     }
 

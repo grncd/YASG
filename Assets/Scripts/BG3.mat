@@ -97,6 +97,7 @@ Material:
     - _SrcBlend: 1
     - _StepSize: 1.4
     - _SurfaceOffset: 0.001
+    - _TargetFPS: 60
     - _TimeMult: 0.2
     - _TimeScale: 0.1
     - _TimeSpeed: 0.54
