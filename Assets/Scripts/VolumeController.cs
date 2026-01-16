@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.UI;
 using System.Collections;
+using UnityEngine.InputSystem;
 
 public class VolumeController : MonoBehaviour
 {
@@ -62,10 +63,11 @@ public class VolumeController : MonoBehaviour
     void Update()
     {
         // Check if the user is holding either Alt key.
-        if (Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt))
+        if (Keyboard.current.leftAltKey.isPressed || Keyboard.current.rightAltKey.isPressed)
         {
             // Get the mouse scroll wheel input. It's positive for scrolling up, negative for down.
-            float scrollDelta = Input.GetAxis("Mouse ScrollWheel");
+            Vector2 scroll = Mouse.current.scroll.ReadValue();
+            float scrollDelta = scroll.y;
 
             // Only proceed if there was any scrolling.
             if (Mathf.Abs(scrollDelta) > 0.01f)
@@ -138,9 +140,6 @@ public class VolumeController : MonoBehaviour
 
     private IEnumerator VolumeFeedbackRoutine()
     {
-        // Activate the game object before fading in
-        if (volumeFeedbackGroup != null)
-            volumeFeedbackGroup.gameObject.SetActive(true);
 
         // Fade in to alpha 1 over 0.25s
         yield return StartCoroutine(FadeCanvasGroup(volumeFeedbackGroup, volumeFeedbackGroup != null ? volumeFeedbackGroup.alpha : 0f, 1f, 0.25f));
@@ -157,9 +156,6 @@ public class VolumeController : MonoBehaviour
         yield return StartCoroutine(FadeCanvasGroup(volumeFeedbackGroup, volumeFeedbackGroup != null ? volumeFeedbackGroup.alpha : 1f, 0f, 0.25f));
         isFadingOut = false;
 
-        // Deactivate the game object after fading out
-        if (volumeFeedbackGroup != null)
-            volumeFeedbackGroup.gameObject.SetActive(false);
     }
 
     private IEnumerator FadeCanvasGroup(CanvasGroup group, float from, float to, float duration)

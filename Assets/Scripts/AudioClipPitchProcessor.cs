@@ -259,10 +259,15 @@ public class AudioClipPitchProcessor : MonoBehaviour
         WaitForEndOfFrame wait = new WaitForEndOfFrame();
         int frameSkip = 0;
 
+        // On mobile, skip more frames for better performance
+        bool isMobile = Application.platform == RuntimePlatform.Android ||
+                       Application.platform == RuntimePlatform.IPhonePlayer;
+        int framesToSkip = isMobile ? 3 : 1; // Skip 3 frames on mobile (20fps), 1 frame on desktop (30fps)
+
         while (bgRenderTexture != null && currentBgMaterial != null)
         {
-            // Update every other frame for additional performance (skip 1 frame)
-            if (frameSkip % 2 == 0)
+            // Update every N+1 frames for additional performance
+            if (frameSkip % (framesToSkip + 1) == 0)
             {
                 // Blit the material to the render texture
                 Graphics.Blit(null, bgRenderTexture, currentBgMaterial);

@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 
 public class Exit : MonoBehaviour
 {
@@ -15,6 +16,43 @@ public class Exit : MonoBehaviour
 
     void Start()
     {
+        StartCoroutine(SetFrameRate());
+
+        IEnumerator SetFrameRate()
+        {
+            yield return new WaitForSeconds(1f);
+
+            // Apply FPS limit setting on all platforms
+            if (SettingsManager.Instance != null)
+            {
+                bool limitFPS = SettingsManager.Instance.GetSetting<bool>("LimitFPS", false);
+
+                if (limitFPS)
+                {
+                    Application.targetFrameRate = 60;
+                    UnityEngine.Debug.Log("[Exit] FPS limited to 60");
+                }
+                else
+                {
+                    // On Android, use native refresh rate
+                    if (Application.platform == RuntimePlatform.Android)
+                    {
+                        Application.targetFrameRate = (int)Screen.currentResolution.refreshRateRatio.value;
+                        UnityEngine.Debug.Log($"[Exit] FPS set to native refresh rate: {Application.targetFrameRate}");
+                    }
+                    else
+                    {
+                        // On other platforms, use -1 (unlimited)
+                        Application.targetFrameRate = -1;
+                        UnityEngine.Debug.Log("[Exit] FPS set to unlimited (-1)");
+                    }
+                }
+            }
+            else if (Application.platform == RuntimePlatform.Android)
+            {
+                Application.targetFrameRate = 60;
+            }
+        }
         canvasGroup = GetComponent<CanvasGroup>();
         fillImage = transform.GetChild(1).GetComponent<Image>();
 
@@ -39,7 +77,7 @@ public class Exit : MonoBehaviour
         }
 
         GameObject highest = null;
-        if (Input.GetKeyDown(KeyCode.Escape))
+        if (Keyboard.current.escapeKey.wasPressedThisFrame)
         {
             foreach (GameObject btn in dismissButtons)
             {
@@ -58,7 +96,7 @@ public class Exit : MonoBehaviour
             highest.GetComponent<UnityEngine.UI.Button>()?.onClick.Invoke();
         }
 
-        if (Input.GetKey(KeyCode.Escape) && highest == null && !hasActiveButtons)
+        if (Keyboard.current.escapeKey.isPressed && highest == null && !hasActiveButtons)
         {
             // Stop any release animation if ESC is pressed again
             if (releaseCoroutine != null)

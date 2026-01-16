@@ -7,6 +7,9 @@ using YoutubeExplode;
 using YoutubeExplode.Common;
 using YoutubeExplode.Videos.Streams;
 using Debug = UnityEngine.Debug;
+#if UNITY_ANDROID && !UNITY_EDITOR
+using UnityEngine.Android;
+#endif
 
 public static class SpotifyToYoutubeDownloader
 {
@@ -225,11 +228,164 @@ public static class SpotifyToYoutubeDownloader
         OnProgress?.Invoke(1.0);
         Debug.Log($"[SpotifyToYoutube] Conversion Complete! Saved to: {outputPath}");
     }
+    // a
 
     private static Task ConvertToMp3(string inputPath, string outputPath)
     {
         return Task.Run(() =>
         {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            // Use ffmpeg-kit on Android - execute() is SYNCHRONOUS and blocks until complete
+            try
+            {
+                // IMPORTANT: We're running in a Task, so we need to attach this thread to the JVM
+                AndroidJNI.AttachCurrentThread();
+                Debug.Log("[FFmpeg-kit] Thread attached to JVM");
+
+                Debug.Log($"[FFmpeg-kit] Input file exists: {System.IO.File.Exists(inputPath)}");
+                if (!System.IO.File.Exists(inputPath))
+                {
+                    throw new Exception($"Input file does not exist: {inputPath}");
+                }
+                Debug.Log($"[FFmpeg-kit] Input file size: {new System.IO.FileInfo(inputPath).Length} bytes");
+                Debug.Log($"[FFmpeg-kit] Output path: {outputPath}");
+                
+                string outputDir = System.IO.Path.GetDirectoryName(outputPath);
+                Debug.Log($"[FFmpeg-kit] Output directory exists: {System.IO.Directory.Exists(outputDir)}");
+                if (!System.IO.Directory.Exists(outputDir))
+                {
+                    System.IO.Directory.CreateDirectory(outputDir);
+                    Debug.Log($"[FFmpeg-kit] Created output directory: {outputDir}");
+                }
+
+                // First, let's try to get the version to trigger native library loading
+                Debug.Log("[FFmpeg-kit] Attempting to load native libraries via FFmpegKitConfig...");
+                try
+                {
+                    using (AndroidJavaClass ffmpegConfig = new AndroidJavaClass("com.arthenica.ffmpegkit.FFmpegKitConfig"))
+                    {
+                        // This call should trigger the native library loading
+                        string version = ffmpegConfig.CallStatic<string>("getVersion");
+                        Debug.Log($"[FFmpeg-kit] FFmpegKit version: {version}");
+                        
+                        string ffmpegVersion = ffmpegConfig.CallStatic<string>("getFFmpegVersion");
+                        Debug.Log($"[FFmpeg-kit] FFmpeg version: {ffmpegVersion}");
+                        
+                        // Now ignore SIGXCPU signal
+                        Debug.Log("[FFmpeg-kit] Ignoring SIGXCPU signal...");
+                        using (AndroidJavaClass signalClass = new AndroidJavaClass("com.arthenica.ffmpegkit.Signal"))
+                        {
+                            AndroidJavaObject sigxcpu = signalClass.CallStatic<AndroidJavaObject>("valueOf", "SIGXCPU");
+                            if (sigxcpu != null)
+                            {
+                                ffmpegConfig.CallStatic("ignoreSignal", sigxcpu);
+                                Debug.Log("[FFmpeg-kit] SIGXCPU signal ignored");
+                            }
+                            else
+                            {
+                                Debug.LogWarning("[FFmpeg-kit] Could not get SIGXCPU signal enum");
+                            }
+                        }
+                    }
+                }
+                catch (Exception configEx)
+                {
+                    Debug.LogError($"[FFmpeg-kit] Failed to access FFmpegKitConfig: {configEx.Message}\n{configEx.StackTrace}");
+                    throw;
+                }
+
+                using (AndroidJavaClass ffmpeg = new AndroidJavaClass("com.arthenica.ffmpegkit.FFmpegKit"))
+                {
+                    // Build the conversion command - use single quotes for paths on Android
+                    // Escape single quotes in paths by replacing ' with '\''
+                    string escapedInput = inputPath.Replace("'", "'\\''");
+                    string escapedOutput = outputPath.Replace("'", "'\\''");
+                    string cmd = $"-y -i '{escapedInput}' -vn -ar 44100 -ac 2 -b:a 192k '{escapedOutput}'";
+                    Debug.Log($"[FFmpeg-kit] Executing conversion command...");
+                    Debug.Log($"[FFmpeg-kit] Command: {cmd}");
+
+                    // execute() is SYNCHRONOUS - it will block until FFmpeg completes
+                    AndroidJavaObject session = ffmpeg.CallStatic<AndroidJavaObject>("execute", cmd);
+                    
+                    if (session == null)
+                    {
+                        // Try to get more info about why it failed
+                        Debug.LogError("[FFmpeg-kit] Session is null! Trying to get last session...");
+                        try
+                        {
+                            using (AndroidJavaClass config = new AndroidJavaClass("com.arthenica.ffmpegkit.FFmpegKitConfig"))
+                            {
+                                AndroidJavaObject lastSession = config.CallStatic<AndroidJavaObject>("getLastSession");
+                                if (lastSession != null)
+                                {
+                                    Debug.Log("[FFmpeg-kit] Found last session via config");
+                                    session = lastSession;
+                                }
+                                else
+                                {
+                                    Debug.LogError("[FFmpeg-kit] getLastSession also returned null");
+                                }
+                            }
+                        }
+                        catch (Exception lastEx)
+                        {
+                            Debug.LogError($"[FFmpeg-kit] Failed to get last session: {lastEx.Message}");
+                        }
+                        
+                        if (session == null)
+                        {
+                            throw new Exception("FFmpeg-kit returned null session. Command may have failed to start.");
+                        }
+                    }
+
+                    // Get the return code
+                    AndroidJavaObject rc = session.Call<AndroidJavaObject>("getReturnCode");
+                    if (rc == null)
+                    {
+                        // Session might still be running somehow, check state
+                        AndroidJavaObject state = session.Call<AndroidJavaObject>("getState");
+                        string stateStr = state?.Call<string>("toString") ?? "UNKNOWN";
+                        string logs = session.Call<string>("getAllLogsAsString") ?? "No logs";
+                        throw new Exception($"FFmpeg-kit session has no return code. State: {stateStr}. Logs: {logs}");
+                    }
+                    
+                    int returnCode = rc.Call<int>("getValue");
+                    Debug.Log($"[FFmpeg-kit] Conversion finished with return code: {returnCode}");
+
+                    // Get logs for debugging
+                    string allLogs = session.Call<string>("getAllLogsAsString") ?? "No logs available";
+                    Debug.Log($"[FFmpeg-kit] Logs: {allLogs}");
+
+                    if (returnCode == 0)
+                    {
+                        // Success - verify output file exists
+                        if (System.IO.File.Exists(outputPath))
+                        {
+                            long fileSize = new System.IO.FileInfo(outputPath).Length;
+                            Debug.Log($"[FFmpeg-kit] Success! Output file created: {fileSize} bytes");
+                            session.Dispose();
+                            return;
+                        }
+                        else
+                        {
+                            session.Dispose();
+                            throw new Exception($"FFmpeg reported success but output file not found at: {outputPath}");
+                        }
+                    }
+                    else
+                    {
+                        session.Dispose();
+                        throw new Exception($"FFmpeg conversion failed with return code {returnCode}. Logs: {allLogs}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[FFmpeg-kit] Exception: {ex.Message}\n{ex.StackTrace}");
+                throw new Exception($"FFmpeg-kit conversion failed: {ex.Message}");
+            }
+#else
+            // Use system ffmpeg on desktop platforms
             string ffmpegPath;
             if (Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor)
             {
@@ -260,6 +416,7 @@ public static class SpotifyToYoutubeDownloader
                     throw new Exception($"FFmpeg conversion failed: {error}");
                 }
             }
+#endif
         });
     }
 
