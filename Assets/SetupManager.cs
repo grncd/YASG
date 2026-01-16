@@ -824,9 +824,21 @@ public class SetupManager : MonoBehaviour
 
         if (method == "vr")
         {
-            // VocalRemover.org path: No Python needed, just create folders and complete
-            UnityEngine.Debug.Log("[Setup] VocalRemover.org selected - skipping Python installation.");
-            StartVocalRemoverSetup();
+            // Check if on Windows
+            bool isWindows = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
+
+            if (isWindows)
+            {
+                // On Windows, we need to download FFmpeg for vocalremover too
+                UnityEngine.Debug.Log("[Setup] VocalRemover.org selected (Windows) - starting FFmpeg installation.");
+                StartWindowsVocalRemoverSetup();
+            }
+            else
+            {
+                // VocalRemover.org path: No Python needed, just create folders and complete
+                UnityEngine.Debug.Log("[Setup] VocalRemover.org selected - skipping Python installation.");
+                StartVocalRemoverSetup();
+            }
         }
         else if (method == "demucs")
         {
@@ -841,11 +853,206 @@ public class SetupManager : MonoBehaviour
         }
     }
 
+    private void StartWindowsVocalRemoverSetup()
+    {
+        // Navigate to preinstall page to show progress
+        if (methodSelectionPage != null && preinstallPage != null)
+        {
+            methodSelectionPage.GoToPage(preinstallPage);
+        }
+
+        if (statusTextPreinstall != null) statusTextPreinstall.text = "Initializing FFmpeg Setup...";
+        if (preinstallProgress != null) preinstallProgress.value = 0;
+
+        StartCoroutine(DownloadAndInstallFFmpegWindows());
+    }
+
+    private IEnumerator DownloadAndInstallFFmpegWindows()
+    {
+        string tempDir = Path.GetTempPath();
+        string ffmpegUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z";
+        string ffmpegArchiveName = "ffmpeg-release-full-shared.7z";
+        string downloadPath = Path.Combine(tempDir, ffmpegArchiveName);
+        string extractPath = Path.Combine(tempDir, "ffmpeg_extracted");
+
+        // 1. Check for 7-Zip
+        string sevenZipExe = null;
+        string[] common7zPaths = {
+            @"C:\Program Files\7-Zip\7z.exe",
+            @"C:\Program Files (x86)\7-Zip\7z.exe",
+            Path.Combine(tempDir, "7zr.exe")
+        };
+
+        foreach (string path in common7zPaths)
+        {
+            if (File.Exists(path))
+            {
+                sevenZipExe = path;
+                break;
+            }
+        }
+
+        if (sevenZipExe == null)
+        {
+            if (statusTextPreinstall != null) statusTextPreinstall.text = "Downloading 7-Zip...";
+            UnityEngine.Debug.Log("[Setup] 7-Zip not found. Downloading portable version...");
+
+            string sevenZipUrl = "https://www.7-zip.org/a/7zr.exe";
+            string sevenZipPath = Path.Combine(tempDir, "7zr.exe");
+
+            yield return StartCoroutine(DownloadFile(sevenZipUrl, sevenZipPath));
+
+            if (File.Exists(sevenZipPath))
+            {
+                sevenZipExe = sevenZipPath;
+            }
+            else
+            {
+                UnityEngine.Debug.LogError("[Setup] Failed to download 7-Zip.");
+                if (statusTextPreinstall != null) statusTextPreinstall.text = "Error: Failed to download 7-Zip.";
+                yield break;
+            }
+        }
+
+        if (preinstallProgress != null) preinstallProgress.value = 0.2f;
+
+        // 2. Download FFmpeg
+        if (statusTextPreinstall != null) statusTextPreinstall.text = "Downloading FFmpeg...";
+        UnityEngine.Debug.Log($"[Setup] Downloading FFmpeg from {ffmpegUrl}...");
+
+        yield return StartCoroutine(DownloadFile(ffmpegUrl, downloadPath));
+
+        if (!File.Exists(downloadPath))
+        {
+            UnityEngine.Debug.LogError("[Setup] Failed to download FFmpeg.");
+            if (statusTextPreinstall != null) statusTextPreinstall.text = "Error: Failed to download FFmpeg.";
+            yield break;
+        }
+
+        if (preinstallProgress != null) preinstallProgress.value = 0.5f;
+
+        // 3. Extract FFmpeg
+        if (statusTextPreinstall != null) statusTextPreinstall.text = "Extracting FFmpeg...";
+        UnityEngine.Debug.Log("[Setup] Extracting FFmpeg...");
+
+        if (Directory.Exists(extractPath))
+        {
+            try { Directory.Delete(extractPath, true); } catch { }
+        }
+        Directory.CreateDirectory(extractPath);
+
+        ProcessStartInfo startInfo = new ProcessStartInfo
+        {
+            FileName = sevenZipExe,
+            Arguments = $"x \"{downloadPath}\" -o\"{extractPath}\" -y",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true, // Redirect to avoid hanging if buffer fills, though we don't read it
+            RedirectStandardError = true
+        };
+
+        Process process = new Process { StartInfo = startInfo };
+        process.Start();
+
+        // Read output to prevent deadlocks
+        Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
+        Task<string> errorTask = process.StandardError.ReadToEndAsync();
+
+        while (!process.HasExited)
+        {
+            yield return null;
+        }
+
+        if (process.ExitCode != 0)
+        {
+            UnityEngine.Debug.LogError($"[Setup] 7-Zip extraction failed. Exit code: {process.ExitCode}");
+            if (statusTextPreinstall != null) statusTextPreinstall.text = "Error: FFmpeg extraction failed.";
+            yield break;
+        }
+
+        if (preinstallProgress != null) preinstallProgress.value = 0.8f;
+
+        // 4. Move files
+        if (statusTextPreinstall != null) statusTextPreinstall.text = "Installing FFmpeg...";
+        UnityEngine.Debug.Log("[Setup] Installing FFmpeg files...");
+
+        string ffmpegBinSource = null;
+        try
+        {
+            foreach (string dir in Directory.GetDirectories(extractPath, "*", SearchOption.AllDirectories))
+            {
+                if (Path.GetFileName(dir) == "bin" && File.Exists(Path.Combine(dir, "ffmpeg.exe")))
+                {
+                    ffmpegBinSource = dir;
+                    break;
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            UnityEngine.Debug.LogError($"[Setup] Error searching for bin folder: {e.Message}");
+        }
+
+        if (string.IsNullOrEmpty(ffmpegBinSource))
+        {
+            UnityEngine.Debug.LogError("[Setup] Could not find 'bin' folder in extracted archive.");
+            if (statusTextPreinstall != null) statusTextPreinstall.text = "Error: Invalid FFmpeg archive.";
+            yield break;
+        }
+
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        string targetBinDir = Path.Combine(dataPath, "vocalremover", "ffmpeg_lib");
+
+        try
+        {
+            if (!Directory.Exists(targetBinDir))
+            {
+                Directory.CreateDirectory(targetBinDir);
+            }
+
+            foreach (string file in Directory.GetFiles(ffmpegBinSource))
+            {
+                string filename = Path.GetFileName(file);
+                string destFile = Path.Combine(targetBinDir, filename);
+                File.Copy(file, destFile, true);
+            }
+            UnityEngine.Debug.Log($"[Setup] FFmpeg installed to {targetBinDir}");
+        }
+        catch (Exception e)
+        {
+            UnityEngine.Debug.LogError($"[Setup] Failed to copy files: {e.Message}");
+            if (statusTextPreinstall != null) statusTextPreinstall.text = "Error: Failed to install files.";
+            yield break;
+        }
+
+        if (preinstallProgress != null) preinstallProgress.value = 1.0f;
+
+        // Cleanup
+        try
+        {
+            if (File.Exists(downloadPath)) File.Delete(downloadPath);
+            if (Directory.Exists(extractPath)) Directory.Delete(extractPath, true);
+            // We might want to keep the portable 7z if we downloaded it, or delete it. 
+            // The python script keeps 7zr.exe in temp if it downloaded it there? No, it doesn't explicitly delete it in finally block for 7z logic.
+            // But we will be good cleaning up downloadPath and extractPath.
+        }
+        catch { }
+
+        // Finish up using the existing logic
+        StartVocalRemoverSetup(false);
+
+        // Manually navigate from preinstall to completion
+        if (preinstallPage != null && completionPage != null)
+        {
+            preinstallPage.GoToPage(completionPage);
+        }
+    }
+
     /// <summary>
     /// Lightweight setup for VocalRemover.org users - no Python needed.
     /// Just creates necessary folders and goes to completion.
     /// </summary>
-    private void StartVocalRemoverSetup()
+    private void StartVocalRemoverSetup(bool navigate = true)
     {
         string dataPath = PlayerPrefs.GetString("dataPath");
         if (string.IsNullOrEmpty(dataPath))
@@ -872,14 +1079,17 @@ public class SetupManager : MonoBehaviour
             PlayerPrefs.SetInt("demucsInstalled", 0);
             PlayerPrefs.Save();
 
-            // Navigate directly to the completion page
-            if (methodSelectionPage != null && completionPage != null)
+            if (navigate)
             {
-                methodSelectionPage.GoToPage(completionPage);
-            }
-            else
-            {
-                UnityEngine.Debug.LogError("[Setup] methodSelectionPage or completionPage is not assigned in the inspector!");
+                // Navigate directly to the completion page
+                if (methodSelectionPage != null && completionPage != null)
+                {
+                    methodSelectionPage.GoToPage(completionPage);
+                }
+                else
+                {
+                    UnityEngine.Debug.LogError("[Setup] methodSelectionPage or completionPage is not assigned in the inspector!");
+                }
             }
         }
         catch (Exception e)

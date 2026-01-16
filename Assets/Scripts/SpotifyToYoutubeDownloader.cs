@@ -298,9 +298,9 @@ public static class SpotifyToYoutubeDownloader
                 {
                     // Build the conversion command - use single quotes for paths on Android
                     // Escape single quotes in paths by replacing ' with '\''
-                    string escapedInput = inputPath.Replace("'", "'\\''");
-                    string escapedOutput = outputPath.Replace("'", "'\\''");
-                    string cmd = $"-y -i '{escapedInput}' -vn -ar 44100 -ac 2 -b:a 192k '{escapedOutput}'";
+                    string escapedInput = inputPath.Replace("\"", "\\\"");
+                    string escapedOutput = outputPath.Replace("\"", "\\\"");
+                    string cmd = $"-y -i \"{escapedInput}\" -vn -ar 44100 -ac 2 -b:a 192k \"{escapedOutput}\"";
                     Debug.Log($"[FFmpeg-kit] Executing conversion command...");
                     Debug.Log($"[FFmpeg-kit] Command: {cmd}");
 
