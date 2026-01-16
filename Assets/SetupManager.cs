@@ -26,6 +26,7 @@ public class SetupManager : MonoBehaviour
     public TextMeshProUGUI selectedDataPath;
     public Button selectDataPathButton;
     public Button selectMethodButton;
+    public Button androidDisableButton;
     public MPImage demucsButton;
     public MPImage VRButton;
     public TextMeshProUGUI statusTextFinalInstall;
@@ -237,6 +238,45 @@ public class SetupManager : MonoBehaviour
 
     private void Start()
     {
+
+        StartCoroutine(SetFrameRate());
+
+        IEnumerator SetFrameRate()
+        {
+            yield return new WaitForSeconds(1f);
+
+            // Apply FPS limit setting on all platforms
+            if (SettingsManager.Instance != null)
+            {
+                bool limitFPS = SettingsManager.Instance.GetSetting<bool>("LimitFPS", false);
+
+                if (limitFPS)
+                {
+                    Application.targetFrameRate = 60;
+                    UnityEngine.Debug.Log("[Exit] FPS limited to 60");
+                }
+                else
+                {
+                    // On Android, use native refresh rate
+                    if (Application.platform == RuntimePlatform.Android)
+                    {
+                        Application.targetFrameRate = (int)Screen.currentResolution.refreshRateRatio.value;
+                        UnityEngine.Debug.Log($"[Exit] FPS set to native refresh rate: {Application.targetFrameRate}");
+                    }
+                    else
+                    {
+                        // On other platforms, use -1 (unlimited)
+                        Application.targetFrameRate = -1;
+                        UnityEngine.Debug.Log("[Exit] FPS set to unlimited (-1)");
+                    }
+                }
+            }
+            else if (Application.platform == RuntimePlatform.Android)
+            {
+                Application.targetFrameRate = 60;
+            }
+        }
+
         if (/*!Application.isEditor*/ true)
         {
             // Ensure there's a sensible default (Unity game's data folder) if none set
@@ -248,6 +288,12 @@ public class SetupManager : MonoBehaviour
             // On Android, ALWAYS use persistentDataPath - never use saved values
             if (Application.platform == RuntimePlatform.Android)
             {
+                if (androidDisableButton != null)
+                {
+                    androidDisableButton.interactable = false;
+                    UnityEngine.Debug.Log("[Setup] Android detected, disabled requested button.");
+                }
+
                 defaultPath = Application.persistentDataPath;
                 PlayerPrefs.SetString("dataPath", defaultPath);
                 PlayerPrefs.Save();
