@@ -911,5 +911,40 @@ public class VocalRemoverAPI : MonoBehaviour
     {
         DisconnectWebSocket();
     }
+
+    private IEnumerator VerifyAudioFile(string path, Action<bool> callback)
+    {
+        Debug.Log($"-> Verifying audio file: {path}");
+
+        string url = "file://" + path;
+        using (UnityWebRequest www = UnityWebRequestMultimedia.GetAudioClip(url, AudioType.MPEG))
+        {
+            yield return www.SendWebRequest();
+
+            if (www.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"-> Validation failed: Could not load audio clip. Error: {www.error}");
+                callback(false);
+                yield break;
+            }
+
+            AudioClip clip = DownloadHandlerAudioClip.GetContent(www);
+            if (clip == null)
+            {
+                Debug.LogError("-> Validation failed: AudioClip is null");
+                callback(false);
+            }
+            else if (clip.samples == 0)
+            {
+                Debug.LogError("-> Validation failed: AudioClip has 0 samples");
+                callback(false);
+            }
+            else
+            {
+                Debug.Log($"-> Validation success: {clip.samples} samples, {clip.length}s");
+                callback(true);
+            }
+        }
+    }
 }
 
