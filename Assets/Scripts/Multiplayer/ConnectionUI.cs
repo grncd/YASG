@@ -1015,6 +1015,29 @@ public class ConnectionUI : MonoBehaviour
     }
 
     #endregion
+
+    public void CheckMultiplayerDisclaimer()
+    {
+        if (PlayerPrefs.GetInt("HasSeenMultiplayerAlert", 0) == 0)
+        {
+            AlertManager.Instance.ShowInfo(
+                        "Welcome to Multiplayer!",
+                        "To play with others, you need to be on the same network as them. If you aren't, click <link=\"https://www.youtube.com/watch?v=sUTNHLu_utc\"><u>here</u></link> to learn how to be on the same network as them.",
+                        "OK"
+                    );
+            PlayerPrefs.SetInt("HasSeenMultiplayerAlert", 1);
+            PlayerPrefs.Save();
+        }
+    }
+
+    public void ForceMultiplayerDisclaimer()
+    {
+        AlertManager.Instance.ShowInfo(
+                        "You need to be on the same network.",
+                        "To play with others, you need to be on the same network as them. If you aren't, click <link=\"https://www.youtube.com/watch?v=sUTNHLu_utc\"><u>here</u></link> to learn how to be on the same network as them.",
+                        "OK"
+                    );
+    }
 }
 
 // Helper component to store discovered room data
