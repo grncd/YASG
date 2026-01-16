@@ -2,6 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// This script automatically scrolls a ScrollRect to keep the currently selected UI element in view.
@@ -21,7 +22,7 @@ public class AutoScrollToSelection : MonoBehaviour
     private GameObject lastSelected;
     private Coroutine scrollingCoroutine;
 
-    private Vector3 lastMousePos;
+    private Vector2 lastMousePos;
     private string lastInput = "controller"; // "mouse" or "controller"
 
     void Start()
@@ -59,7 +60,8 @@ public class AutoScrollToSelection : MonoBehaviour
         bool isControllerMoved = IsControllerInput();
 
         // --- Mouse movement detection ---
-        if ((Input.mousePosition - lastMousePos).sqrMagnitude > 1f)
+        Vector2 currentMousePos = Mouse.current.position.ReadValue();
+        if ((currentMousePos - lastMousePos).sqrMagnitude > 1f)
         {
             lastInput = "mouse";
         }
@@ -76,36 +78,47 @@ public class AutoScrollToSelection : MonoBehaviour
             lastInput = "controller";
         }
 
-        lastMousePos = Input.mousePosition;
+        lastMousePos = currentMousePos;
     }
 
     bool IsKeyboardInput()
     {
-        foreach (KeyCode key in System.Enum.GetValues(typeof(KeyCode)))
-        {
-            if (IsKeyboardKey(key) && Input.GetKey(key))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
+        // Check if any key on the keyboard is currently pressed
+        if (Keyboard.current == null) return false;
 
-    bool IsKeyboardKey(KeyCode key)
-    {
-        // Filter out joystick buttons
-        return !key.ToString().StartsWith("Joystick") &&
-               key != KeyCode.None;
+        // Check common navigation keys
+        return Keyboard.current.anyKey.wasPressedThisFrame ||
+               Keyboard.current.upArrowKey.isPressed ||
+               Keyboard.current.downArrowKey.isPressed ||
+               Keyboard.current.leftArrowKey.isPressed ||
+               Keyboard.current.rightArrowKey.isPressed ||
+               Keyboard.current.tabKey.isPressed ||
+               Keyboard.current.enterKey.isPressed ||
+               Keyboard.current.escapeKey.isPressed ||
+               Keyboard.current.spaceKey.isPressed;
     }
-
 
     // --- Controller input detection (axes/buttons, but ignores keyboard keys) ---
     bool IsControllerInput()
     {
-        return Mathf.Abs(Input.GetAxisRaw("Horizontal")) > 0.2f ||
-               Mathf.Abs(Input.GetAxisRaw("Vertical")) > 0.2f ||
-               Input.GetButtonDown("Submit") ||
-               Input.GetButtonDown("Cancel");
+        if (Gamepad.current == null) return false;
+
+        // Check left stick or D-pad
+        Vector2 leftStick = Gamepad.current.leftStick.ReadValue();
+        Vector2 dpad = Gamepad.current.dpad.ReadValue();
+
+        bool stickMoved = Mathf.Abs(leftStick.x) > 0.2f || Mathf.Abs(leftStick.y) > 0.2f;
+        bool dpadMoved = Mathf.Abs(dpad.x) > 0.2f || Mathf.Abs(dpad.y) > 0.2f;
+
+        // Check common buttons
+        bool buttonPressed = Gamepad.current.buttonSouth.wasPressedThisFrame ||
+                           Gamepad.current.buttonEast.wasPressedThisFrame ||
+                           Gamepad.current.buttonWest.wasPressedThisFrame ||
+                           Gamepad.current.buttonNorth.wasPressedThisFrame ||
+                           Gamepad.current.startButton.wasPressedThisFrame ||
+                           Gamepad.current.selectButton.wasPressedThisFrame;
+
+        return stickMoved || dpadMoved || buttonPressed;
     }
 
     private IEnumerator ScrollToView(RectTransform target)

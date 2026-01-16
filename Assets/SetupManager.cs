@@ -245,6 +245,19 @@ public class SetupManager : MonoBehaviour
             // Debugging Linux path issues
             UnityEngine.Debug.Log($"Platform: {Application.platform}, Current DataPath: {defaultPath}");
 
+            // On Android, ALWAYS use persistentDataPath - never use saved values
+            if (Application.platform == RuntimePlatform.Android)
+            {
+                defaultPath = Application.persistentDataPath;
+                PlayerPrefs.SetString("dataPath", defaultPath);
+                PlayerPrefs.Save();
+                UnityEngine.Debug.Log($"[Setup] Android detected, forced path to: {defaultPath}");
+
+                if (selectedDataPath != null) selectedDataPath.text = defaultPath;
+                selectDataPathButton.interactable = true;
+                return; // Skip the rest of the setup logic
+            }
+
             bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
 
             // Fix for Linux users stuck with .config path in PlayerPrefs
@@ -257,11 +270,18 @@ public class SetupManager : MonoBehaviour
             if (string.IsNullOrEmpty(defaultPath))
             {
                 string baseFolder;
-                if (Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor)
+                if (Application.platform == RuntimePlatform.Android)
+                {
+                    // On Android, use Unity's persistentDataPath which points to writable app storage
+                    defaultPath = Application.persistentDataPath;
+                    UnityEngine.Debug.Log($"[Setup] Android detected, using persistentDataPath: {defaultPath}");
+                }
+                else if (Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor)
                 {
                     // Explicitly force ~/.local/share/YASG/YASG to prevent ambiguity or switching to .config
                     string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
                     baseFolder = Path.Combine(userProfile, ".local", "share", "YASG");
+                    defaultPath = Path.Combine(baseFolder, "YASG");
                 }
                 else
                 {
@@ -274,9 +294,8 @@ public class SetupManager : MonoBehaviour
                         roaming = Path.Combine(userProfile ?? @"C:\Users\Default", "AppData", "Roaming");
                     }
                     baseFolder = Path.Combine(roaming, "YASG");
+                    defaultPath = Path.Combine(baseFolder, "YASG");
                 }
-
-                defaultPath = Path.Combine(baseFolder, "YASG");
 
                 // Ensure the folder exists and persist it to PlayerPrefs.
                 try
@@ -317,11 +336,19 @@ public class SetupManager : MonoBehaviour
 
             // Re-set the default data path since we just deleted it
             bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
-            string baseFolder;
-            if (isLinux)
+            string defaultPath;
+
+            if (Application.platform == RuntimePlatform.Android)
+            {
+                // On Android, use Unity's persistentDataPath which points to writable app storage
+                defaultPath = Application.persistentDataPath;
+                UnityEngine.Debug.Log($"[AutoSetup] Android detected, using persistentDataPath: {defaultPath}");
+            }
+            else if (isLinux)
             {
                 string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-                baseFolder = Path.Combine(userProfile, ".local", "share", "YASG");
+                string baseFolder = Path.Combine(userProfile, ".local", "share", "YASG");
+                defaultPath = Path.Combine(baseFolder, "YASG");
             }
             else
             {
@@ -331,9 +358,9 @@ public class SetupManager : MonoBehaviour
                     string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
                     roaming = Path.Combine(userProfile ?? @"C:\Users\Default", "AppData", "Roaming");
                 }
-                baseFolder = Path.Combine(roaming, "YASG");
+                string baseFolder = Path.Combine(roaming, "YASG");
+                defaultPath = Path.Combine(baseFolder, "YASG");
             }
-            string defaultPath = Path.Combine(baseFolder, "YASG");
 
             // Delete everything inside dataPath to ensure a clean state
             if (Directory.Exists(defaultPath))

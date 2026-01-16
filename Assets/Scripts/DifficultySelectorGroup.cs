@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class DifficultySelectorGroup : MonoBehaviour
 {
@@ -47,7 +48,7 @@ public class DifficultySelectorGroup : MonoBehaviour
         RectTransform canvasRect = hover.GetComponentInParent<Canvas>().GetComponent<RectTransform>();
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             canvasRect,
-            Input.mousePosition,
+            Mouse.current.position.ReadValue(),
             canvas.worldCamera, // Replace with canvas.worldCamera if using Screen Space - Camera
             out localPoint
         );

@@ -10,6 +10,7 @@ using System.IO;
 using System.Text;
 using System.Linq;
 using FishNet.Managing.Scened;
+using UnityEngine.InputSystem;
 
 public class SettingsUI : MonoBehaviour
 {
@@ -77,6 +78,10 @@ public class SettingsUI : MonoBehaviour
 
     private void Start()
     {
+        if (Application.platform == RuntimePlatform.Android)
+        {
+            Application.targetFrameRate = 60;
+        }
         for (int i = 1; i < 5; i++)
         {
             if (PlayerPrefs.GetInt("Player" + i) == 1)
@@ -85,6 +90,12 @@ public class SettingsUI : MonoBehaviour
             }
         }
         settingsContainer.SetActive(false);
+
+        // Disable particle system on mobile for better performance
+        if (mainMenuParticles != null && (Application.platform == RuntimePlatform.Android || Application.platform == RuntimePlatform.IPhonePlayer))
+        {
+            mainMenuParticles.gameObject.SetActive(false);
+        }
 
         // Initialize background render texture
         if (!LevelResourcesCompiler.Instance.compiling)
@@ -239,7 +250,7 @@ public class SettingsUI : MonoBehaviour
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.F11))
+        if (Keyboard.current.f11Key.wasPressedThisFrame)
         {
             Screen.fullScreen = !Screen.fullScreen;
         }
@@ -309,10 +320,15 @@ public class SettingsUI : MonoBehaviour
         WaitForEndOfFrame wait = new WaitForEndOfFrame();
         int frameSkip = 0;
 
+        // On mobile, skip more frames for better performance
+        bool isMobile = Application.platform == RuntimePlatform.Android ||
+                       Application.platform == RuntimePlatform.IPhonePlayer;
+        int framesToSkip = isMobile ? 3 : 1; // Skip 3 frames on mobile (20fps), 1 frame on desktop (30fps)
+
         while (bgRenderTexture != null && currentBgMaterial != null)
         {
-            // Update every other frame for additional performance (skip 1 frame)
-            if (frameSkip % 2 == 0)
+            // Update every N+1 frames for additional performance
+            if (frameSkip % (framesToSkip + 1) == 0)
             {
                 // Blit the material to the render texture
                 Graphics.Blit(null, bgRenderTexture, currentBgMaterial);

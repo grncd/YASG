@@ -8,6 +8,7 @@ using System.IO;
 using UnityEngine.UI;
 using System;
 using UnityEngine.SceneManagement;
+using UnityEngine.InputSystem;
 
 public class LyricsHandler : MonoBehaviour
 {
@@ -222,7 +223,7 @@ public class LyricsHandler : MonoBehaviour
         {
             canPause = false;
         }
-        if (Input.GetKeyDown(KeyCode.Escape) && canPause)
+        if (Keyboard.current.escapeKey.wasPressedThisFrame && canPause)
         {
             Pause();
         }

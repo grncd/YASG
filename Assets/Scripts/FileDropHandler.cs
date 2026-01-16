@@ -3,6 +3,7 @@ using System.IO;
 using System.IO.Compression;
 using System;
 using SFB;
+using UnityEngine.InputSystem;
 
 /// <summary>
 /// Handles file imports for custom songs via keyboard shortcut.
@@ -26,7 +27,7 @@ public class FileDropHandler : MonoBehaviour
     private void Update()
     {
         // Keyboard shortcut: Ctrl+I to import a zip file
-        if (Input.GetKeyDown(KeyCode.I) && (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)))
+        if (Keyboard.current.iKey.wasPressedThisFrame && (Keyboard.current.leftCtrlKey.isPressed || Keyboard.current.rightCtrlKey.isPressed))
         {
             Debug.Log("Ctrl+I detected!");
             OpenFileDialogAndImport();

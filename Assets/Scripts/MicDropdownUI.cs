@@ -416,6 +416,9 @@ public class MicDropdownUI : MonoBehaviour
         float[] samples = new float[MIC_SAMPLE_LENGTH];
         _currentAmplitudeValue = 0f; // Reset smoothed value
 
+        // Optimize: Update visualizer at 15 FPS instead of every frame
+        WaitForSeconds updateInterval = new WaitForSeconds(1f / 15f); // 15 FPS
+
         while (Microphone.IsRecording(micName) && _currentMicName == micName && _micClip != null)
         {
             // Read the most recent samples from the microphone clip
@@ -442,13 +445,13 @@ public class MicDropdownUI : MonoBehaviour
             // Amplify the signal for better visualization (microphones can be quiet)
             float amplified = rms * 10f;
 
-            // Smooth the value using Lerp
-            _currentAmplitudeValue = Mathf.Lerp(_currentAmplitudeValue, amplified, AMPLITUDE_SMOOTHING * Time.deltaTime);
+            // Smooth the value using Lerp (use fixed time since we're not updating every frame)
+            _currentAmplitudeValue = Mathf.Lerp(_currentAmplitudeValue, amplified, AMPLITUDE_SMOOTHING / 15f);
 
             // Clamp to 0-1 range for slider
             micAmplitudeSlider.value = Mathf.Clamp01(_currentAmplitudeValue);
 
-            yield return null; // Update every frame
+            yield return updateInterval; // Update at 15 FPS instead of every frame
         }
     }
 

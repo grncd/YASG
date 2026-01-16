@@ -182,7 +182,8 @@ public class SettingsManager : MonoBehaviour
             { "MenuBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Background", Description = "Defines the background that will be displayed in the menu.", DropdownOptions = new List<string> { "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
             { "InGameBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "In-Game Background", Description = "Defines the background that will be displayed in-game.", DropdownOptions = new List<string> { "None", "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
             { "AudioReactiveBGInGame", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Background", Description = "Defines if the background will be audio-reactive or not. Currently, this only works if you are using the Rainbow Tunnel BG."  } },
-            { "BGResolution", new Setting { Value = IsMobilePlatform() ? 1 : 2, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Background Resolution", Description = "Lower this to improve GPU performance. Lower resolutions will appear blurry instead of pixelated.", DropdownOptions = new List<string> { "0.25x (Very Low)", "0.5x (Low)", "0.75x (Medium)", "1.0x (Native)" } } },
+            { "LimitFPS", new Setting { Value = false, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Limit FPS to 60", Description = "If enabled, limits the game to 60 FPS instead of your display's native refresh rate. Useful for power saving on high refresh rate monitors." } },
+            { "BGResolution", new Setting { Value = IsMobilePlatform() ? 0 : 2, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Background Resolution", Description = "Lower this to improve GPU performance. Lower resolutions will appear blurry instead of pixelated.", DropdownOptions = new List<string> { "0.25x (Very Low)", "0.5x (Low)", "0.75x (Medium)", "1.0x (Native)" } } },
 
             { "FullReset", new Setting { Value = false, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "FULL RESET", Description = "Turn this on and REOPEN THE GAME to go back to the setup screen. THIS WILL DELETE ALL OF YOUR YASG DATA."  } }
         };
@@ -285,6 +286,11 @@ public class SettingsManager : MonoBehaviour
                     PlayerPrefs.SetInt("setupDone", 1);
                 }
             }
+            else if (key == "LimitFPS")
+            {
+                // Apply FPS limit immediately when changed
+                ApplyFPSLimit();
+            }
             setting.Value = value;
         }
         else
@@ -292,6 +298,35 @@ public class SettingsManager : MonoBehaviour
             _settings.Add(key, new Setting { Value = value, Category = SettingCategory.Misc, UIType = UIType.TextInput, FormalName = key });
         }
         SaveSettings();
+    }
+
+    /// <summary>
+    /// Applies the FPS limit setting to the application.
+    /// </summary>
+    public void ApplyFPSLimit()
+    {
+        bool limitFPS = GetSetting<bool>("LimitFPS", false);
+
+        if (limitFPS)
+        {
+            Application.targetFrameRate = 60;
+            Debug.Log("[SettingsManager] FPS limited to 60");
+        }
+        else
+        {
+            // On Android, use native refresh rate
+            if (Application.platform == RuntimePlatform.Android)
+            {
+                Application.targetFrameRate = (int)Screen.currentResolution.refreshRateRatio.value;
+                Debug.Log($"[SettingsManager] FPS set to native refresh rate: {Application.targetFrameRate}");
+            }
+            else
+            {
+                // On other platforms, use -1 (unlimited)
+                Application.targetFrameRate = -1;
+                Debug.Log("[SettingsManager] FPS set to unlimited (-1)");
+            }
+        }
     }
 
     /// <summary>
