@@ -56,6 +56,45 @@ public class LyricsHandler : MonoBehaviour
 
     void Start()
     {
+
+        StartCoroutine(SetFrameRate());
+
+        IEnumerator SetFrameRate()
+        {
+            yield return new WaitForSeconds(1f);
+
+            // Apply FPS limit setting on all platforms
+            if (SettingsManager.Instance != null)
+            {
+                bool limitFPS = SettingsManager.Instance.GetSetting<bool>("LimitFPS", false);
+
+                if (limitFPS)
+                {
+                    Application.targetFrameRate = 60;
+                    UnityEngine.Debug.Log("[Exit] FPS limited to 60");
+                }
+                else
+                {
+                    // On Android, use native refresh rate
+                    if (Application.platform == RuntimePlatform.Android)
+                    {
+                        Application.targetFrameRate = (int)Screen.currentResolution.refreshRateRatio.value;
+                        UnityEngine.Debug.Log($"[Exit] FPS set to native refresh rate: {Application.targetFrameRate}");
+                    }
+                    else
+                    {
+                        // On other platforms, use -1 (unlimited)
+                        Application.targetFrameRate = -1;
+                        UnityEngine.Debug.Log("[Exit] FPS set to unlimited (-1)");
+                    }
+                }
+            }
+            else if (Application.platform == RuntimePlatform.Android)
+            {
+                Application.targetFrameRate = 60;
+            }
+        }
+
         lyricsDelay = Mathf.Clamp(float.Parse(SettingsManager.Instance.GetSetting<string>("LyricDisplayOffset")), 0f, 5f);
 
         pitchTrack.SetActive(SettingsManager.Instance.GetSetting<bool>("ShowPitchTrack"));

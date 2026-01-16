@@ -47,7 +47,6 @@ public class ResultsScreen : MonoBehaviour
     public AudioSource backgroundMusic;
     private string currentSongUrl;
 
-    // We define the color gradients here for easy access.
     private readonly VertexGradient goldGradient = new VertexGradient(new Color(1, 0.847f, 0), new Color(1, 0.847f, 0), new Color(1, 0.569f, 0), new Color(1, 0.569f, 0));
     private readonly VertexGradient silverGradient = new VertexGradient(Color.white, Color.white, new Color(0.688f, 0.688f, 0.688f), new Color(0.688f, 0.688f, 0.688f));
     private readonly VertexGradient bronzeGradient = new VertexGradient(new Color(1, 0.706f, 0.184f), new Color(1, 0.706f, 0.184f), new Color(0.482f, 0.325f, 0.055f), new Color(0.482f, 0.325f, 0.055f));
@@ -56,7 +55,43 @@ public class ResultsScreen : MonoBehaviour
 
     void Start()
     {
-        Application.targetFrameRate = -1;
+        StartCoroutine(SetFrameRate());
+
+        IEnumerator SetFrameRate()
+        {
+            yield return new WaitForSeconds(0.6f);
+
+            // Apply FPS limit setting on all platforms
+            if (SettingsManager.Instance != null)
+            {
+                bool limitFPS = SettingsManager.Instance.GetSetting<bool>("LimitFPS", false);
+
+                if (limitFPS)
+                {
+                    Application.targetFrameRate = 60;
+                    UnityEngine.Debug.Log("[Exit] FPS limited to 60");
+                }
+                else
+                {
+                    // On Android, use native refresh rate
+                    if (Application.platform == RuntimePlatform.Android)
+                    {
+                        Application.targetFrameRate = (int)Screen.currentResolution.refreshRateRatio.value;
+                        UnityEngine.Debug.Log($"[Exit] FPS set to native refresh rate: {Application.targetFrameRate}");
+                    }
+                    else
+                    {
+                        // On other platforms, use -1 (unlimited)
+                        Application.targetFrameRate = -1;
+                        UnityEngine.Debug.Log("[Exit] FPS set to unlimited (-1)");
+                    }
+                }
+            }
+            else if (Application.platform == RuntimePlatform.Android)
+            {
+                Application.targetFrameRate = 60;
+            }
+        }
 
         currentSongUrl = PlayerPrefs.GetString("currentSongURL");
         if (string.IsNullOrEmpty(currentSongUrl))
@@ -171,7 +206,7 @@ public class ResultsScreen : MonoBehaviour
             }
             if (WebServerManager.Instance != null)
             {
-                for (int i = 1; i < times+1; i++)
+                for (int i = 1; i < times + 1; i++)
                 {
                     GameObject advisor = Instantiate(playerAdvisorPrefab, playerAdvisor);
                     advisor.name = $"Player{i}";
@@ -248,7 +283,8 @@ public class ResultsScreen : MonoBehaviour
         }
     }
 
-    private void Update() {
+    private void Update()
+    {
         if (PlayerPrefs.GetInt("partyMode") == 1)
         {
             elapsedTime += Time.deltaTime;
@@ -454,7 +490,7 @@ public class ResultsScreen : MonoBehaviour
         resultsOutFX.Play();
         StartCoroutine(ChangeVolumeRoutine(backgroundMusic, 0f, 0.6f));
         await Task.Delay(700);
-        
+
         if (PlayerPrefs.GetInt("partyMode") == 0)
         {
             PlayerPrefs.SetInt("fromMP", 1);
@@ -464,7 +500,7 @@ public class ResultsScreen : MonoBehaviour
         // If Multiplayer, RoomManager handles Scene Load after this transition finishes.
         if (PlayerPrefs.GetInt("multiplayer") == 0)
         {
-             SceneManager.LoadSceneAsync("Menu", LoadSceneMode.Single);
+            SceneManager.LoadSceneAsync("Menu", LoadSceneMode.Single);
         }
     }
 
@@ -477,7 +513,7 @@ public class ResultsScreen : MonoBehaviour
         await Task.Delay(700);
         SceneManager.LoadSceneAsync("Main");
     }
-    
+
     private IEnumerator ChangeVolumeRoutine(AudioSource audioSource, float targetVolume, float duration)
     {
         float startVolume = audioSource.volume;

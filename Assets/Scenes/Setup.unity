@@ -6604,10 +6604,10 @@ RectTransform:
   - {fileID: 714945835}
   m_Father: {fileID: 1897059555}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -0.00018311, y: -446.33}
-  m_SizeDelta: {x: 1920, y: 187.6}
+  m_AnchorMin: {x: 0, y: 0.5}
+  m_AnchorMax: {x: 1, y: 0.5}
+  m_AnchoredPosition: {x: -0.00012207031, y: -446.33}
+  m_SizeDelta: {x: 0, y: 187.6}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1016406790
 MonoBehaviour:
@@ -7224,6 +7224,7 @@ MonoBehaviour:
   selectedDataPath: {fileID: 145722897}
   selectDataPathButton: {fileID: 1942300648}
   selectMethodButton: {fileID: 2072201693}
+  androidDisableButton: {fileID: 607320966}
   demucsButton: {fileID: 607320968}
   VRButton: {fileID: 1819046973}
   statusTextFinalInstall: {fileID: 98137070}
@@ -7709,6 +7710,7 @@ GameObject:
   - component: {fileID: 1220708874}
   - component: {fileID: 1220708876}
   - component: {fileID: 1220708875}
+  - component: {fileID: 1220708877}
   m_Layer: 5
   m_Name: BG
   m_TagString: Untagged
@@ -7770,6 +7772,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1220708873}
   m_CullTransparentMesh: 1
+--- !u!114 &1220708877
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1220708873}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 15bfca0cfe4ea18428fcfe05ebb80f87, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FullScreenUI
 --- !u!1 &1231633832
 GameObject:
   m_ObjectHideFlags: 0
@@ -8256,7 +8270,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -13199,8 +13213,8 @@ MonoBehaviour:
   m_ReferencePixelsPerUnit: 100
   m_ScaleFactor: 1
   m_ReferenceResolution: {x: 1920, y: 1080}
-  m_ScreenMatchMode: 0
-  m_MatchWidthOrHeight: 0
+  m_ScreenMatchMode: 1
+  m_MatchWidthOrHeight: 1
   m_PhysicalUnit: 3
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
@@ -13309,7 +13323,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6648392157254385905, guid: d4f983bb192877546abdda8830bc19b3, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 0.5
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6648392157254385905, guid: d4f983bb192877546abdda8830bc19b3, type: 3}
       propertyPath: m_AnchorMax.y
@@ -13317,7 +13331,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6648392157254385905, guid: d4f983bb192877546abdda8830bc19b3, type: 3}
       propertyPath: m_AnchorMin.x
-      value: 0.5
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6648392157254385905, guid: d4f983bb192877546abdda8830bc19b3, type: 3}
       propertyPath: m_AnchorMin.y
@@ -13325,7 +13339,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6648392157254385905, guid: d4f983bb192877546abdda8830bc19b3, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 447.98
+      value: 447.97998
       objectReference: {fileID: 0}
     - target: {fileID: 6648392157254385905, guid: d4f983bb192877546abdda8830bc19b3, type: 3}
       propertyPath: m_SizeDelta.y
@@ -13373,7 +13387,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6648392157254385905, guid: d4f983bb192877546abdda8830bc19b3, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 735.86
+      value: -224.14001
       objectReference: {fileID: 0}
     - target: {fileID: 6648392157254385905, guid: d4f983bb192877546abdda8830bc19b3, type: 3}
       propertyPath: m_AnchoredPosition.y
