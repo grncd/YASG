@@ -306,17 +306,16 @@ public class ConnectionUI : MonoBehaviour
             Debug.Log("ConnectionUI: Loading screen shown");
         }
 
-        // Run ping check on background thread to avoid freezing
+        // Check ping on main thread using Unity's Ping class which works on Android
         bool pingSuccess = false;
         bool pingComplete = false;
 
-        Task.Run(() =>
+        // Start the ping coroutine
+        StartCoroutine(PingCoroutine(targetIp, (success) =>
         {
-            Debug.Log($"ConnectionUI: Starting ping to {targetIp}");
-            pingSuccess = PingHost(targetIp);
-            Debug.Log($"ConnectionUI: Ping complete. Success: {pingSuccess}");
+            pingSuccess = success;
             pingComplete = true;
-        });
+        }));
 
         // Wait for ping to complete
         while (!pingComplete)
@@ -522,20 +521,46 @@ public class ConnectionUI : MonoBehaviour
         PlayerData.LocalPlayerInstance.RequestSetRoomName_ServerRpc(roomNameInput.text);
     }
 
-    public bool PingHost(string ipAddress, int timeout = 1000)
+    public IEnumerator PingCoroutine(string ipAddress, Action<bool> callback, float timeout = 2.0f)
     {
+        UnityEngine.Ping ping = null;
         try
         {
-            using (System.Net.NetworkInformation.Ping ping = new System.Net.NetworkInformation.Ping())
-            {
-                PingReply reply = ping.Send(ipAddress, timeout);
-                return reply.Status == IPStatus.Success;
-            }
+            ping = new UnityEngine.Ping(ipAddress);
         }
-        catch
+        catch (Exception e)
         {
-            return false;
+            Debug.LogWarning($"PingCoroutine: Failed to start ping: {e.Message}");
+            callback?.Invoke(false);
+            yield break;
         }
+
+        float startTime = Time.time;
+        while (!ping.isDone)
+        {
+            if (Time.time > startTime + timeout)
+            {
+                Debug.LogWarning($"PingCoroutine: Ping to {ipAddress} timed out");
+                callback?.Invoke(false);
+                ping.DestroyPing();
+                yield break;
+            }
+            yield return null;
+        }
+
+        // Check if successful
+        if (ping.time != -1)
+        {
+            Debug.Log($"PingCoroutine: Ping to {ipAddress} successful: {ping.time}ms");
+            callback?.Invoke(true);
+        }
+        else
+        {
+            Debug.LogWarning($"PingCoroutine: Ping to {ipAddress} failed (time is -1)");
+            callback?.Invoke(false);
+        }
+
+        ping.DestroyPing();
     }
 
     /// <summary>

@@ -648,12 +648,7 @@ public class VocalRemoverAPI : MonoBehaviour
                 try
                 {
                     File.WriteAllBytes(outputPath, downloadedData);
-
-                    // Ensure file is fully flushed to disk
-                    using (var stream = File.OpenRead(outputPath))
-                    {
-                        stream.Flush();
-                    }
+                    // Removed incorrect File.OpenRead().Flush() as WriteAllBytes handles closing.
 
                     Debug.Log($"-> Downloaded {trackType} track: {downloadedData.Length} bytes to {outputPath}");
                     writeSuccess = true;
@@ -666,10 +661,24 @@ public class VocalRemoverAPI : MonoBehaviour
 
                 if (writeSuccess)
                 {
-                    callback(true);
-                    yield break; // Success, exit the retry loop
+                    // Verify the downloaded file
+                    bool verificationSuccess = false;
+                    yield return StartCoroutine(VerifyAudioFile(outputPath, success => verificationSuccess = success));
+
+                    if (verificationSuccess)
+                    {
+                        callback(true);
+                        yield break; // Success, exit the retry loop
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"-> Verification failed for {trackType} track. Retrying...");
+                        // Delete the invalid file
+                        try { File.Delete(outputPath); } catch { }
+                    }
                 }
-                else if (attempt < maxRetries)
+
+                if (attempt < maxRetries)
                 {
                     yield return new WaitForSeconds(2f * attempt);
                     continue;
