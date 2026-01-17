@@ -69,10 +69,9 @@ To build YASG from source:
 ## Disclaimer
 
 YASG relies on several open-source projects to function.  
-These tools are not included with the game but are automatically installed within the game’s Python environment.
 
 **Special thanks to the developers of the following projects:**
 
-* [**syrics**](https://github.com/akashrchandran/syrics) – Main source for synced lyrics.  
-*  [**demucs**](https://github.com/adefossez/demucs) and [**vocalremover.org**](https://vocalremover.org/) – Used for vocal/instrumental separation.  
-* [**LRCLib**](https://lrclib.net/) – Provides fallback and custom lyric database support.
+* [**LRCLib**](https://lrclib.net/) - Main source for synced lyrics.  
+*  [**demucs**](https://github.com/adefossez/demucs) and [**vocalremover.org**](https://vocalremover.org/) - Used for vocal/instrumental separation.
+*  [**FishNet**](https://github.com/FirstGearGames/FishNet) - Library used for Multiplayer.
