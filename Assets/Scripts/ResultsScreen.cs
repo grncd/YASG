@@ -26,6 +26,7 @@ public class ResultsScreen : MonoBehaviour
         public MPImage progressBar;
         public TextMeshProUGUI levelText;
         public ParticleSystem levelUpParticles;
+        public TextMeshProUGUI highscoreText;
     }
 
     [Header("UI Setup")]
@@ -48,6 +49,12 @@ public class ResultsScreen : MonoBehaviour
     public AudioSource starFX;
     public AudioSource backgroundMusic;
     private string currentSongUrl;
+
+    [Header("Background")]
+    public RawImage BG;
+    public Material backgroundMaterial;
+    private RenderTexture bgRenderTexture;
+    private Coroutine bgUpdateCoroutine;
 
     private readonly VertexGradient goldGradient = new VertexGradient(new Color(1, 0.847f, 0), new Color(1, 0.847f, 0), new Color(1, 0.569f, 0), new Color(1, 0.569f, 0));
     private readonly VertexGradient silverGradient = new VertexGradient(Color.white, Color.white, new Color(0.688f, 0.688f, 0.688f), new Color(0.688f, 0.688f, 0.688f));
@@ -100,6 +107,8 @@ public class ResultsScreen : MonoBehaviour
         {
             Debug.LogError("Could not find 'currentSongURL' in PlayerPrefs. Highscores will not be saved.");
         }
+
+        SetupBackgroundRenderTexture();
         PlayerPrefs.SetInt("firstPlay", 1);
         if (PlayerPrefs.GetInt("multiplayer") == 1)
         {
@@ -161,6 +170,7 @@ public class ResultsScreen : MonoBehaviour
                         player.Stars.Value
                     );
                 }
+                panel.highscoreText.text = "";
 
                 // --- Level Up Animation ---
                 // We calculate the "before" progress based on the final "after" state.
@@ -241,15 +251,17 @@ public class ResultsScreen : MonoBehaviour
                 int placement = PlayerPrefs.GetInt("Player" + playerId + "Placement") + 1;
                 int stars = PlayerPrefs.GetInt("Player" + playerId + "Stars");
 
+                bool isNewHighscore = false;
                 if (!string.IsNullOrEmpty(currentSongUrl))
                 {
-                    HighscoreManager.Instance.SetHighscore(
+                    isNewHighscore = HighscoreManager.Instance.SetHighscore(
                         currentSongUrl,
                         profileName,
                         achievedScore,
                         stars
                     );
                 }
+                panel.highscoreText.text = isNewHighscore ? "New High Score!" : "";
 
                 panel.playerNameText.text = profileName;
                 panel.scoreText.text = achievedScore.ToString("#,#");
@@ -530,5 +542,79 @@ public class ResultsScreen : MonoBehaviour
         }
 
         audioSource.volume = targetVolume; // Ensure exact final value
+    }
+
+    private void SetupBackgroundRenderTexture()
+    {
+        if (backgroundMaterial == null || BG == null) return;
+
+        // Stop existing coroutine
+        if (bgUpdateCoroutine != null)
+        {
+            StopCoroutine(bgUpdateCoroutine);
+            bgUpdateCoroutine = null;
+        }
+
+        // Release old render texture
+        if (bgRenderTexture != null)
+        {
+            bgRenderTexture.Release();
+            bgRenderTexture = null;
+        }
+
+        // Get resolution scale from settings
+        float resolutionScale = SettingsManager.Instance != null
+            ? SettingsManager.Instance.GetBGResolutionScale()
+            : 0.5f;
+
+        // Calculate render texture size
+        int rtWidth = Mathf.RoundToInt(Screen.width * resolutionScale);
+        int rtHeight = Mathf.RoundToInt(Screen.height * resolutionScale);
+
+        // Create new render texture
+        bgRenderTexture = new RenderTexture(rtWidth, rtHeight, 0, RenderTextureFormat.RGB111110Float);
+        bgRenderTexture.filterMode = FilterMode.Bilinear;
+        bgRenderTexture.useMipMap = false;
+        bgRenderTexture.autoGenerateMips = false;
+        bgRenderTexture.Create();
+
+        // Set target FPS on the material
+        backgroundMaterial.SetFloat("_TargetFPS", 60.0f);
+
+        // Display the render texture
+        BG.texture = bgRenderTexture;
+        BG.material = null;
+
+        // Start update coroutine
+        bgUpdateCoroutine = StartCoroutine(UpdateBackgroundRenderTexture());
+    }
+
+    private IEnumerator UpdateBackgroundRenderTexture()
+    {
+        WaitForEndOfFrame wait = new WaitForEndOfFrame();
+        int frameSkip = 0;
+
+        bool isMobile = Application.platform == RuntimePlatform.Android ||
+                        Application.platform == RuntimePlatform.IPhonePlayer;
+        int framesToSkip = isMobile ? 3 : 1;
+
+        while (bgRenderTexture != null && backgroundMaterial != null)
+        {
+            if (frameSkip % (framesToSkip + 1) == 0)
+            {
+                Graphics.Blit(null, bgRenderTexture, backgroundMaterial);
+            }
+            frameSkip++;
+            yield return wait;
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (bgRenderTexture != null)
+        {
+            bgRenderTexture.Release();
+            bgRenderTexture = null;
+        }
     }
 }
