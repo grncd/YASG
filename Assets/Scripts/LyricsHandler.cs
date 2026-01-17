@@ -154,7 +154,7 @@ public class LyricsHandler : MonoBehaviour
                 System.IO.File.Move(lrcPath, txtPath);
             }
         }
-        if (PlayerPrefs.GetInt("saved") == 1)
+        if (PlayerPrefs.GetInt("saved") == 1 || PlayerPrefs.GetInt("multiplayer") == 1)
         {
             stagesGO.SetActive(false);
         }

@@ -7,6 +7,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using MPUIKIT;
 using System.Threading.Tasks;
+using UnityEngine.UI;
 
 public class ResultsScreen : MonoBehaviour
 {
@@ -39,6 +40,7 @@ public class ResultsScreen : MonoBehaviour
     private float elapsedTime = 0f;
     private float targetTime = 10f;
     public MPImage backToMenuButtonFill;
+    public Button retryButton;
 
     [Header("Audio")]
     public AudioSource levelFX;
@@ -117,6 +119,7 @@ public class ResultsScreen : MonoBehaviour
         ProfileManager.Instance.SetProfileTotalScore(ProfileManager.Instance.GetActiveProfiles()[0].name, PlayerData.LocalPlayerInstance.TotalScore.Value);
 
         Debug.Log("Starting Results Screen in MULTIPLAYER mode.");
+        retryButton.interactable = false;
 
         if (PlayerData.LocalPlayerInstance.IsHost.Value == false)
         {
