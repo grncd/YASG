@@ -13,7 +13,6 @@ using System.Text; // For MD5 hashing
 using System.Security.Cryptography; // For MD5 hashing
 using System.Globalization; // For InvariantCulture
 
-// --- JOB SYSTEM & BURST ADDITIONS START ---
 using Unity.Collections; // For NativeArray
 using Unity.Mathematics; // For math functions (Burst-compatible)
 using Unity.Burst;       // For [BurstCompile]
@@ -22,7 +21,6 @@ using Unity.VisualScripting;
 using MPUIKIT;
 using UnityEditor;
 using System.Linq;
-// --- JOB SYSTEM & BURST ADDITIONS END ---
 
 public class AudioClipPitchProcessor : MonoBehaviour
 {
@@ -108,6 +106,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
     public List<Color> backgroundDarkens;
     public Image darken;
     private bool showPitch;
+    public CanvasGroup waitingMP;
 
     // Background rendering optimization
     private RenderTexture bgRenderTexture;
@@ -141,6 +140,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
         Instance = this;
         if (PlayerPrefs.GetInt("multiplayer") == 1)
         {
+            waitingMP.alpha = 1f;
             foreach (Transform child in playersParent)
             {
                 Destroy(child.gameObject);
@@ -928,6 +928,23 @@ public class AudioClipPitchProcessor : MonoBehaviour
     private IEnumerator FinalCountdown_Coroutine()
     {
         UnityEngine.Debug.Log("Starting final synchronized countdown!");
+        if (waitingMP != null)
+        {
+            IEnumerator FadeWaitingMP()
+            {
+                float duration = 0.5f;
+                float elapsed = 0f;
+                float startAlpha = waitingMP.alpha;
+                while (elapsed < duration)
+                {
+                    elapsed += Time.deltaTime;
+                    waitingMP.alpha = Mathf.Lerp(startAlpha, 0f, elapsed / duration);
+                    yield return null;
+                }
+                waitingMP.alpha = 0f;
+            }
+            StartCoroutine(FadeWaitingMP());
+        }
 
         countdownText.text = "";
         countdownFX.Play();

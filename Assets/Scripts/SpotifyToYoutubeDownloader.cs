@@ -232,6 +232,20 @@ public static class SpotifyToYoutubeDownloader
 
     private static Task ConvertToMp3(string inputPath, string outputPath)
     {
+        // Get ffmpeg path on main thread before entering Task.Run (PlayerPrefs requires main thread)
+#if !UNITY_ANDROID || UNITY_EDITOR
+        string ffmpegPath;
+        if (Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor)
+        {
+            ffmpegPath = "ffmpeg";
+        }
+        else
+        {
+            var dataPath = PlayerPrefs.GetString("dataPath");
+            ffmpegPath = System.IO.Path.Combine(dataPath, "vocalremover", "ffmpeg_lib", "ffmpeg.exe");
+        }
+#endif
+
         return Task.Run(() =>
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
@@ -385,18 +399,7 @@ public static class SpotifyToYoutubeDownloader
                 throw new Exception($"FFmpeg-kit conversion failed: {ex.Message}");
             }
 #else
-            // Use system ffmpeg on desktop platforms
-            string ffmpegPath;
-            if (Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor)
-            {
-                ffmpegPath = "ffmpeg";
-            }
-            else
-            {
-                var dataPath = PlayerPrefs.GetString("dataPath");
-                ffmpegPath = System.IO.Path.Combine(dataPath, "vocalremover", "ffmpeg_lib", "ffmpeg.exe");
-            }
-
+            // Use system ffmpeg on desktop platforms (ffmpegPath was computed on main thread above)
             var startInfo = new ProcessStartInfo
             {
                 FileName = ffmpegPath,
