@@ -58,50 +58,31 @@ public static class SpotifyToYoutubeDownloader
             filteredResults = searchResults.ToList();
         }
 
-        // Three-tier candidate selection (prioritized matching):
-        // Tier 1: Videos matching "artist - track" or "track - artist" pattern (best match)
-        // Tier 2: Videos containing both artist AND track name as separate words
-        // Tier 3: All other videos (fallback)
-        string pattern1 = $"{artist} - {trackName}";
-        string pattern2 = $"{trackName} - {artist}";
-        string pattern3 = $"{artist}-{trackName}";
-        string pattern4 = $"{trackName}-{artist}";
+        // Weighted scoring system: combines title relevance and duration matching
+        // This balances finding the correct song vs finding the right version (duration)
+        const double titleWeight = 0.55;
+        const double durationWeight = 0.45;
 
-        var tier1 = filteredResults
-            .Where(v => v.Title.Contains(pattern1, StringComparison.OrdinalIgnoreCase) ||
-                        v.Title.Contains(pattern2, StringComparison.OrdinalIgnoreCase) ||
-                        v.Title.Contains(pattern3, StringComparison.OrdinalIgnoreCase) ||
-                        v.Title.Contains(pattern4, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(v => Math.Abs((v.Duration ?? TimeSpan.Zero).TotalSeconds - spotifyDuration.TotalSeconds))
+        var scoredCandidates = filteredResults
+            .Select(v =>
+            {
+                double titleScore = CalculateTitleScore(v.Title, artist, trackName);
+                double durationScore = CalculateDurationScore(v.Duration ?? TimeSpan.Zero, spotifyDuration);
+                double combinedScore = (titleScore * titleWeight) + (durationScore * durationWeight);
+                return new { Video = v, TitleScore = titleScore, DurationScore = durationScore, CombinedScore = combinedScore };
+            })
+            .OrderByDescending(x => x.CombinedScore)
             .ToList();
 
-        // For tier 2, check that artist appears as a word boundary (not part of another word)
-        var tier2 = filteredResults
-            .Where(v => !tier1.Contains(v))
-            .Where(v => IsWordMatch(v.Title, artist) && IsWordMatch(v.Title, trackName))
-            .OrderBy(v => Math.Abs((v.Duration ?? TimeSpan.Zero).TotalSeconds - spotifyDuration.TotalSeconds))
-            .ToList();
-
-        var tier3 = filteredResults
-            .Where(v => !tier1.Contains(v) && !tier2.Contains(v))
-            .OrderBy(v => Math.Abs((v.Duration ?? TimeSpan.Zero).TotalSeconds - spotifyDuration.TotalSeconds))
-            .ToList();
-
-        // Combine: prioritize tier 1, then tier 2, then tier 3
-        var candidates = tier1.Concat(tier2).Concat(tier3).ToList();
-
-        if (tier1.Count > 0)
+        // Log top candidates with their scores for debugging
+        Debug.Log($"[SpotifyToYoutube] Scored candidates (title weight: {titleWeight:P0}, duration weight: {durationWeight:P0}):");
+        foreach (var scored in scoredCandidates.Take(5))
         {
-            Debug.Log($"[SpotifyToYoutube] Found {tier1.Count} videos with exact pattern match ('{pattern1}' or similar)");
+            var durationDiff = Math.Abs((scored.Video.Duration ?? TimeSpan.Zero).TotalSeconds - spotifyDuration.TotalSeconds);
+            Debug.Log($"  [{scored.CombinedScore:F1}] '{scored.Video.Title}' (T:{scored.TitleScore:F0} D:{scored.DurationScore:F0} diff:{durationDiff:F1}s)");
         }
-        else if (tier2.Count > 0)
-        {
-            Debug.Log($"[SpotifyToYoutube] Found {tier2.Count} videos matching both artist and track name as words");
-        }
-        else
-        {
-            Debug.LogWarning($"[SpotifyToYoutube] No good title matches found, using duration-only sorting");
-        }
+
+        var candidates = scoredCandidates.Select(x => x.Video).ToList();
 
         StreamManifest streamManifest = null;
         IStreamInfo audioStreamInfo = null;
@@ -423,6 +404,84 @@ public static class SpotifyToYoutubeDownloader
         });
     }
 
+
+    /// <summary>
+    /// Calculates a title relevance score (0-100) based on how well the video title matches the artist and track.
+    /// </summary>
+    private static double CalculateTitleScore(string title, string artist, string trackName)
+    {
+        if (string.IsNullOrEmpty(title))
+            return 0;
+
+        // Check for exact pattern matches (highest confidence)
+        string[] exactPatterns = {
+            $"{artist} - {trackName}",
+            $"{trackName} - {artist}",
+            $"{artist}-{trackName}",
+            $"{trackName}-{artist}"
+        };
+
+        foreach (var pattern in exactPatterns)
+        {
+            if (title.Contains(pattern, StringComparison.OrdinalIgnoreCase))
+                return 100;
+        }
+
+        // Check if both artist and track appear as word boundaries
+        bool hasArtist = IsWordMatch(title, artist);
+        bool hasTrack = IsWordMatch(title, trackName);
+
+        if (hasArtist && hasTrack)
+            return 80;
+
+        // Track name only (common for official uploads with simple titles)
+        if (hasTrack)
+            return 60;
+
+        // Partial/substring matches (less reliable)
+        bool containsArtist = title.Contains(artist, StringComparison.OrdinalIgnoreCase);
+        bool containsTrack = title.Contains(trackName, StringComparison.OrdinalIgnoreCase);
+
+        if (containsArtist && containsTrack)
+            return 50;
+
+        if (containsTrack)
+            return 35;
+
+        if (containsArtist)
+            return 20;
+
+        // No meaningful match
+        return 5;
+    }
+
+    /// <summary>
+    /// Calculates a duration match score (0-100) based on how close the video duration is to the Spotify track.
+    /// Uses exponential decay with a harsh penalty after a threshold.
+    /// </summary>
+    private static double CalculateDurationScore(TimeSpan videoDuration, TimeSpan spotifyDuration)
+    {
+        double diffSeconds = Math.Abs(videoDuration.TotalSeconds - spotifyDuration.TotalSeconds);
+
+        // Perfect or near-perfect match (within 1 second)
+        if (diffSeconds <= 1)
+            return 100;
+
+        // Gentle decay for small differences (1-3 seconds) - likely same version
+        if (diffSeconds <= 3)
+            return 100 - (diffSeconds * 5); // 95-85
+
+        // Moderate decay for medium differences (3-7 seconds) - possibly different version/intro
+        if (diffSeconds <= 7)
+            return 85 - ((diffSeconds - 3) * 8); // 85-53
+
+        // Harsh decay for large differences (7-15 seconds) - likely wrong version or has intro/outro
+        if (diffSeconds <= 15)
+            return 53 - ((diffSeconds - 7) * 5); // 53-13
+
+        // Very large differences (>15 seconds) - probably wrong song or extended mix
+        return Math.Max(0, 13 - ((diffSeconds - 15) * 1));
+    }
 
     private static bool IsWordMatch(string text, string word)
     {
