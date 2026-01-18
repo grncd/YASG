@@ -48,11 +48,7 @@ At the moment, YASG supports up to 4 players **locally** or **remotely** via the
 If you encounter bugs, crashes, or have feature suggestions, please open an issue on the  
 ➡️ [GitHub Issues page](https://github.com/grncd/YASG/issues)
 
-When reporting a bug, include:
-- A brief description of the issue  
-- Steps to reproduce it (if possible)  
-- Your Player.log (located at %LOCALAPPDATA%Low/YASG/YASG)
-- Your system specifications (CPU, GPU, etc.)
+Refer to [CONTRIBUTING.md](https://github.com/grncd/YASG/blob/main/CONTRIBUTING.md) for what to include in your issue.
 
 ---
 
