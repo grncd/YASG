@@ -27,7 +27,7 @@
 Unlike most karaoke games that restrict you to a set of playable songs / require manual work, **you don’t need to download songs or lyrics manually.** A quick search lets you play any track available on major digital streaming platforms (DSPs).
 
 YASG analyzes your **voice pitch in real time**, compares it to the original singer’s, and **awards points based on accuracy.**
-At the moment, YASG supports up to 4 players **locally**. Online mode is still being worked on.
+At the moment, YASG supports up to 4 players **locally** or **remotely** via the Online mode.
 
 ---
 
@@ -39,7 +39,7 @@ At the moment, YASG supports up to 4 players **locally**. Online mode is still b
 ---
 
 # 🔽 [DOWNLOAD HERE](https://github.com/grncd/YASG/releases/tag/v0.1.0a)
-> **Currently works on Windows and Linux only**
+> **Currently supports Windows, Linux and Android.**
 
 ---
 
