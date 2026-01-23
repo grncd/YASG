@@ -1944,6 +1944,8 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     public void BeginLoading(bool isLocalProcessing = false)
     {
+        loadingSecond.SetActive(true);
+        loadingFirst.SetActive(false);
         loadingCanvas.SetActive(true);
         LowpassTransition(true);
         blurAnim.Play("BlurIn");
@@ -2956,6 +2958,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         string dataPath = PlayerPrefs.GetString("dataPath");
         string targetBinDir = Path.Combine(dataPath, "vocalremover", "ffmpeg_lib");
 
+        bool copyFailed = false;
         try
         {
             if (!Directory.Exists(targetBinDir))
@@ -2975,6 +2978,11 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             Debug.LogError($"[FFmpegInstall] Failed to copy files: {e.Message}");
             status.text = "Error: Failed to install files.";
+            copyFailed = true;
+        }
+
+        if (copyFailed)
+        {
             yield return new WaitForSeconds(2f);
             LoadingDone();
             yield break;
