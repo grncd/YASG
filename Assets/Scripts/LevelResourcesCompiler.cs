@@ -96,6 +96,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     private int _originalVSyncCount;
     private static bool _hasRunUpdateCheck = false;
+    private static bool _hasRunFFmpegCheck = false;
 
     public static LevelResourcesCompiler Instance { get; private set; }
 
@@ -129,6 +130,13 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             _hasRunUpdateCheck = true;
             StartCoroutine(DelayedUpdateCheck());
+        }
+
+        // Only run FFmpeg check once per game session
+        if (!_hasRunFFmpegCheck)
+        {
+            _hasRunFFmpegCheck = true;
+            StartCoroutine(CheckAndInstallFFmpeg());
         }
 
         if (PlayerPrefs.GetInt("partyMode") == 1)
@@ -1936,6 +1944,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     public void BeginLoading(bool isLocalProcessing = false)
     {
+        loadingCanvas.SetActive(true);
         LowpassTransition(true);
         blurAnim.Play("BlurIn");
         loadingAnim.Play("LoadingIn");
@@ -2676,6 +2685,321 @@ public class LevelResourcesCompiler : MonoBehaviour
             Debug.LogWarning($"Update check failed: {e.Message}");
             NotificationCenter.Error("Update Check Failed", e.Message);
         }
+    }
+
+    /// <summary>
+    /// Checks if FFmpeg is installed and installs it if needed.
+    /// On Windows: Downloads and installs FFmpeg to dataPath/vocalremover/ffmpeg_lib
+    /// On Linux: Checks if ffmpeg command is available and shows error if not
+    /// </summary>
+    private IEnumerator CheckAndInstallFFmpeg()
+    {
+        yield return new WaitForSeconds(0.5f); // Small delay to let UI initialize
+
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        if (string.IsNullOrEmpty(dataPath))
+        {
+            Debug.LogWarning("[FFmpegCheck] Data path not set, skipping FFmpeg check.");
+            yield break;
+        }
+
+        bool isWindows = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
+        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+
+        if (isWindows)
+        {
+            string ffmpegPath = Path.Combine(dataPath, "vocalremover", "ffmpeg_lib", "ffmpeg.exe");
+            if (!File.Exists(ffmpegPath))
+            {
+                Debug.Log("[FFmpegCheck] FFmpeg not found on Windows. Starting installation...");
+                yield return StartCoroutine(DownloadAndInstallFFmpegForWindows());
+            }
+            else
+            {
+                Debug.Log("[FFmpegCheck] FFmpeg already installed on Windows.");
+            }
+        }
+        else if (isLinux)
+        {
+            bool ffmpegAvailable = false;
+
+            // Check if ffmpeg command is available
+            try
+            {
+                ProcessStartInfo psi = new ProcessStartInfo
+                {
+                    FileName = "ffmpeg",
+                    Arguments = "-version",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+
+                using (Process process = new Process { StartInfo = psi })
+                {
+                    process.Start();
+                    process.WaitForExit(5000); // 5 second timeout
+                    ffmpegAvailable = process.ExitCode == 0;
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[FFmpegCheck] Failed to check ffmpeg: {e.Message}");
+                ffmpegAvailable = false;
+            }
+
+            if (!ffmpegAvailable)
+            {
+                Debug.LogError("[FFmpegCheck] FFmpeg not found on Linux.");
+                if (alertManager != null)
+                {
+                    alertManager.ShowError(
+                        "FFmpeg is not installed.",
+                        "FFmpeg is required for YASG to work properly. Please install it using your package manager (e.g., <b>sudo apt install ffmpeg</b> on Ubuntu/Debian or <b>sudo pacman -S ffmpeg</b> on Arch).",
+                        "Dismiss"
+                    );
+                }
+            }
+            else
+            {
+                Debug.Log("[FFmpegCheck] FFmpeg is available on Linux.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Downloads and installs FFmpeg on Windows.
+    /// Replicates the logic from SetupManager.cs DownloadAndInstallFFmpegWindows()
+    /// </summary>
+    private IEnumerator DownloadAndInstallFFmpegForWindows()
+    {
+        BeginLoading();
+        status.text = "Initializing FFmpeg installation...";
+        progressBar.gameObject.SetActive(true);
+        progressBar.value = 0f;
+
+        string tempDir = Path.GetTempPath();
+        string ffmpegUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-full-shared.7z";
+        string ffmpegArchiveName = "ffmpeg-release-full-shared.7z";
+        string downloadPath = Path.Combine(tempDir, ffmpegArchiveName);
+        string extractPath = Path.Combine(tempDir, "ffmpeg_extracted");
+
+        // 1. Check for 7-Zip
+        string sevenZipExe = null;
+        string[] common7zPaths = {
+            @"C:\Program Files\7-Zip\7z.exe",
+            @"C:\Program Files (x86)\7-Zip\7z.exe",
+            Path.Combine(tempDir, "7zr.exe")
+        };
+
+        foreach (string path in common7zPaths)
+        {
+            if (File.Exists(path))
+            {
+                sevenZipExe = path;
+                break;
+            }
+        }
+
+        if (sevenZipExe == null)
+        {
+            status.text = "Downloading 7-Zip...";
+            Debug.Log("[FFmpegInstall] 7-Zip not found. Downloading portable version...");
+
+            string sevenZipUrl = "https://www.7-zip.org/a/7zr.exe";
+            string sevenZipPath = Path.Combine(tempDir, "7zr.exe");
+
+            using (UnityWebRequest www = UnityWebRequest.Get(sevenZipUrl))
+            {
+                yield return www.SendWebRequest();
+
+                if (www.result != UnityWebRequest.Result.Success)
+                {
+                    Debug.LogError($"[FFmpegInstall] Failed to download 7-Zip: {www.error}");
+                    status.text = "Error: Failed to download 7-Zip.";
+                    yield return new WaitForSeconds(2f);
+                    LoadingDone();
+                    yield break;
+                }
+
+                File.WriteAllBytes(sevenZipPath, www.downloadHandler.data);
+            }
+
+            if (File.Exists(sevenZipPath))
+            {
+                sevenZipExe = sevenZipPath;
+            }
+            else
+            {
+                Debug.LogError("[FFmpegInstall] Failed to save 7-Zip.");
+                status.text = "Error: Failed to download 7-Zip.";
+                yield return new WaitForSeconds(2f);
+                LoadingDone();
+                yield break;
+            }
+        }
+
+        progressBar.value = 0.1f;
+
+        // 2. Download FFmpeg
+        status.text = "Downloading FFmpeg...";
+        Debug.Log($"[FFmpegInstall] Downloading FFmpeg from {ffmpegUrl}...");
+
+        using (UnityWebRequest www = UnityWebRequest.Get(ffmpegUrl))
+        {
+            var operation = www.SendWebRequest();
+
+            while (!operation.isDone)
+            {
+                // Update progress (download is roughly 10% to 50% of total)
+                progressBar.value = 0.1f + (www.downloadProgress * 0.4f);
+                yield return null;
+            }
+
+            if (www.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"[FFmpegInstall] Failed to download FFmpeg: {www.error}");
+                status.text = "Error: Failed to download FFmpeg.";
+                yield return new WaitForSeconds(2f);
+                LoadingDone();
+                yield break;
+            }
+
+            File.WriteAllBytes(downloadPath, www.downloadHandler.data);
+        }
+
+        if (!File.Exists(downloadPath))
+        {
+            Debug.LogError("[FFmpegInstall] Failed to save FFmpeg archive.");
+            status.text = "Error: Failed to download FFmpeg.";
+            yield return new WaitForSeconds(2f);
+            LoadingDone();
+            yield break;
+        }
+
+        progressBar.value = 0.5f;
+
+        // 3. Extract FFmpeg
+        status.text = "Extracting FFmpeg...";
+        Debug.Log("[FFmpegInstall] Extracting FFmpeg...");
+
+        if (Directory.Exists(extractPath))
+        {
+            try { Directory.Delete(extractPath, true); } catch { }
+        }
+        Directory.CreateDirectory(extractPath);
+
+        ProcessStartInfo startInfo = new ProcessStartInfo
+        {
+            FileName = sevenZipExe,
+            Arguments = $"x \"{downloadPath}\" -o\"{extractPath}\" -y",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+
+        Process extractProcess = new Process { StartInfo = startInfo };
+        extractProcess.Start();
+
+        // Read output to prevent deadlocks
+        Task<string> outputTask = extractProcess.StandardOutput.ReadToEndAsync();
+        Task<string> errorTask = extractProcess.StandardError.ReadToEndAsync();
+
+        while (!extractProcess.HasExited)
+        {
+            yield return null;
+        }
+
+        if (extractProcess.ExitCode != 0)
+        {
+            Debug.LogError($"[FFmpegInstall] 7-Zip extraction failed. Exit code: {extractProcess.ExitCode}");
+            status.text = "Error: FFmpeg extraction failed.";
+            yield return new WaitForSeconds(2f);
+            LoadingDone();
+            yield break;
+        }
+
+        progressBar.value = 0.8f;
+
+        // 4. Move files
+        status.text = "Installing FFmpeg...";
+        Debug.Log("[FFmpegInstall] Installing FFmpeg files...");
+
+        string ffmpegBinSource = null;
+        try
+        {
+            foreach (string dir in Directory.GetDirectories(extractPath, "*", SearchOption.AllDirectories))
+            {
+                if (Path.GetFileName(dir) == "bin" && File.Exists(Path.Combine(dir, "ffmpeg.exe")))
+                {
+                    ffmpegBinSource = dir;
+                    break;
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[FFmpegInstall] Error searching for bin folder: {e.Message}");
+        }
+
+        if (string.IsNullOrEmpty(ffmpegBinSource))
+        {
+            Debug.LogError("[FFmpegInstall] Could not find 'bin' folder in extracted archive.");
+            status.text = "Error: Invalid FFmpeg archive.";
+            yield return new WaitForSeconds(2f);
+            LoadingDone();
+            yield break;
+        }
+
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        string targetBinDir = Path.Combine(dataPath, "vocalremover", "ffmpeg_lib");
+
+        try
+        {
+            if (!Directory.Exists(targetBinDir))
+            {
+                Directory.CreateDirectory(targetBinDir);
+            }
+
+            foreach (string file in Directory.GetFiles(ffmpegBinSource))
+            {
+                string filename = Path.GetFileName(file);
+                string destFile = Path.Combine(targetBinDir, filename);
+                File.Copy(file, destFile, true);
+            }
+            Debug.Log($"[FFmpegInstall] FFmpeg installed to {targetBinDir}");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[FFmpegInstall] Failed to copy files: {e.Message}");
+            status.text = "Error: Failed to install files.";
+            yield return new WaitForSeconds(2f);
+            LoadingDone();
+            yield break;
+        }
+
+        progressBar.value = 1.0f;
+
+        // 5. Cleanup
+        status.text = "Cleaning up...";
+        try
+        {
+            if (File.Exists(downloadPath)) File.Delete(downloadPath);
+            if (Directory.Exists(extractPath)) Directory.Delete(extractPath, true);
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[FFmpegInstall] Cleanup warning: {e.Message}");
+        }
+
+        Debug.Log("[FFmpegInstall] FFmpeg installation complete!");
+        status.text = "FFmpeg installed successfully!";
+        yield return new WaitForSeconds(1f);
+
+        LoadingDone();
+        progressBar.gameObject.SetActive(false);
     }
 
     public void DeletePitch()

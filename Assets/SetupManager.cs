@@ -508,7 +508,7 @@ public class SetupManager : MonoBehaviour
                 yield break;
             }
             activeProcess.StartInfo.FileName = pythonExe;
-            activeProcess.StartInfo.Arguments = $" -u \"{scriptPath}\" {(method == "demucs" ? "true" : "false")}";
+            activeProcess.StartInfo.Arguments = $" -u \"{scriptPath}\" {(method == "demucs" ? "true" : "false")} --data-path \"{dataPath}\"";
             if (method == "demucs")
             {
                 PlayerPrefs.SetInt("demucsInstalled", 1);
