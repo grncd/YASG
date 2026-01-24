@@ -6,8 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this bug report!
-        Please ensure you fill out all fields below so we can assist you faster.
+        **Please fill out this form completely. This information allows us to reproduce the error and fix it faster.**
 
   - type: dropdown
     id: platform
@@ -37,11 +36,12 @@ body:
     attributes:
       label: Player Log
       description: |
-        **This is required.** Please paste the contents of your log or drag-and-drop the file here.
+        **This is required.** Please paste the contents of your log **right after the issue occurred and you closed your game.**
         
-        * **Windows:** `%localappdata%low/YASG/YASG/Player.log`
-        * **Linux:** `.config/unity3d/YASG/YASG/Player.log`
-      placeholder: Paste log content here...
+        **Where to find it:**
+        - **Windows:** `%localappdata%low/YASG/YASG/Player.log`
+        - **Linux:** `.config/unity3d/YASG/YASG/Player.log`
+      placeholder: Paste the text from your Player.log file here (or drag and drop the file).
       render: shell
     validations:
       required: true
@@ -50,10 +50,11 @@ body:
     id: cause
     attributes:
       label: What caused the issue?
-      description: Please describe the steps you took immediately before the issue occurred.
+      description: What were you doing when the bug happened? (Steps to reproduce)
       placeholder: |
-        1. I launched the game
-        2. I clicked on...
-        3. Then the game crashed...
+        Example:
+        1. Opened the main menu.
+        2. Clicked 'Settings'.
+        3. The game froze.
     validations:
       required: true
