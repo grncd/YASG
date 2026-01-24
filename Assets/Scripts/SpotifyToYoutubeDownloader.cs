@@ -59,7 +59,7 @@ public static class SpotifyToYoutubeDownloader
         try
         {
             searchResults = await WithTimeout(
-                youtube.Search.GetVideosAsync(query).CollectAsync(10),
+                youtube.Search.GetVideosAsync(query).CollectAsync(10).AsTask(),
                 SearchTimeout,
                 "YouTube search"
             );
@@ -142,7 +142,7 @@ public static class SpotifyToYoutubeDownloader
                 try
                 {
                     video = await WithTimeout(
-                        youtube.Videos.GetAsync(candidate.Id),
+                        youtube.Videos.GetAsync(candidate.Id).AsTask(),
                         VideoFetchTimeout,
                         "Video fetch"
                     );
@@ -165,7 +165,7 @@ public static class SpotifyToYoutubeDownloader
                 try
                 {
                     streamManifest = await WithTimeout(
-                        youtube.Videos.Streams.GetManifestAsync(candidate.Id),
+                        youtube.Videos.Streams.GetManifestAsync(candidate.Id).AsTask(),
                         ManifestFetchTimeout,
                         "Stream manifest fetch"
                     );

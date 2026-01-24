@@ -15,10 +15,15 @@ public class LyricsHandler : MonoBehaviour
     public string lyrics;
     public TextMeshProUGUI prevLyricsText;
     public TextMeshProUGUI lyricsText;
+    public TextMeshProUGUI upcomingLyricsText;
+    public TextMeshProUGUI previousText;
     public Animator lyricsAnimator;
     private int prevIndex = -1;
     public GameObject pausePanel;
     private float lyricsDelay = 1f;
+    public float upcomingLyricsFadeDuration = 0.3f;
+    public float previousLyricsFadeDuration = 0.3f;
+    private int extraLyricsDisplay = 1; // 0 = Off, 1 = Upcoming Only, 2 = Upcoming & Previous
     public bool pauseOnUnfocus = true;
 
     public List<(float time, string line)> parsedLyrics = new List<(float, string)>();
@@ -46,6 +51,10 @@ public class LyricsHandler : MonoBehaviour
     public Button retryButton;
 
     private int currentLineIndex = 0;
+    private int upcomingLineIndex = -1;
+    private int previousLineIndex = -1;
+    private Coroutine upcomingFadeCoroutine;
+    private Coroutine previousFadeCoroutine;
 
     public static LyricsHandler Instance { get; private set; }
 
@@ -96,6 +105,15 @@ public class LyricsHandler : MonoBehaviour
         }
 
         lyricsDelay = Mathf.Clamp(float.Parse(SettingsManager.Instance.GetSetting<string>("LyricDisplayOffset")), 0f, 5f);
+        extraLyricsDisplay = SettingsManager.Instance.GetSetting<int>("ExtraLyricsDisplay", 1);
+        if (upcomingLyricsText != null)
+        {
+            upcomingLyricsText.gameObject.SetActive(extraLyricsDisplay >= 1);
+        }
+        if (previousText != null)
+        {
+            previousText.gameObject.SetActive(extraLyricsDisplay >= 2);
+        }
 
         pitchTrack.SetActive(SettingsManager.Instance.GetSetting<bool>("ShowPitchTrack"));
 
@@ -424,6 +442,28 @@ public class LyricsHandler : MonoBehaviour
                         prevLyricsText.text = parsedLyrics[i - 1].line;
                     }
                     lyricsText.text = parsedLyrics[i].line;
+
+                    // Update upcoming lyrics (next line after current)
+                    int nextIndex = i + 1;
+                    if (nextIndex < parsedLyrics.Count)
+                    {
+                        UpdateUpcomingLyrics(nextIndex);
+                    }
+                    else
+                    {
+                        UpdateUpcomingLyrics(-1); // No more upcoming lyrics
+                    }
+
+                    // Update previous lyrics (line before current)
+                    int prevLineIndex = i - 1;
+                    if (prevLineIndex >= 0)
+                    {
+                        UpdatePreviousLyrics(prevLineIndex);
+                    }
+                    else
+                    {
+                        UpdatePreviousLyrics(-1); // No previous lyrics yet
+                    }
                 }
                 break;
             }
@@ -449,5 +489,127 @@ public class LyricsHandler : MonoBehaviour
             }
         }
         return activeLine;
+    }
+
+    private void UpdateUpcomingLyrics(int newUpcomingIndex)
+    {
+        if (extraLyricsDisplay < 1) return;
+        if (upcomingLyricsText == null) return;
+        if (newUpcomingIndex == upcomingLineIndex) return;
+
+        upcomingLineIndex = newUpcomingIndex;
+
+        string newText = "";
+        if (newUpcomingIndex >= 0 && newUpcomingIndex < parsedLyrics.Count)
+        {
+            newText = parsedLyrics[newUpcomingIndex].line;
+        }
+
+        if (upcomingFadeCoroutine != null)
+        {
+            StopCoroutine(upcomingFadeCoroutine);
+        }
+        upcomingFadeCoroutine = StartCoroutine(FadeUpcomingLyrics(newText));
+    }
+
+    private IEnumerator FadeUpcomingLyrics(string newText)
+    {
+        float targetAlpha = 0.2705882f;
+        float fadeDuration = upcomingLyricsFadeDuration;
+
+        // Fade out
+        Color color = upcomingLyricsText.color;
+        float startAlpha = color.a;
+        float elapsed = 0f;
+
+        while (elapsed < fadeDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / fadeDuration;
+            color.a = Mathf.Lerp(startAlpha, 0f, t);
+            upcomingLyricsText.color = color;
+            yield return null;
+        }
+
+        color.a = 0f;
+        upcomingLyricsText.color = color;
+
+        // Change text
+        upcomingLyricsText.text = newText;
+
+        // Fade in
+        elapsed = 0f;
+        while (elapsed < fadeDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / fadeDuration;
+            color.a = Mathf.Lerp(0f, targetAlpha, t);
+            upcomingLyricsText.color = color;
+            yield return null;
+        }
+
+        color.a = targetAlpha;
+        upcomingLyricsText.color = color;
+    }
+
+    private void UpdatePreviousLyrics(int newPreviousIndex)
+    {
+        if (extraLyricsDisplay < 2) return;
+        if (previousText == null) return;
+        if (newPreviousIndex == previousLineIndex) return;
+
+        previousLineIndex = newPreviousIndex;
+
+        string newText = "";
+        if (newPreviousIndex >= 0 && newPreviousIndex < parsedLyrics.Count)
+        {
+            newText = parsedLyrics[newPreviousIndex].line;
+        }
+
+        if (previousFadeCoroutine != null)
+        {
+            StopCoroutine(previousFadeCoroutine);
+        }
+        previousFadeCoroutine = StartCoroutine(FadePreviousLyrics(newText));
+    }
+
+    private IEnumerator FadePreviousLyrics(string newText)
+    {
+        float targetAlpha = 0.2705882f;
+        float fadeDuration = previousLyricsFadeDuration;
+
+        // Fade out
+        Color color = previousText.color;
+        float startAlpha = color.a;
+        float elapsed = 0f;
+
+        while (elapsed < fadeDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / fadeDuration;
+            color.a = Mathf.Lerp(startAlpha, 0f, t);
+            previousText.color = color;
+            yield return null;
+        }
+
+        color.a = 0f;
+        previousText.color = color;
+
+        // Change text
+        previousText.text = newText;
+
+        // Fade in
+        elapsed = 0f;
+        while (elapsed < fadeDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / fadeDuration;
+            color.a = Mathf.Lerp(0f, targetAlpha, t);
+            previousText.color = color;
+            yield return null;
+        }
+
+        color.a = targetAlpha;
+        previousText.color = color;
     }
 }
