@@ -1,0 +1,59 @@
+name: Bug Report
+description: Create a report to help us improve YASG
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+        Please ensure you fill out all fields below so we can assist you faster.
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Which operating system are you using?
+      options:
+        - Windows
+        - Linux
+        - Android
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install_status
+    attributes:
+      label: Installation Status
+      description: Is this a fresh install or an update?
+      options:
+        - First time installing YASG
+        - Updated to a newer version
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Player Log
+      description: |
+        **This is required.** Please paste the contents of your log or drag-and-drop the file here.
+        
+        * **Windows:** `%localappdata%low/YASG/YASG/Player.log`
+        * **Linux:** `.config/unity3d/YASG/YASG/Player.log`
+      placeholder: Paste log content here...
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: cause
+    attributes:
+      label: What caused the issue?
+      description: Please describe the steps you took immediately before the issue occurred.
+      placeholder: |
+        1. I launched the game
+        2. I clicked on...
+        3. Then the game crashed...
+    validations:
+      required: true
