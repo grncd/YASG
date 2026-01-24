@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using YoutubeExplode;
@@ -20,6 +22,29 @@ public static class SpotifyToYoutubeDownloader
     /// </summary>
     public static event Action<double> OnProgress;
 
+    // Timeout settings
+    private static readonly TimeSpan SearchTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan VideoFetchTimeout = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan ManifestFetchTimeout = TimeSpan.FromSeconds(15);
+
+    /// <summary>
+    /// Runs an async task with a timeout. Throws TimeoutException if the task doesn't complete in time.
+    /// </summary>
+    private static async Task<T> WithTimeout<T>(Task<T> task, TimeSpan timeout, string operationName)
+    {
+        using var cts = new CancellationTokenSource();
+        var delayTask = Task.Delay(timeout, cts.Token);
+        var completedTask = await Task.WhenAny(task, delayTask);
+
+        if (completedTask == delayTask)
+        {
+            throw new TimeoutException($"{operationName} timed out after {timeout.TotalSeconds} seconds. This may be due to network issues or YouTube rate limiting. Please try again.");
+        }
+
+        cts.Cancel(); // Cancel the delay task
+        return await task; // Get the result or propagate any exception
+    }
+
     public static async Task DownloadClosestMatch(string artist, string trackName, TimeSpan spotifyDuration, string outputPath, string albumName = null)
     {
         var youtube = new YoutubeClient();
@@ -29,8 +54,20 @@ public static class SpotifyToYoutubeDownloader
         OnProgress?.Invoke(0.0);
         Debug.Log($"[SpotifyToYoutube] Searching for: '{query}' (Spotify duration: {spotifyDuration})");
 
-        // 1. Search and get top results (0% -> 20%)
-        var searchResults = await youtube.Search.GetVideosAsync(query).CollectAsync(10);
+        // 1. Search and get top results (0% -> 20%) - with timeout
+        IReadOnlyList<YoutubeExplode.Search.VideoSearchResult> searchResults;
+        try
+        {
+            searchResults = await WithTimeout(
+                youtube.Search.GetVideosAsync(query).CollectAsync(10),
+                SearchTimeout,
+                "YouTube search"
+            );
+        }
+        catch (TimeoutException)
+        {
+            throw new Exception($"YouTube search timed out after {SearchTimeout.TotalSeconds} seconds. Please check your internet connection and try again.");
+        }
         OnProgress?.Invoke(0.2);
 
         if (searchResults.Count == 0)
@@ -100,8 +137,21 @@ public static class SpotifyToYoutubeDownloader
             {
                 Debug.Log($"[SpotifyToYoutube] Attempt {attemptCount}/{maxAttempts}: Trying '{candidate.Title}' ({candidate.Id})");
 
-                // Try to get video details (this can fail for unavailable videos)
-                var video = await youtube.Videos.GetAsync(candidate.Id);
+                // Try to get video details with timeout (this can fail for unavailable videos)
+                YoutubeExplode.Videos.Video video;
+                try
+                {
+                    video = await WithTimeout(
+                        youtube.Videos.GetAsync(candidate.Id),
+                        VideoFetchTimeout,
+                        "Video fetch"
+                    );
+                }
+                catch (TimeoutException)
+                {
+                    // Timeout likely indicates network/rate-limiting issues - fail immediately
+                    throw new Exception($"YouTube video fetch timed out after {VideoFetchTimeout.TotalSeconds} seconds. This may indicate network issues or YouTube rate limiting. Please try again later.");
+                }
 
                 // Check album match if album name provided
                 if (!string.IsNullOrWhiteSpace(albumName))
@@ -111,8 +161,21 @@ public static class SpotifyToYoutubeDownloader
                     Debug.Log($"[SpotifyToYoutube] '{candidate.Title}' - Duration diff: {durationDiff:F1}s, Has album: {hasAlbum}");
                 }
 
-                // Try to get stream manifest (this can also fail)
-                streamManifest = await youtube.Videos.Streams.GetManifestAsync(candidate.Id);
+                // Try to get stream manifest with timeout (this can also fail)
+                try
+                {
+                    streamManifest = await WithTimeout(
+                        youtube.Videos.Streams.GetManifestAsync(candidate.Id),
+                        ManifestFetchTimeout,
+                        "Stream manifest fetch"
+                    );
+                }
+                catch (TimeoutException)
+                {
+                    // Timeout likely indicates network/rate-limiting issues - fail immediately
+                    throw new Exception($"YouTube stream manifest fetch timed out after {ManifestFetchTimeout.TotalSeconds} seconds. This may indicate network issues or YouTube rate limiting. Please try again later.");
+                }
+
                 audioStreamInfo = streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
 
                 if (audioStreamInfo != null)
@@ -122,11 +185,12 @@ public static class SpotifyToYoutubeDownloader
                     break;
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not TimeoutException && !ex.Message.Contains("timed out"))
             {
+                // Non-timeout errors: video unavailable, etc. - try next candidate
                 Debug.LogWarning($"[SpotifyToYoutube] Video '{candidate.Id}' unavailable: {ex.Message}");
                 lastException = ex;
-                continue; // Try next candidate
+                continue;
             }
         }
 
