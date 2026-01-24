@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: SentryOptions
   m_EditorClassIdentifier: 
   <Enabled>k__BackingField: 1
-  <Dsn>k__BackingField: https://5caf9050d53df5d3830132e415bea703@o4510358661431296.ingest.us.sentry.io/4510358662479872
+  <Dsn>k__BackingField: https://fd39ec6993a640cc88ed934ba04f305c@app.glitchtip.com/19786
   <CaptureInEditor>k__BackingField: 1
   <EnableLogDebouncing>k__BackingField: 0
   <DebounceTimeLog>k__BackingField: 1000
@@ -41,8 +41,8 @@ MonoBehaviour:
   <StructuredLogOnDebugLogAssertion>k__BackingField: 1
   <StructuredLogOnDebugLogError>k__BackingField: 1
   <StructuredLogOnDebugLogException>k__BackingField: 1
-  <AttachBreadcrumbsToEvents>k__BackingField: 0
-  <BreadcrumbsForLogs>k__BackingField: 1
+  <AddBreadcrumbsWithStructuredLogs>k__BackingField: 0
+  <BreadcrumbsForLogs>k__BackingField: 0
   <BreadcrumbsForWarnings>k__BackingField: 1
   <BreadcrumbsForAsserts>k__BackingField: 1
   <BreadcrumbsForErrors>k__BackingField: 1
@@ -73,6 +73,7 @@ MonoBehaviour:
   <MacosNativeSupportEnabled>k__BackingField: 1
   <LinuxNativeSupportEnabled>k__BackingField: 1
   <XboxNativeSupportEnabled>k__BackingField: 1
+  <PlayStationNativeSupportEnabled>k__BackingField: 1
   <Il2CppLineNumberSupportEnabled>k__BackingField: 1
   <OptionsConfiguration>k__BackingField: {fileID: 0}
   <Debug>k__BackingField: 1
