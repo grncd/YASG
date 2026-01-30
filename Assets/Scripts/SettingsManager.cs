@@ -161,7 +161,7 @@ public class SettingsManager : MonoBehaviour
         {
             // Gameplay
             { "ShowPitchTrack", new Setting { Value = true, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Show Pitch Track", Description = "If toggled on, shows the upcoming notes in a track above the lyrics."  } },
-            { "ShowDetectedPitch", new Setting { Value = true, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Show Detected Pitch", Description = "If toggled on, shows the current detected pitch of the song's vocals and the user's microphone."  } },
+            { "ShowDetectedPitch", new Setting { Value = false, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Show Detected Pitch", Description = "If toggled on, shows the current detected pitch of the song's vocals and the user's microphone."  } },
             { "AudioReactivePlayerCircle", new Setting { Value = true, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Player Circle", Description = "If toggled on, adds a reactive glow around the judgment circle."  } },
 
             { "DynamicVolumeThreshold", new Setting { Value = "-1.2", Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.TextInput, FormalName = "Dynamic Volume Threshold", Description = "Impacts scoring heavily. Lower means you will need to sing quieter parts of the vocal track and higher means the opposite. Ranges between -10dB and 10dB. Default is -1.2dB. Only change this if you know what you're doing."  } },
