@@ -69,5 +69,5 @@ YASG relies on several open-source projects to function.
 **Special thanks to the developers of the following projects:**
 
 * [**YouTubeExplode**](https://github.com/Tyrrrz/YoutubeExplode) - Used for downloading songs from YouTube.
-* [**LRCLib**](https://lrclib.net/) - Main source for synced lyrics.   * [**demucs**](https://github.com/adefossez/demucs) and * [**vocalremover.org**](https://vocalremover.org/) - Used for vocal/instrumental separation.
+* [**LRCLib**](https://lrclib.net/) - Main source for synced lyrics.   * [**demucs**](https://github.com/adefossez/demucs) and [**vocalremover.org**](https://vocalremover.org/) - Used for vocal/instrumental separation.
 *  [**FishNet**](https://github.com/FirstGearGames/FishNet) - Library used for Multiplayer.
