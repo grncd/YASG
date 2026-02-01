@@ -6,8 +6,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using YoutubeExplode;
-using YoutubeExplode.Common;
 using YoutubeExplode.Videos.Streams;
+using YouTubeMusicAPI.Client;
+using YouTubeMusicAPI.Models.Search;
+using YouTubeMusicAPI.Pagination;
 using System.IO;
 using System.Text.RegularExpressions;
 using Debug = UnityEngine.Debug;
@@ -49,66 +51,54 @@ public static class SpotifyToYoutubeDownloader
 
     public static async Task DownloadClosestMatch(string artist, string trackName, TimeSpan spotifyDuration, string outputPath, string albumName = null)
     {
-        var youtube = new YoutubeClient();
         var query = $"{artist} - {trackName}";
 
         // Progress: 0% - Starting search
         OnProgress?.Invoke(0.0);
-        Debug.Log($"[SpotifyToYoutube] Searching for: '{query}' (Spotify duration: {spotifyDuration})");
+        Debug.Log($"[SpotifyToYoutube] Searching YouTube Music for: '{query}' (Spotify duration: {spotifyDuration})");
 
-        // 1. Search and get top results (0% -> 20%) - with timeout
-        IReadOnlyList<YoutubeExplode.Search.VideoSearchResult> searchResults;
+        // 1. Search YouTube Music for songs (0% -> 20%) - with timeout
+        IReadOnlyList<SongSearchResult> searchResults;
         try
         {
-            searchResults = await WithTimeout(
-                youtube.Search.GetVideosAsync(query).CollectAsync(10).AsTask(),
+            var ytMusic = new YouTubeMusicClient();
+            var allResults = await WithTimeout(
+                ytMusic.SearchAsync(query, SearchCategory.Songs).FetchItemsAsync(0, 10),
                 SearchTimeout,
-                "YouTube search"
+                "YouTube Music search"
             );
+            searchResults = allResults.OfType<SongSearchResult>().ToList();
         }
         catch (TimeoutException)
         {
-            throw new Exception($"YouTube search timed out after {SearchTimeout.TotalSeconds} seconds. Please check your internet connection and try again.");
+            throw new Exception($"YouTube Music search timed out after {SearchTimeout.TotalSeconds} seconds. Please check your internet connection and try again.");
         }
         OnProgress?.Invoke(0.2);
 
         if (searchResults.Count == 0)
         {
-            throw new Exception("No results found on YouTube.");
+            throw new Exception("No results found on YouTube Music.");
         }
 
         // Print all results for debugging
         foreach (var result in searchResults)
         {
-            Debug.Log($"[SpotifyToYoutube] Found option: '{result.Title}' ({result.Duration}) - URL: {result.Url}");
+            var artists = string.Join(", ", result.Artists.Select(a => a.Name));
+            Debug.Log($"[SpotifyToYoutube] Found option: '{result.Name}' by {artists} ({result.Duration}) - ID: {result.Id}");
         }
 
         // 2. Find and download the best available match (20% -> 50%)
-        // Filter out lyrics videos (usually unofficial with worse quality), unless the track itself has "lyrics" in the name
-        bool trackHasLyricsInName = trackName.Contains("lyrics", StringComparison.OrdinalIgnoreCase);
-        var filteredResults = searchResults
-            .Where(v => trackHasLyricsInName || !v.Title.Contains("lyrics", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        // If all results were lyrics videos, fall back to unfiltered list
-        if (filteredResults.Count == 0)
-        {
-            Debug.LogWarning("[SpotifyToYoutube] All results were lyrics videos, using unfiltered list");
-            filteredResults = searchResults.ToList();
-        }
-
         // Weighted scoring system: combines title relevance and duration matching
-        // This balances finding the correct song vs finding the right version (duration)
         const double titleWeight = 0.55;
         const double durationWeight = 0.45;
 
-        var scoredCandidates = filteredResults
+        var scoredCandidates = searchResults
             .Select(v =>
             {
-                double titleScore = CalculateTitleScore(v.Title, artist, trackName);
-                double durationScore = CalculateDurationScore(v.Duration ?? TimeSpan.Zero, spotifyDuration);
+                double titleScore = CalculateTitleScore(v.Name, artist, trackName);
+                double durationScore = CalculateDurationScore(v.Duration, spotifyDuration);
                 double combinedScore = (titleScore * titleWeight) + (durationScore * durationWeight);
-                return new { Video = v, TitleScore = titleScore, DurationScore = durationScore, CombinedScore = combinedScore };
+                return new { Song = v, TitleScore = titleScore, DurationScore = durationScore, CombinedScore = combinedScore };
             })
             .OrderByDescending(x => x.CombinedScore)
             .ToList();
@@ -117,11 +107,13 @@ public static class SpotifyToYoutubeDownloader
         Debug.Log($"[SpotifyToYoutube] Scored candidates (title weight: {titleWeight:P0}, duration weight: {durationWeight:P0}):");
         foreach (var scored in scoredCandidates.Take(5))
         {
-            var durationDiff = Math.Abs((scored.Video.Duration ?? TimeSpan.Zero).TotalSeconds - spotifyDuration.TotalSeconds);
-            Debug.Log($"  [{scored.CombinedScore:F1}] '{scored.Video.Title}' (T:{scored.TitleScore:F0} D:{scored.DurationScore:F0} diff:{durationDiff:F1}s)");
+            var durationDiff = Math.Abs(scored.Song.Duration.TotalSeconds - spotifyDuration.TotalSeconds);
+            Debug.Log($"  [{scored.CombinedScore:F1}] '{scored.Song.Name}' (T:{scored.TitleScore:F0} D:{scored.DurationScore:F0} diff:{durationDiff:F1}s)");
         }
 
-        var candidates = scoredCandidates.Select(x => x.Video).ToList();
+        var candidates = scoredCandidates
+            .Select(x => new VideoCandidate(x.Song.Id, x.Song.Name, x.Song.Duration))
+            .ToList();
 
         int downloadMethod = SettingsManager.Instance.GetSetting<int>("DownloadMethod", 0);
         bool useYtDlp = downloadMethod == 0;
@@ -132,10 +124,10 @@ public static class SpotifyToYoutubeDownloader
         }
         else
         {
-            await DownloadWithYoutubeExplode(youtube, candidates, outputPath, artist, trackName, albumName, spotifyDuration);
+            await DownloadWithYoutubeExplode(new YoutubeClient(), candidates, outputPath, artist, trackName, albumName, spotifyDuration);
         }
     }
-    private static async Task DownloadWithYtDlp(List<YoutubeExplode.Search.VideoSearchResult> candidates, string outputPath)
+    private static async Task DownloadWithYtDlp(List<VideoCandidate> candidates, string outputPath)
     {
         var dataPath = PlayerPrefs.GetString("dataPath");
         bool isWindows = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
@@ -242,7 +234,7 @@ public static class SpotifyToYoutubeDownloader
         throw new Exception($"yt-dlp: No available video found after trying {attemptCount} candidates. Last error: {lastException?.Message}");
     }
 
-    private static async Task DownloadWithYoutubeExplode(YoutubeClient youtube, List<YoutubeExplode.Search.VideoSearchResult> candidates, string outputPath, string artist, string trackName, string albumName, TimeSpan spotifyDuration)
+    private static async Task DownloadWithYoutubeExplode(YoutubeClient youtube, List<VideoCandidate> candidates, string outputPath, string artist, string trackName, string albumName, TimeSpan spotifyDuration)
     {
         StreamManifest streamManifest = null;
         IStreamInfo audioStreamInfo = null;
@@ -663,6 +655,20 @@ public static class SpotifyToYoutubeDownloader
 
         string pattern = $@"(?:^|[\s\-\[\]\(\)\""]){Regex.Escape(word)}(?:$|[\s\-\[\]\(\)\""])";
         return Regex.IsMatch(text, pattern, RegexOptions.IgnoreCase);
+    }
+}
+
+public class VideoCandidate
+{
+    public string Id { get; }
+    public string Title { get; }
+    public TimeSpan Duration { get; }
+
+    public VideoCandidate(string id, string title, TimeSpan duration)
+    {
+        Id = id;
+        Title = title;
+        Duration = duration;
     }
 }
 
