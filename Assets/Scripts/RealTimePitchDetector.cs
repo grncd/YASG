@@ -878,12 +878,9 @@ public class RealTimePitchDetector : MonoBehaviour
                 }
             }
 
-            if (showPitch)
-            {
-                if (vocalArrowP != null && !vocalArrowP.isPlaying) vocalArrowP.Play();
-                vocalArrowSG.gameObject.GetComponent<CanvasGroup>().alpha = 1f;
-                vocalArrowSG.transform.GetChild(1).GetChild(0).transform.rotation = Quaternion.Euler(0f, 0f, 0f + bestDifference * 0.4f);
-            }
+            if (showPitch && vocalArrowP != null && !vocalArrowP.isPlaying) vocalArrowP.Play();
+            vocalArrowSG.gameObject.GetComponent<CanvasGroup>().alpha = 1f;
+            vocalArrowSG.transform.GetChild(1).GetChild(0).transform.rotation = Quaternion.Euler(0f, 0f, 0f + bestDifference * 0.4f);
             vocalArrowS.value = bestValue;
             vocalArrowSG.value = bestValue;
 

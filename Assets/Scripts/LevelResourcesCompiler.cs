@@ -54,6 +54,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     public DifficultyHover DIH;
     public DifficultySelector DIH2;
     private float currentPercentage = 0f;
+    private bool isDownloading = false;
     public UnityEngine.UI.Image bgDarken;
     public GameObject bgGM;
     private bool fakeLoading = false;
@@ -97,6 +98,8 @@ public class LevelResourcesCompiler : MonoBehaviour
     private int _originalVSyncCount;
     private static bool _hasRunUpdateCheck = false;
     private static bool _hasRunFFmpegCheck = false;
+    private static bool _hasRunYtDlpCheck = false;
+    private bool _isUpdatingYtDlp = false;
 
     public static LevelResourcesCompiler Instance { get; private set; }
 
@@ -137,6 +140,13 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             _hasRunFFmpegCheck = true;
             StartCoroutine(CheckAndInstallFFmpeg());
+        }
+
+        // Only run yt-dlp check once per game session
+        if (!_hasRunYtDlpCheck)
+        {
+            _hasRunYtDlpCheck = true;
+            StartCoroutine(CheckAndInstallYtDlp());
         }
 
         if (PlayerPrefs.GetInt("partyMode") == 1)
@@ -650,10 +660,18 @@ public class LevelResourcesCompiler : MonoBehaviour
 
             extractedFileName = null;
         }
-        if (currentPercentage != 0f && !partyMode)
+        if (isDownloading && currentPercentage != 0f && !partyMode)
         {
             progressBar.gameObject.SetActive(true);
             progressBar.value = currentPercentage;
+
+            if (loadingSecond != null && loadingSecond.transform.childCount > 4 &&
+                loadingSecond.transform.GetChild(4).childCount > 1)
+            {
+                var progress2Slider = loadingSecond.transform.GetChild(4).GetChild(1).GetComponent<UnityEngine.UI.Slider>();
+                if (progress2Slider != null)
+                    progress2Slider.value = currentPercentage;
+            }
         }
 
     }
@@ -790,6 +808,12 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     public void PreCompile(string url, string name, string artist, string length, Track track)
     {
+        if (_isUpdatingYtDlp)
+        {
+            alertManager.ShowError("yt-dlp is updating", "Please wait for the yt-dlp update to finish before starting a song.", "Dismiss");
+            return;
+        }
+
         if (ProfileManager.Instance.GetActiveProfiles().Count == 0)
         {
             alertManager.ShowError("You don't have any active profiles!", "Please go to the Settings (cogwheel on the bottom right) and either create a new profile or activate an existing one.", "Dismiss");
@@ -1425,14 +1449,11 @@ public class LevelResourcesCompiler : MonoBehaviour
                 Action<double> progressHandler = null;
                 progressHandler = (progress) =>
                 {
-                    // Update currentPercentage (0.0 to 1.0 from downloader)
                     currentPercentage = (float)progress;
-
-                    // Update stage 2 progress bar
-                    progress2.GetComponent<Slider>().value = (float)progress;
                 };
 
                 SpotifyToYoutubeDownloader.OnProgress += progressHandler;
+                isDownloading = true;
 
                 try
                 {
@@ -1440,7 +1461,8 @@ public class LevelResourcesCompiler : MonoBehaviour
                 }
                 finally
                 {
-                    // Always unsubscribe to prevent memory leaks
+                    isDownloading = false;
+                    currentPercentage = 0f;
                     SpotifyToYoutubeDownloader.OnProgress -= progressHandler;
                 }
             }
@@ -2767,6 +2789,259 @@ public class LevelResourcesCompiler : MonoBehaviour
             {
                 Debug.Log("[FFmpegCheck] FFmpeg is available on Linux.");
             }
+        }
+    }
+
+    /// <summary>
+    /// Checks if yt-dlp is installed and downloads it if needed (only when yt-dlp download method is selected).
+    /// </summary>
+    private IEnumerator CheckAndInstallYtDlp()
+    {
+        yield return new WaitForSeconds(1f);
+
+        // yt-dlp is desktop-only
+        bool isDesktop = Application.platform == RuntimePlatform.WindowsPlayer ||
+                         Application.platform == RuntimePlatform.WindowsEditor ||
+                         Application.platform == RuntimePlatform.LinuxPlayer ||
+                         Application.platform == RuntimePlatform.LinuxEditor;
+        if (!isDesktop)
+        {
+            Debug.Log("[YtDlpCheck] Not a desktop platform, skipping yt-dlp check.");
+            yield break;
+        }
+
+        // Only check if yt-dlp download method is selected
+        if (SettingsManager.Instance.GetSetting<int>("DownloadMethod", 0) != 0)
+        {
+            Debug.Log("[YtDlpCheck] YoutubeExplode is selected, skipping yt-dlp check.");
+            yield break;
+        }
+
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        if (string.IsNullOrEmpty(dataPath))
+        {
+            Debug.LogWarning("[YtDlpCheck] Data path not set, skipping yt-dlp check.");
+            yield break;
+        }
+
+        bool isWindows = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
+        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+
+        string ytDlpFileName = isWindows ? "yt-dlp.exe" : "yt-dlp";
+        string ytDlpPath = Path.Combine(dataPath, ytDlpFileName);
+
+        bool needsInstall = !File.Exists(ytDlpPath);
+
+        if (needsInstall)
+        {
+            // First-time install: blocking with loading screen
+            Debug.Log("[YtDlpCheck] yt-dlp not found. Downloading...");
+            _isUpdatingYtDlp = true;
+            BeginLoading();
+            status.text = "Downloading yt-dlp...";
+            progressBar.gameObject.SetActive(true);
+            progressBar.value = 0f;
+
+            yield return StartCoroutine(DownloadYtDlpBinary(ytDlpPath, isLinux, true));
+
+            // Save the current release tag so future update checks work
+            if (File.Exists(ytDlpPath))
+            {
+                yield return StartCoroutine(SaveLatestYtDlpTag(ytDlpPath + ".version"));
+            }
+
+            _isUpdatingYtDlp = false;
+            LoadingDone();
+        }
+        else
+        {
+            // Already installed — check for updates in the background
+            yield return StartCoroutine(CheckYtDlpUpdate(ytDlpPath, isLinux));
+        }
+    }
+
+    /// <summary>
+    /// Checks if the local yt-dlp version matches the latest nightly release tag.
+    /// If outdated, downloads the new version in the background using NotificationCenter.
+    /// </summary>
+    private IEnumerator CheckYtDlpUpdate(string ytDlpPath, bool isLinux)
+    {
+        // Read locally stored version tag
+        string versionFilePath = ytDlpPath + ".version";
+        string localVersion = null;
+
+        if (File.Exists(versionFilePath))
+        {
+            try { localVersion = File.ReadAllText(versionFilePath).Trim(); }
+            catch { }
+        }
+
+        Debug.Log($"[YtDlpUpdate] Local yt-dlp version tag: {localVersion ?? "(none)"}");
+
+
+        // Get latest nightly tag from GitHub API
+        string latestTag = null;
+        using (UnityWebRequest www = UnityWebRequest.Get("https://api.github.com/repos/yt-dlp/yt-dlp-nightly-builds/releases/latest"))
+        {
+            www.SetRequestHeader("User-Agent", "YASG");
+            yield return www.SendWebRequest();
+
+            if (www.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogWarning($"[YtDlpUpdate] Failed to check for updates: {www.error}");
+                yield break;
+            }
+
+            // Parse tag_name from JSON response
+            string json = www.downloadHandler.text;
+            var match = Regex.Match(json, "\"tag_name\"\\s*:\\s*\"([^\"]+)\"");
+            if (match.Success)
+            {
+                latestTag = match.Groups[1].Value;
+            }
+        }
+
+        if (string.IsNullOrEmpty(latestTag))
+        {
+            Debug.LogWarning("[YtDlpUpdate] Could not determine latest yt-dlp nightly tag.");
+            yield break;
+        }
+
+        Debug.Log($"[YtDlpUpdate] Latest nightly tag: {latestTag}");
+
+        if (localVersion == latestTag)
+        {
+            Debug.Log("[YtDlpUpdate] yt-dlp is up to date.");
+            yield break;
+        }
+
+        // Versions don't match — update in background
+        Debug.Log($"[YtDlpUpdate] Update available: {localVersion} -> {latestTag}");
+        NotificationCenter.Info("yt-dlp Update", $"Updating yt-dlp to {latestTag}...");
+        _isUpdatingYtDlp = true;
+
+        // Download to a temp path first, then replace
+        string tempPath = ytDlpPath + ".tmp";
+        yield return StartCoroutine(DownloadYtDlpBinary(tempPath, isLinux, false));
+
+        if (File.Exists(tempPath))
+        {
+            try
+            {
+                if (File.Exists(ytDlpPath))
+                    File.Delete(ytDlpPath);
+                File.Move(tempPath, ytDlpPath);
+                File.WriteAllText(versionFilePath, latestTag);
+                Debug.Log($"[YtDlpUpdate] yt-dlp updated to {latestTag}");
+                NotificationCenter.Success("yt-dlp Updated", $"yt-dlp has been updated to {latestTag}.");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[YtDlpUpdate] Failed to replace yt-dlp binary: {e.Message}");
+                NotificationCenter.Error("yt-dlp Update Failed", "Could not replace the yt-dlp binary. Try restarting the game.");
+                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+            }
+        }
+        else
+        {
+            NotificationCenter.Error("yt-dlp Update Failed", "Download failed. The existing version will continue to work.");
+        }
+
+        _isUpdatingYtDlp = false;
+    }
+
+    /// <summary>
+    /// Fetches the latest nightly release tag and saves it to a local file.
+    /// </summary>
+    private IEnumerator SaveLatestYtDlpTag(string versionFilePath)
+    {
+        using (UnityWebRequest www = UnityWebRequest.Get("https://api.github.com/repos/yt-dlp/yt-dlp-nightly-builds/releases/latest"))
+        {
+            www.SetRequestHeader("User-Agent", "YASG");
+            yield return www.SendWebRequest();
+
+            if (www.result == UnityWebRequest.Result.Success)
+            {
+                var match = Regex.Match(www.downloadHandler.text, "\"tag_name\"\\s*:\\s*\"([^\"]+)\"");
+                if (match.Success)
+                {
+                    try { File.WriteAllText(versionFilePath, match.Groups[1].Value); }
+                    catch (Exception e) { Debug.LogWarning($"[YtDlpCheck] Failed to save version tag: {e.Message}"); }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Downloads the yt-dlp binary to the specified path.
+    /// If useLoadingUI is true, updates the loading screen progress bar.
+    /// </summary>
+    private IEnumerator DownloadYtDlpBinary(string targetPath, bool isLinux, bool useLoadingUI)
+    {
+        bool isWindows = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
+        string ytDlpUrl = isWindows
+            ? "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp.exe"
+            : "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp";
+
+        using (UnityWebRequest www = UnityWebRequest.Get(ytDlpUrl))
+        {
+            www.SendWebRequest();
+
+            while (!www.isDone)
+            {
+                if (useLoadingUI && progressBar != null)
+                    progressBar.value = www.downloadProgress;
+                yield return null;
+            }
+
+            if (www.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"[YtDlpCheck] Failed to download yt-dlp: {www.error}");
+                if (useLoadingUI && alertManager != null)
+                {
+                    alertManager.ShowError(
+                        "Failed to download yt-dlp.",
+                        "yt-dlp could not be downloaded. Downloads may not work. You can switch to YoutubeExplode in Settings > Processing > Download Method.",
+                        "Dismiss"
+                    );
+                }
+                yield break;
+            }
+
+            File.WriteAllBytes(targetPath, www.downloadHandler.data);
+        }
+
+        // On Linux, mark as executable
+        if (isLinux)
+        {
+            try
+            {
+                Process chmodProcess = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "chmod",
+                        Arguments = $"+x \"{targetPath}\"",
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
+                };
+                chmodProcess.Start();
+                chmodProcess.WaitForExit(5000);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[YtDlpCheck] Failed to chmod yt-dlp: {e.Message}");
+            }
+        }
+
+        Debug.Log($"[YtDlpCheck] yt-dlp binary saved to {targetPath}");
+
+        if (useLoadingUI && progressBar != null)
+        {
+            progressBar.value = 1f;
+            status.text = "yt-dlp installed!";
+            yield return new WaitForSeconds(1f);
         }
     }
 
