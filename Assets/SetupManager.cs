@@ -1038,6 +1038,9 @@ public class SetupManager : MonoBehaviour
         }
         catch { }
 
+        // Download yt-dlp binary
+        yield return StartCoroutine(DownloadYtDlp());
+
         // Finish up using the existing logic
         StartVocalRemoverSetup(false);
 
@@ -1046,6 +1049,70 @@ public class SetupManager : MonoBehaviour
         {
             preinstallPage.GoToPage(completionPage);
         }
+    }
+
+    /// <summary>
+    /// Downloads the yt-dlp binary to dataPath.
+    /// On Windows: downloads yt-dlp.exe from GitHub releases.
+    /// On Linux: downloads the yt-dlp standalone binary from GitHub releases and marks it executable.
+    /// </summary>
+    private IEnumerator DownloadYtDlp()
+    {
+        string dataPath = PlayerPrefs.GetString("dataPath");
+        bool isWindows = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
+        bool isLinux = Application.platform == RuntimePlatform.LinuxPlayer || Application.platform == RuntimePlatform.LinuxEditor;
+
+        string ytDlpFileName = isWindows ? "yt-dlp.exe" : "yt-dlp";
+        string ytDlpPath = Path.Combine(dataPath, ytDlpFileName);
+
+        if (File.Exists(ytDlpPath))
+        {
+            UnityEngine.Debug.Log($"[Setup] yt-dlp already exists at {ytDlpPath}");
+            yield break;
+        }
+
+        if (statusTextPreinstall != null) statusTextPreinstall.text = "Downloading yt-dlp...";
+        UnityEngine.Debug.Log("[Setup] Downloading yt-dlp...");
+
+        string ytDlpUrl = isWindows
+            ? "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp.exe"
+            : "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp";
+
+        yield return StartCoroutine(DownloadFile(ytDlpUrl, ytDlpPath));
+
+        if (!File.Exists(ytDlpPath))
+        {
+            UnityEngine.Debug.LogError("[Setup] Failed to download yt-dlp.");
+            if (statusTextPreinstall != null) statusTextPreinstall.text = "Warning: Failed to download yt-dlp.";
+            yield return new WaitForSeconds(2f);
+            yield break;
+        }
+
+        // On Linux, mark as executable
+        if (isLinux)
+        {
+            try
+            {
+                Process chmodProcess = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "chmod",
+                        Arguments = $"+x \"{ytDlpPath}\"",
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
+                };
+                chmodProcess.Start();
+                chmodProcess.WaitForExit(5000);
+            }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogWarning($"[Setup] Failed to chmod yt-dlp: {e.Message}");
+            }
+        }
+
+        UnityEngine.Debug.Log($"[Setup] yt-dlp installed to {ytDlpPath}");
     }
 
     /// <summary>

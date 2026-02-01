@@ -15,7 +15,7 @@ MonoBehaviour:
   <Enabled>k__BackingField: 1
   <Dsn>k__BackingField: https://fd39ec6993a640cc88ed934ba04f305c@app.glitchtip.com/19786
   <CaptureInEditor>k__BackingField: 1
-  <EnableLogDebouncing>k__BackingField: 0
+  <EnableLogDebouncing>k__BackingField: 1
   <DebounceTimeLog>k__BackingField: 1000
   <DebounceTimeWarning>k__BackingField: 1000
   <DebounceTimeError>k__BackingField: 1000

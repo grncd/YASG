@@ -8,6 +8,8 @@ using UnityEngine;
 using YoutubeExplode;
 using YoutubeExplode.Common;
 using YoutubeExplode.Videos.Streams;
+using System.IO;
+using System.Text.RegularExpressions;
 using Debug = UnityEngine.Debug;
 #if UNITY_ANDROID && !UNITY_EDITOR
 using UnityEngine.Android;
@@ -121,23 +123,143 @@ public static class SpotifyToYoutubeDownloader
 
         var candidates = scoredCandidates.Select(x => x.Video).ToList();
 
+        int downloadMethod = SettingsManager.Instance.GetSetting<int>("DownloadMethod", 0);
+        bool useYtDlp = downloadMethod == 0;
+
+        if (useYtDlp)
+        {
+            await DownloadWithYtDlp(candidates, outputPath);
+        }
+        else
+        {
+            await DownloadWithYoutubeExplode(youtube, candidates, outputPath, artist, trackName, albumName, spotifyDuration);
+        }
+    }
+    private static async Task DownloadWithYtDlp(List<YoutubeExplode.Search.VideoSearchResult> candidates, string outputPath)
+    {
+        var dataPath = PlayerPrefs.GetString("dataPath");
+        bool isWindows = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
+        string ytDlpPath;
+        if (isWindows)
+        {
+            ytDlpPath = Path.Combine(dataPath, "yt-dlp.exe");
+        }
+        else
+        {
+            ytDlpPath = Path.Combine(dataPath, "yt-dlp");
+        }
+        string ffmpegLocationArg = isWindows
+            ? $"--ffmpeg-location \"{Path.Combine(dataPath, "vocalremover", "ffmpeg_lib")}\" "
+            : "";
+
+        Exception lastException = null;
+        int attemptCount = 0;
+        int maxAttempts = Math.Min(candidates.Count, 7);
+
+        foreach (var candidate in candidates.Take(maxAttempts))
+        {
+            attemptCount++;
+            OnProgress?.Invoke(0.2 + (0.7 * attemptCount / maxAttempts));
+
+            try
+            {
+                Debug.Log($"[SpotifyToYoutube] yt-dlp attempt {attemptCount}/{maxAttempts}: '{candidate.Title}' ({candidate.Id})");
+
+                var url = $"https://youtube.com/watch?v={candidate.Id}";
+
+                await Task.Run(() =>
+                {
+                    var startInfo = new ProcessStartInfo
+                    {
+                        FileName = ytDlpPath,
+                        Arguments = $"{ffmpegLocationArg}-x --audio-format mp3 --audio-quality 192k --newline -o \"{outputPath}\" \"{url}\"",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true
+                    };
+
+                    using (var process = Process.Start(startInfo))
+                    {
+                        process.OutputDataReceived += (sender, args) =>
+                        {
+                            if (string.IsNullOrEmpty(args.Data)) return;
+                            Debug.Log($"[yt-dlp] {args.Data}");
+
+                            // Parse progress: [download] XX.X%
+                            var match = Regex.Match(args.Data, @"\[download\]\s+([\d.]+)%");
+                            if (match.Success && double.TryParse(match.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double pct))
+                            {
+                                double overallProgress = 0.5 + (pct / 100.0 * 0.5);
+                                OnProgress?.Invoke(overallProgress);
+                            }
+                        };
+                        process.ErrorDataReceived += (sender, args) =>
+                        {
+                            if (string.IsNullOrEmpty(args.Data)) return;
+                            Debug.Log($"[yt-dlp] {args.Data}");
+
+                            // Also parse progress from stderr in case yt-dlp version outputs it here
+                            var match = Regex.Match(args.Data, @"\[download\]\s+([\d.]+)%");
+                            if (match.Success && double.TryParse(match.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double pct))
+                            {
+                                double overallProgress = 0.5 + (pct / 100.0 * 0.5);
+                                OnProgress?.Invoke(overallProgress);
+                            }
+                        };
+
+                        process.BeginOutputReadLine();
+                        process.BeginErrorReadLine();
+                        process.WaitForExit();
+
+                        if (process.ExitCode != 0)
+                        {
+                            throw new Exception($"yt-dlp exited with code {process.ExitCode}");
+                        }
+                    }
+                });
+
+                // yt-dlp succeeded
+                if (File.Exists(outputPath))
+                {
+                    OnProgress?.Invoke(1.0);
+                    Debug.Log($"[SpotifyToYoutube] yt-dlp download complete: {outputPath}");
+                    return;
+                }
+                else
+                {
+                    throw new Exception("yt-dlp reported success but output file not found");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[SpotifyToYoutube] yt-dlp failed for '{candidate.Id}': {ex.Message}");
+                lastException = ex;
+                continue;
+            }
+        }
+
+        throw new Exception($"yt-dlp: No available video found after trying {attemptCount} candidates. Last error: {lastException?.Message}");
+    }
+
+    private static async Task DownloadWithYoutubeExplode(YoutubeClient youtube, List<YoutubeExplode.Search.VideoSearchResult> candidates, string outputPath, string artist, string trackName, string albumName, TimeSpan spotifyDuration)
+    {
         StreamManifest streamManifest = null;
         IStreamInfo audioStreamInfo = null;
         YoutubeExplode.Videos.Video successfulMatch = null;
         Exception lastException = null;
         int attemptCount = 0;
-        int maxAttempts = Math.Min(candidates.Count, 7); // Try up to 7 candidates
+        int maxAttempts = Math.Min(candidates.Count, 7);
 
         foreach (var candidate in candidates.Take(maxAttempts))
         {
             attemptCount++;
-            OnProgress?.Invoke(0.2 + (0.3 * attemptCount / maxAttempts)); // 20% -> 50%
+            OnProgress?.Invoke(0.2 + (0.3 * attemptCount / maxAttempts));
 
             try
             {
                 Debug.Log($"[SpotifyToYoutube] Attempt {attemptCount}/{maxAttempts}: Trying '{candidate.Title}' ({candidate.Id})");
 
-                // Try to get video details with timeout (this can fail for unavailable videos)
                 YoutubeExplode.Videos.Video video;
                 try
                 {
@@ -149,11 +271,9 @@ public static class SpotifyToYoutubeDownloader
                 }
                 catch (TimeoutException)
                 {
-                    // Timeout likely indicates network/rate-limiting issues - fail immediately
                     throw new Exception($"YouTube video fetch timed out after {VideoFetchTimeout.TotalSeconds} seconds. This may indicate network issues or YouTube rate limiting. Please try again later.");
                 }
 
-                // Check album match if album name provided
                 if (!string.IsNullOrWhiteSpace(albumName))
                 {
                     var hasAlbum = video.Description.Contains(albumName, StringComparison.OrdinalIgnoreCase);
@@ -161,7 +281,6 @@ public static class SpotifyToYoutubeDownloader
                     Debug.Log($"[SpotifyToYoutube] '{candidate.Title}' - Duration diff: {durationDiff:F1}s, Has album: {hasAlbum}");
                 }
 
-                // Try to get stream manifest with timeout (this can also fail)
                 try
                 {
                     streamManifest = await WithTimeout(
@@ -172,7 +291,6 @@ public static class SpotifyToYoutubeDownloader
                 }
                 catch (TimeoutException)
                 {
-                    // Timeout likely indicates network/rate-limiting issues - fail immediately
                     throw new Exception($"YouTube stream manifest fetch timed out after {ManifestFetchTimeout.TotalSeconds} seconds. This may indicate network issues or YouTube rate limiting. Please try again later.");
                 }
 
@@ -187,7 +305,6 @@ public static class SpotifyToYoutubeDownloader
             }
             catch (Exception ex) when (ex is not TimeoutException && !ex.Message.Contains("timed out"))
             {
-                // Non-timeout errors: video unavailable, etc. - try next candidate
                 Debug.LogWarning($"[SpotifyToYoutube] Video '{candidate.Id}' unavailable: {ex.Message}");
                 lastException = ex;
                 continue;
@@ -196,27 +313,24 @@ public static class SpotifyToYoutubeDownloader
 
         OnProgress?.Invoke(0.5);
 
-        // Check if we found a valid stream
         if (audioStreamInfo == null || successfulMatch == null)
         {
             throw new Exception($"No available video found after trying {attemptCount} candidates. Last error: {lastException?.Message}");
         }
 
-        // 5. Download with progress (50% -> 90%)
+        // Download with progress (50% -> 90%)
         var tempFileName = $"{artist} - {trackName}_temp.{audioStreamInfo.Container}";
-        tempFileName = string.Join("_", tempFileName.Split(System.IO.Path.GetInvalidFileNameChars()));
-        var tempFilePath = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(outputPath), tempFileName);
+        tempFileName = string.Join("_", tempFileName.Split(Path.GetInvalidFileNameChars()));
+        var tempFilePath = Path.Combine(Path.GetDirectoryName(outputPath), tempFileName);
 
         Debug.Log($"[SpotifyToYoutube] Downloading to: {tempFilePath}");
 
-        // Progress reporter - uses simple IProgress to avoid SynchronizationContext overhead in builds
         var progress = new SimpleProgress<double>(p =>
         {
-            double overallProgress = 0.5 + (p * 0.4); // 50% -> 90%
+            double overallProgress = 0.5 + (p * 0.4);
             OnProgress?.Invoke(overallProgress);
         });
 
-        // Download with retry logic (5 attempts)
         int maxRetries = 5;
         Exception lastDownloadException = null;
         bool downloadSuccess = false;
@@ -241,7 +355,6 @@ public static class SpotifyToYoutubeDownloader
 
                 if (attempt < maxRetries)
                 {
-                    // Wait before retry with exponential backoff
                     await Task.Delay(1000 * attempt);
                 }
             }
@@ -249,10 +362,9 @@ public static class SpotifyToYoutubeDownloader
 
         if (!downloadSuccess)
         {
-            // Clean up temp file if it was partially downloaded
-            if (System.IO.File.Exists(tempFilePath))
+            if (File.Exists(tempFilePath))
             {
-                try { System.IO.File.Delete(tempFilePath); } catch { }
+                try { File.Delete(tempFilePath); } catch { }
             }
 
             throw new Exception($"Download failed after {maxRetries} attempts. Last error: {lastDownloadException?.Message}");
@@ -261,19 +373,16 @@ public static class SpotifyToYoutubeDownloader
         Debug.Log($"[SpotifyToYoutube] Download Complete! Converting to MP3...");
         OnProgress?.Invoke(0.9);
 
-        // 6. Convert to MP3 using FFmpeg (90% -> 100%)
         await ConvertToMp3(tempFilePath, outputPath);
 
-        // 7. Clean up temp file
-        if (System.IO.File.Exists(tempFilePath))
+        if (File.Exists(tempFilePath))
         {
-            System.IO.File.Delete(tempFilePath);
+            File.Delete(tempFilePath);
         }
 
         OnProgress?.Invoke(1.0);
         Debug.Log($"[SpotifyToYoutube] Conversion Complete! Saved to: {outputPath}");
     }
-    // a
 
     private static Task ConvertToMp3(string inputPath, string outputPath)
     {
@@ -287,7 +396,7 @@ public static class SpotifyToYoutubeDownloader
         else
         {
             var dataPath = PlayerPrefs.GetString("dataPath");
-            ffmpegPath = System.IO.Path.Combine(dataPath, "vocalremover", "ffmpeg_lib", "ffmpeg.exe");
+            ffmpegPath = Path.Combine(dataPath, "vocalremover", "ffmpeg_lib", "ffmpeg.exe");
         }
 #endif
 
@@ -301,19 +410,19 @@ public static class SpotifyToYoutubeDownloader
                 AndroidJNI.AttachCurrentThread();
                 Debug.Log("[FFmpeg-kit] Thread attached to JVM");
 
-                Debug.Log($"[FFmpeg-kit] Input file exists: {System.IO.File.Exists(inputPath)}");
-                if (!System.IO.File.Exists(inputPath))
+                Debug.Log($"[FFmpeg-kit] Input file exists: {File.Exists(inputPath)}");
+                if (!File.Exists(inputPath))
                 {
                     throw new Exception($"Input file does not exist: {inputPath}");
                 }
-                Debug.Log($"[FFmpeg-kit] Input file size: {new System.IO.FileInfo(inputPath).Length} bytes");
+                Debug.Log($"[FFmpeg-kit] Input file size: {new FileInfo(inputPath).Length} bytes");
                 Debug.Log($"[FFmpeg-kit] Output path: {outputPath}");
                 
-                string outputDir = System.IO.Path.GetDirectoryName(outputPath);
-                Debug.Log($"[FFmpeg-kit] Output directory exists: {System.IO.Directory.Exists(outputDir)}");
-                if (!System.IO.Directory.Exists(outputDir))
+                string outputDir = Path.GetDirectoryName(outputPath);
+                Debug.Log($"[FFmpeg-kit] Output directory exists: {Directory.Exists(outputDir)}");
+                if (!Directory.Exists(outputDir))
                 {
-                    System.IO.Directory.CreateDirectory(outputDir);
+                    Directory.CreateDirectory(outputDir);
                     Debug.Log($"[FFmpeg-kit] Created output directory: {outputDir}");
                 }
 
@@ -418,9 +527,9 @@ public static class SpotifyToYoutubeDownloader
                     if (returnCode == 0)
                     {
                         // Success - verify output file exists
-                        if (System.IO.File.Exists(outputPath))
+                        if (File.Exists(outputPath))
                         {
-                            long fileSize = new System.IO.FileInfo(outputPath).Length;
+                            long fileSize = new FileInfo(outputPath).Length;
                             Debug.Log($"[FFmpeg-kit] Success! Output file created: {fileSize} bytes");
                             session.Dispose();
                             return;
@@ -552,8 +661,8 @@ public static class SpotifyToYoutubeDownloader
         if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(word))
             return false;
 
-        string pattern = $@"(?:^|[\s\-\[\]\(\)\""]){System.Text.RegularExpressions.Regex.Escape(word)}(?:$|[\s\-\[\]\(\)\""])";
-        return System.Text.RegularExpressions.Regex.IsMatch(text, pattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        string pattern = $@"(?:^|[\s\-\[\]\(\)\""]){Regex.Escape(word)}(?:$|[\s\-\[\]\(\)\""])";
+        return Regex.IsMatch(text, pattern, RegexOptions.IgnoreCase);
     }
 }
 
