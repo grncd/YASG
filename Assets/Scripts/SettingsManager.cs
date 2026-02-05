@@ -177,7 +177,7 @@ public class SettingsManager : MonoBehaviour
             { "PitchProcessingQuality", new Setting { Value = 2, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Pitch Processing Quality", Description = "Higher means more accurate, but the pitch processing stage will take longer.", DropdownOptions = new List<string> { "Low", "Medium", "High" } } },
             { "PitchDetectionQuality", new Setting { Value = 2, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Real-Time Pitch Detection Quality", Description = "Turn this down if your FPS is dropping when singing in game. Only recommended to turn this up if you have a very low pitched voice or want precise pitch detection.", DropdownOptions = new List<string> { "Low", "Medium", "High", "Very High" } } },
             { "VocalProcessingMethod", new Setting { Value = 0, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Vocal Processing Method", Description = "Method used to extract vocals from the song. Only use vocalremover.org if you don't have a (good) GPU. Otherwise, use Demucs.", DropdownOptions = new List<string> { "VocalRemover.org", "Demucs" } } },
-            { "DownloadMethod", new Setting { Value = (Application.platform == RuntimePlatform.Android || Application.platform == RuntimePlatform.IPhonePlayer) ? 1 : 0, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Download Method", Description = "Method used to download songs from YouTube. yt-dlp is more reliable but requires a desktop environment. YoutubeExplode works on all platforms.", DropdownOptions = new List<string> { "yt-dlp", "YoutubeExplode" } } },
+            { "DownloadMethod", new Setting { Value = 0, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Download Method", Description = "Method used to download songs from YouTube. yt-dlp is more reliable and works on all platforms including Android. YoutubeExplode is an alternative.", DropdownOptions = new List<string> { "yt-dlp", "YoutubeExplode" } } },
 
             // Misc
             { "MenuMusic", new Setting { Value = 2, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Music", Description = "Defines the song that will be played in the menu.", DropdownOptions = new List<string> { "None","Default","Random selection from downloaded songs" } } },
@@ -253,25 +253,7 @@ public class SettingsManager : MonoBehaviour
     {
         if (_settings.TryGetValue(key, out Setting setting))
         {
-            if (key == "DownloadMethod")
-            {
-                int newMethod = Convert.ToInt32(value);
-
-                // Block yt-dlp on mobile
-                if (newMethod == 0 && IsMobilePlatform())
-                {
-                    Debug.LogWarning("[SettingsManager] yt-dlp is not supported on mobile devices.");
-                    AlertManager.Instance?.ShowError(
-                        "yt-dlp is not supported on mobile devices",
-                        "yt-dlp requires a desktop environment. Please use YoutubeExplode instead.",
-                        "OK"
-                    );
-                    setting.Value = 1; // Revert to YoutubeExplode
-                    SaveSettings();
-                    return;
-                }
-            }
-            else if (key == "VocalProcessingMethod")
+            if (key == "VocalProcessingMethod")
             {
                 int newMethod = Convert.ToInt32(value);
 

@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using YoutubeExplode;
 using YoutubeExplode.Videos.Streams;
+using YoutubeExplode.Search;
 using YouTubeMusicAPI.Client;
 using YouTubeMusicAPI.Models.Search;
 using YouTubeMusicAPI.Pagination;
@@ -57,48 +58,91 @@ public static class SpotifyToYoutubeDownloader
         OnProgress?.Invoke(0.0);
         Debug.Log($"[SpotifyToYoutube] Searching YouTube Music for: '{query}' (Spotify duration: {spotifyDuration})");
 
-        // 1. Search YouTube Music for songs (0% -> 20%) - with timeout
-        IReadOnlyList<SongSearchResult> searchResults;
+        // 1. Search both YouTube and YouTube Music in parallel (0% -> 20%)
+        List<VideoCandidate> allCandidates = new List<VideoCandidate>();
+
+        // Search YouTube Music
         try
         {
             var ytMusic = new YouTubeMusicClient();
-            var allResults = await WithTimeout(
+            var ytMusicResults = await WithTimeout(
                 ytMusic.SearchAsync(query, SearchCategory.Songs).FetchItemsAsync(0, 10),
                 SearchTimeout,
                 "YouTube Music search"
             );
-            searchResults = allResults.OfType<SongSearchResult>().ToList();
+            var ytMusicSongs = ytMusicResults.OfType<SongSearchResult>().ToList();
+
+            foreach (var result in ytMusicSongs)
+            {
+                var artistsList = result.Artists.Select(a => a.Name).ToList();
+                allCandidates.Add(new VideoCandidate(result.Id, result.Name, result.Duration, VideoSource.YouTubeMusic, artistsList));
+                var artists = string.Join(", ", artistsList);
+                Debug.Log($"[SpotifyToYoutube] [YT Music] Found: '{result.Name}' by {artists} ({result.Duration}) - ID: {result.Id}");
+            }
         }
         catch (TimeoutException)
         {
-            throw new Exception($"YouTube Music search timed out after {SearchTimeout.TotalSeconds} seconds. Please check your internet connection and try again.");
+            Debug.LogWarning($"[SpotifyToYoutube] YouTube Music search timed out, continuing with other sources...");
         }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[SpotifyToYoutube] YouTube Music search failed: {ex.Message}");
+        }
+
+        // Search normal YouTube using YoutubeExplode
+        try
+        {
+            var youtube = new YoutubeClient();
+            // Collect up to 10 results from the async enumerable
+            var ytSearchResults = new List<YoutubeExplode.Search.VideoSearchResult>();
+            await foreach (var video in youtube.Search.GetVideosAsync(query))
+            {
+                ytSearchResults.Add(video);
+                if (ytSearchResults.Count >= 10)
+                    break;
+            }
+
+            foreach (var video in ytSearchResults)
+            {
+                // YoutubeExplode video search results have VideoId, Title, and Duration (but duration might not be available in search)
+                // We'll filter to only include videos with duration available
+                if (video.Duration.HasValue)
+                {
+                    allCandidates.Add(new VideoCandidate(video.Id, video.Title, video.Duration.Value, VideoSource.YouTube, null));
+                    Debug.Log($"[SpotifyToYoutube] [YouTube] Found: '{video.Title}' ({video.Duration.Value}) - ID: {video.Id}");
+                }
+            }
+        }
+        catch (TimeoutException)
+        {
+            Debug.LogWarning($"[SpotifyToYoutube] YouTube search timed out, continuing with other sources...");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[SpotifyToYoutube] YouTube search failed: {ex.Message}");
+        }
+
         OnProgress?.Invoke(0.2);
 
-        if (searchResults.Count == 0)
+        if (allCandidates.Count == 0)
         {
-            throw new Exception("No results found on YouTube Music.");
+            throw new Exception("No results found on YouTube or YouTube Music.");
         }
 
-        // Print all results for debugging
-        foreach (var result in searchResults)
-        {
-            var artists = string.Join(", ", result.Artists.Select(a => a.Name));
-            Debug.Log($"[SpotifyToYoutube] Found option: '{result.Name}' by {artists} ({result.Duration}) - ID: {result.Id}");
-        }
+        Debug.Log($"[SpotifyToYoutube] Total candidates from all sources: {allCandidates.Count}");
 
-        // 2. Find and download the best available match (20% -> 50%)
+        // 2. Score and rank all candidates using the existing scoring system
         // Weighted scoring system: combines title relevance and duration matching
         const double titleWeight = 0.55;
         const double durationWeight = 0.45;
 
-        var scoredCandidates = searchResults
+        var scoredCandidates = allCandidates
             .Select(v =>
             {
-                double titleScore = CalculateTitleScore(v.Name, artist, trackName);
+                double titleScore = CalculateTitleScore(v.Title, artist, trackName, v.Source, v.Artists);
                 double durationScore = CalculateDurationScore(v.Duration, spotifyDuration);
                 double combinedScore = (titleScore * titleWeight) + (durationScore * durationWeight);
-                return new { Song = v, TitleScore = titleScore, DurationScore = durationScore, CombinedScore = combinedScore };
+                return new { Video = v, TitleScore = titleScore, DurationScore = durationScore, CombinedScore = combinedScore };
             })
             .OrderByDescending(x => x.CombinedScore)
             .ToList();
@@ -107,12 +151,13 @@ public static class SpotifyToYoutubeDownloader
         Debug.Log($"[SpotifyToYoutube] Scored candidates (title weight: {titleWeight:P0}, duration weight: {durationWeight:P0}):");
         foreach (var scored in scoredCandidates.Take(5))
         {
-            var durationDiff = Math.Abs(scored.Song.Duration.TotalSeconds - spotifyDuration.TotalSeconds);
-            Debug.Log($"  [{scored.CombinedScore:F1}] '{scored.Song.Name}' (T:{scored.TitleScore:F0} D:{scored.DurationScore:F0} diff:{durationDiff:F1}s)");
+            var durationDiff = Math.Abs(scored.Video.Duration.TotalSeconds - spotifyDuration.TotalSeconds);
+            string sourceLabel = scored.Video.Source == VideoSource.YouTubeMusic ? "YT Music" : "YouTube";
+            Debug.Log($"  [{scored.CombinedScore:F1}] '{scored.Video.Title}' (T:{scored.TitleScore:F0} D:{scored.DurationScore:F0} diff:{durationDiff:F1}s) [{sourceLabel}]");
         }
 
         var candidates = scoredCandidates
-            .Select(x => new VideoCandidate(x.Song.Id, x.Song.Name, x.Song.Duration))
+            .Select(x => x.Video)
             .ToList();
 
         int downloadMethod = SettingsManager.Instance.GetSetting<int>("DownloadMethod", 0);
@@ -128,6 +173,73 @@ public static class SpotifyToYoutubeDownloader
         }
     }
     private static async Task DownloadWithYtDlp(List<VideoCandidate> candidates, string outputPath)
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        // Use youtubedl-android library on Android
+        await DownloadWithYtDlpAndroid(candidates, outputPath);
+#else
+        // Use desktop yt-dlp executable on Windows/Mac/Linux
+        await DownloadWithYtDlpDesktop(candidates, outputPath);
+#endif
+    }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+    private static async Task DownloadWithYtDlpAndroid(List<VideoCandidate> candidates, string outputPath)
+    {
+        // Initialize the library if not already done (must happen on main thread)
+        // Note: Update is handled by LevelResourcesCompiler.InitializeAndUpdateYtDlpAndroid()
+        YtDlpAndroidWrapper.Initialize();
+
+        Exception lastException = null;
+        int attemptCount = 0;
+        int maxAttempts = Math.Min(candidates.Count, 7);
+
+        foreach (var candidate in candidates.Take(maxAttempts))
+        {
+            attemptCount++;
+            OnProgress?.Invoke(0.2 + (0.7 * attemptCount / maxAttempts));
+
+            try
+            {
+                Debug.Log($"[SpotifyToYoutube] yt-dlp (Android) attempt {attemptCount}/{maxAttempts}: '{candidate.Title}' ({candidate.Id})");
+
+                var url = $"https://youtube.com/watch?v={candidate.Id}";
+
+                // Download with progress callback
+                await YtDlpAndroidWrapper.DownloadAsync(
+                    url,
+                    outputPath,
+                    onProgress: (progress) =>
+                    {
+                        double overallProgress = 0.2 + (progress * 0.8);
+                        OnProgress?.Invoke(overallProgress);
+                    }
+                );
+
+                // Download succeeded
+                if (File.Exists(outputPath))
+                {
+                    OnProgress?.Invoke(1.0);
+                    Debug.Log($"[SpotifyToYoutube] yt-dlp (Android) download complete: {outputPath}");
+                    return;
+                }
+                else
+                {
+                    throw new Exception("yt-dlp reported success but output file not found");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[SpotifyToYoutube] yt-dlp (Android) failed for '{candidate.Id}': {ex.Message}");
+                lastException = ex;
+                continue;
+            }
+        }
+
+        throw new Exception($"yt-dlp (Android): No available video found after trying {attemptCount} candidates. Last error: {lastException?.Message}");
+    }
+#else
+    private static async Task DownloadWithYtDlpDesktop(List<VideoCandidate> candidates, string outputPath)
     {
         var dataPath = PlayerPrefs.GetString("dataPath");
         bool isWindows = Application.platform == RuntimePlatform.WindowsPlayer || Application.platform == RuntimePlatform.WindowsEditor;
@@ -233,6 +345,7 @@ public static class SpotifyToYoutubeDownloader
 
         throw new Exception($"yt-dlp: No available video found after trying {attemptCount} candidates. Last error: {lastException?.Message}");
     }
+#endif
 
     private static async Task DownloadWithYoutubeExplode(YoutubeClient youtube, List<VideoCandidate> candidates, string outputPath, string artist, string trackName, string albumName, TimeSpan spotifyDuration)
     {
@@ -573,11 +686,36 @@ public static class SpotifyToYoutubeDownloader
     /// <summary>
     /// Calculates a title relevance score (0-100) based on how well the video title matches the artist and track.
     /// </summary>
-    private static double CalculateTitleScore(string title, string artist, string trackName)
+    private static double CalculateTitleScore(string title, string artist, string trackName, VideoSource source, List<string> artistsList)
     {
         if (string.IsNullOrEmpty(title))
             return 0;
 
+        // YouTube Music results have clean separated artists and title, so we can score them directly
+        if (source == VideoSource.YouTubeMusic && artistsList != null && artistsList.Count > 0)
+        {
+            bool titleMatches = IsWordMatch(title, trackName) || title.Contains(trackName, StringComparison.OrdinalIgnoreCase);
+            bool artistMatches = artistsList.Any(a => a.Equals(artist, StringComparison.OrdinalIgnoreCase) ||
+                                                      a.Contains(artist, StringComparison.OrdinalIgnoreCase) ||
+                                                      artist.Contains(a, StringComparison.OrdinalIgnoreCase));
+
+            // Perfect match: both title and artist match
+            if (titleMatches && artistMatches)
+                return 100;
+
+            // Title only match (still good for YT Music since artist is explicitly listed separately)
+            if (titleMatches)
+                return 85;
+
+            // Artist only match
+            if (artistMatches)
+                return 30;
+
+            // No meaningful match
+            return 5;
+        }
+
+        // For normal YouTube results, use the existing pattern matching logic
         // Check for exact pattern matches (highest confidence)
         string[] exactPatterns = {
             $"{artist} - {trackName}",
@@ -658,17 +796,27 @@ public static class SpotifyToYoutubeDownloader
     }
 }
 
+public enum VideoSource
+{
+    YouTube,
+    YouTubeMusic
+}
+
 public class VideoCandidate
 {
     public string Id { get; }
     public string Title { get; }
     public TimeSpan Duration { get; }
+    public VideoSource Source { get; }
+    public List<string> Artists { get; }
 
-    public VideoCandidate(string id, string title, TimeSpan duration)
+    public VideoCandidate(string id, string title, TimeSpan duration, VideoSource source, List<string> artists)
     {
         Id = id;
         Title = title;
         Duration = duration;
+        Source = source;
+        Artists = artists;
     }
 }
 
