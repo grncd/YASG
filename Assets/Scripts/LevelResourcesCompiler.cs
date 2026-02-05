@@ -2794,19 +2794,26 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     /// <summary>
     /// Checks if yt-dlp is installed and downloads it if needed (only when yt-dlp download method is selected).
+    /// On Android, initializes and updates the youtubedl-android library.
     /// </summary>
     private IEnumerator CheckAndInstallYtDlp()
     {
         yield return new WaitForSeconds(1f);
 
-        // yt-dlp is desktop-only
+#if UNITY_ANDROID && !UNITY_EDITOR
+        // Android: Initialize and update youtubedl-android library
+        yield return StartCoroutine(InitializeAndUpdateYtDlpAndroid());
+        yield break;
+#endif
+
+        // Desktop platforms only
         bool isDesktop = Application.platform == RuntimePlatform.WindowsPlayer ||
                          Application.platform == RuntimePlatform.WindowsEditor ||
                          Application.platform == RuntimePlatform.LinuxPlayer ||
                          Application.platform == RuntimePlatform.LinuxEditor;
         if (!isDesktop)
         {
-            Debug.Log("[YtDlpCheck] Not a desktop platform, skipping yt-dlp check.");
+            Debug.Log("[YtDlpCheck] Not a supported platform, skipping yt-dlp check.");
             yield break;
         }
 
@@ -2949,6 +2956,52 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         _isUpdatingYtDlp = false;
     }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+    /// <summary>
+    /// Initializes and updates the youtubedl-android library on Android.
+    /// </summary>
+    private IEnumerator InitializeAndUpdateYtDlpAndroid()
+    {
+        Debug.Log("[YtDlpCheck] Android platform detected, initializing youtubedl-android...");
+
+        // Initialize the library (must happen on main thread)
+        bool initSuccess = false;
+        try
+        {
+            YtDlpAndroidWrapper.Initialize();
+            initSuccess = true;
+            Debug.Log("[YtDlpCheck] youtubedl-android initialized successfully.");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[YtDlpCheck] Failed to initialize youtubedl-android: {ex.Message}");
+            NotificationCenter.Error("yt-dlp Error", "Failed to initialize yt-dlp library.");
+            yield break;
+        }
+
+        if (!initSuccess) yield break;
+
+        // Update yt-dlp in the background
+        Debug.Log("[YtDlpCheck] Checking for yt-dlp updates...");
+        NotificationCenter.Info("yt-dlp", "Checking for updates...");
+
+        var updateTask = YtDlpAndroidWrapper.UpdateYtDlpAsync();
+        while (!updateTask.IsCompleted)
+        {
+            yield return null;
+        }
+
+        if (updateTask.IsFaulted)
+        {
+            Debug.LogWarning($"[YtDlpCheck] yt-dlp update check failed: {updateTask.Exception?.Message}");
+        }
+        else
+        {
+            Debug.Log("[YtDlpCheck] yt-dlp update check completed.");
+        }
+    }
+#endif
 
     /// <summary>
     /// Fetches the latest nightly release tag and saves it to a local file.
