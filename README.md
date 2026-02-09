@@ -56,7 +56,7 @@ To build YASG from source:
 
 1. Clone this repository.  
 2. Open the project in **Unity 6000.3.2f1** or newer.  
-3. That’s it, no additional setup is required.
+3. That’s it, no additional setup is required. (i think)
 
 ---
 
