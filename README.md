@@ -48,8 +48,6 @@ At the moment, YASG supports up to 4 players **locally** or **remotely** via the
 If you encounter bugs, crashes, or have feature suggestions, please open an issue on the  
 ➡️ [GitHub Issues page](https://github.com/grncd/YASG/issues)
 
-Refer to [CONTRIBUTING.md](https://github.com/grncd/YASG/blob/main/CONTRIBUTING.md) for what to include in your issue.
-
 ---
 
 ## Building from Source (for contributors)
