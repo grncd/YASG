@@ -676,27 +676,34 @@ public class LevelResourcesCompiler : MonoBehaviour
 
     }
 
-    public bool VerifySongIntegrity(string txtPath, string fullAudioPath, string vocalPath, string noVocalPath)
+    public bool VerifySongIntegrity(string txtPath, string fullAudioPath, string vocalPath, string noVocalPath, bool isCustomSong = false)
     {
         bool txtExists = File.Exists(txtPath);
         bool fullAuthioExists = File.Exists(fullAudioPath);
         bool vocalsExists = File.Exists(vocalPath);
         bool noVocalsExists = File.Exists(noVocalPath);
 
-        if (txtExists && fullAuthioExists && vocalsExists && noVocalsExists)
+        // Custom songs don't have an instrumental file, so skip that check
+        bool allPresent = isCustomSong
+            ? (txtExists && fullAuthioExists && vocalsExists)
+            : (txtExists && fullAuthioExists && vocalsExists && noVocalsExists);
+
+        if (allPresent)
         {
-            UnityEngine.Debug.Log($"Integrity Check Passed for:\nTXT: {txtPath}\nFULL: {fullAudioPath}\nVOCALS: {vocalPath}\nINST: {noVocalPath}");
+            UnityEngine.Debug.Log($"Integrity Check Passed{(isCustomSong ? " (Custom Song)" : "")} for:\nTXT: {txtPath}\nFULL: {fullAudioPath}\nVOCALS: {vocalPath}" +
+                (isCustomSong ? "" : $"\nINST: {noVocalPath}"));
             return true;
         }
 
         UnityEngine.Debug.LogWarning("Song Verification Failed! Missing one or more files. Deleting leftovers to force re-process.");
-        UnityEngine.Debug.Log($"Status:\nTXT: {txtExists}\nFULL: {fullAuthioExists}\nVOCALS: {vocalsExists}\nINST: {noVocalsExists}");
+        UnityEngine.Debug.Log($"Status:\nTXT: {txtExists}\nFULL: {fullAuthioExists}\nVOCALS: {vocalsExists}" +
+            (isCustomSong ? "" : $"\nINST: {noVocalsExists}"));
 
         // Cleanup to ensure fresh state
         DeleteFileIfExists(txtPath);
         DeleteFileIfExists(fullAudioPath);
         DeleteFileIfExists(vocalPath);
-        DeleteFileIfExists(noVocalPath);
+        if (!isCustomSong) DeleteFileIfExists(noVocalPath);
 
         return false;
     }
@@ -1212,7 +1219,9 @@ public class LevelResourcesCompiler : MonoBehaviour
         string vocalPathVerif = Path.Combine(dataPath, "output", "htdemucs", baseNameNoExt + " [vocals].mp3");
         string noVocalPathVerif = Path.Combine(dataPath, "output", "htdemucs", baseNameNoExt + " [no_vocals].mp3");
 
-        bool filesVerified = VerifySongIntegrity(txtPathVerif, fullAudioPathVerif, vocalPathVerif, noVocalPathVerif);
+        // Custom songs (imported via zip) have non-HTTP URLs and no instrumental file
+        bool isCustomSong = !url.StartsWith("http", StringComparison.OrdinalIgnoreCase);
+        bool filesVerified = VerifySongIntegrity(txtPathVerif, fullAudioPathVerif, vocalPathVerif, noVocalPathVerif, isCustomSong);
 
 
         if (!filesVerified)
@@ -1252,7 +1261,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             UnityEngine.Debug.Log("Found all files. Preparing to load.");
 
             PlayerPrefs.SetString("vocalLocation", vocalPathVerif);
-            if (SettingsManager.Instance.GetSetting<bool>("PlayInstrumental"))
+            if (SettingsManager.Instance.GetSetting<bool>("PlayInstrumental") && !isCustomSong)
             {
                 PlayerPrefs.SetString("fullLocation", noVocalPathVerif);
             }
