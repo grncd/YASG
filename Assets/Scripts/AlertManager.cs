@@ -116,17 +116,17 @@ public class AlertManager : MonoBehaviour
     {
         if (PlayerPrefs.GetInt("ERR") == 1)
         {
-            ShowError("An error occurred.", "Please try playing the song again or performing a full reset (Settings > Misc > Full Reset). If the issue persists, open an issue in our GitHub page.", "Close");
+            ShowError(LocalizationManager.L("alert.error_occurred.title", "An error occurred."), LocalizationManager.L("alert.error_occurred.info", "Please try playing the song again or performing a full reset (Settings > Misc > Full Reset). If the issue persists, open an issue in our GitHub page."), LocalizationManager.L("alert.close", "Close"));
             PlayerPrefs.SetInt("ERR", 0);
         }
         else if (PlayerPrefs.GetInt("ERR") == 2)
         {
-            ShowError("Your microphone couldn't be initialized.", "Please ensure your microphone is properly connected and that it works as expected. Check that no other application has exclusive control over it.", "Close");
+            ShowError(LocalizationManager.L("alert.mic_init_failed.title", "Your microphone couldn't be initialized."), LocalizationManager.L("alert.mic_init_failed.info", "Please ensure your microphone is properly connected and that it works as expected. Check that no other application has exclusive control over it."), LocalizationManager.L("alert.close", "Close"));
             PlayerPrefs.SetInt("ERR", 0);
         }
         else if (PlayerPrefs.GetInt("HostDisconnected") == 1)
         {
-            ShowInfo("You have been disconnected.", "The host has disconnected, so you have been returned to the menu.", "Close");
+            ShowInfo(LocalizationManager.L("alert.host_disconnected.title", "You have been disconnected."), LocalizationManager.L("alert.host_disconnected.info", "The host has disconnected, so you have been returned to the menu."), LocalizationManager.L("alert.close", "Close"));
             PlayerPrefs.SetInt("HostDisconnected", 0);
             PlayerPrefs.SetInt("fromMP", 0);
             PlayerPrefs.SetInt("multiplayer", 0);
@@ -141,6 +141,6 @@ public class AlertManager : MonoBehaviour
 
     public void MPDisclaimer()
     {
-        ShowInfo("Multiplayer is unavailable.", "Multiplayer mode is currently under development! Once development is complete, it will be accessible from this button.", "Close");
+        ShowInfo(LocalizationManager.L("alert.mp_unavailable.title", "Multiplayer is unavailable."), LocalizationManager.L("alert.mp_unavailable.info", "Multiplayer mode is currently under development! Once development is complete, it will be accessible from this button."), LocalizationManager.L("alert.close", "Close"));
     }
 }

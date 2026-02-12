@@ -82,6 +82,7 @@ public class SettingsManager : MonoBehaviour
         string dataPath = PlayerPrefs.GetString("dataPath", Application.persistentDataPath);
         _settingsFilePath = Path.Combine(dataPath, "settings.json");
         LoadSettings();
+        PopulateLanguageOptions();
         PopulateResolutionOptions();
         ApplyDisplaySettings();
     }
@@ -188,6 +189,7 @@ public class SettingsManager : MonoBehaviour
             { "MenuBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Background", Description = "Defines the background that will be displayed in the menu.", DropdownOptions = new List<string> { "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
             { "InGameBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "In-Game Background", Description = "Defines the background that will be displayed in-game.", DropdownOptions = new List<string> { "None", "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
             { "AudioReactiveBGInGame", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Background", Description = "Defines if the background will be audio-reactive or not. Currently, this only works if you are using the Rainbow Tunnel BG."  } },
+            { "Language", new Setting { Value = 0, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Language", Description = "Select your preferred game language.", DropdownOptions = new List<string> { "English" } } },
             { "Resolution", new Setting { Value = 0, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Resolution", Description = "Screen resolution. Only available on desktop platforms.", DropdownOptions = new List<string> { "Default" } } },
             { "Fullscreen", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Fullscreen", Description = "Toggle fullscreen mode. Only available on desktop platforms." } },
             { "LimitFPS", new Setting { Value = false, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Limit FPS to 60", Description = "If enabled, limits the game to 60 FPS instead of your display's native refresh rate. Useful for power saving on high refresh rate monitors." } },
@@ -269,9 +271,9 @@ public class SettingsManager : MonoBehaviour
                     // Revert to VocalRemover and show error
                     Debug.LogWarning("[SettingsManager] Demucs is not supported on mobile devices.");
                     AlertManager.Instance?.ShowError(
-                        "Demucs is not supported on mobile devices",
-                        "Demucs requires a desktop environment with GPU support. Please use VocalRemover.org instead.",
-                        "OK"
+                        LocalizationManager.L("alert.demucs_mobile.title", "Demucs is not supported on mobile devices"),
+                        LocalizationManager.L("alert.demucs_mobile.info", "Demucs requires a desktop environment with GPU support. Please use VocalRemover.org instead."),
+                        LocalizationManager.L("alert.ok", "OK")
                     );
                     setting.Value = 0; // Revert to VocalRemover
                     SaveSettings();
@@ -299,9 +301,9 @@ public class SettingsManager : MonoBehaviour
                 if (IsMobilePlatform())
                 {
                     AlertManager.Instance?.ShowInfo(
-                        "Not available on mobile",
-                        "Resolution settings are only available on desktop platforms.",
-                        "OK"
+                        LocalizationManager.L("alert.not_available_mobile.title", "Not available on mobile"),
+                        LocalizationManager.L("alert.resolution_mobile.info", "Resolution settings are only available on desktop platforms."),
+                        LocalizationManager.L("alert.ok", "OK")
                     );
                     return;
                 }
@@ -315,15 +317,28 @@ public class SettingsManager : MonoBehaviour
                 if (IsMobilePlatform())
                 {
                     AlertManager.Instance?.ShowInfo(
-                        "Not available on mobile",
-                        "Fullscreen settings are only available on desktop platforms.",
-                        "OK"
+                        LocalizationManager.L("alert.not_available_mobile.title", "Not available on mobile"),
+                        LocalizationManager.L("alert.fullscreen_mobile.info", "Fullscreen settings are only available on desktop platforms."),
+                        LocalizationManager.L("alert.ok", "OK")
                     );
                     return;
                 }
                 setting.Value = value;
                 ApplyFullscreen();
                 SaveSettings();
+                return;
+            }
+            else if (key == "Language")
+            {
+                setting.Value = value;
+                SaveSettings();
+                if (LocalizationManager.Instance != null)
+                {
+                    int langIndex = Convert.ToInt32(value);
+                    var codes = LocalizationManager.Instance.AvailableLanguageCodes;
+                    if (langIndex >= 0 && langIndex < codes.Count)
+                        LocalizationManager.Instance.LoadLanguage(codes[langIndex]);
+                }
                 return;
             }
             else if (key == "LimitFPS")
@@ -370,6 +385,48 @@ public class SettingsManager : MonoBehaviour
                 Debug.Log("[SettingsManager] FPS set to unlimited (-1)");
             }
         }
+    }
+
+    /// <summary>
+    /// Populates the Language dropdown from available localization files in Resources.
+    /// </summary>
+    private void PopulateLanguageOptions()
+    {
+        if (!_settings.ContainsKey("Language")) return;
+
+        var textAssets = Resources.LoadAll<TextAsset>("Localization");
+        if (textAssets.Length == 0) return;
+
+        // Sort so "en" is first
+        var sorted = textAssets.OrderBy(a => a.name == "en" ? 0 : 1).ThenBy(a => a.name).ToArray();
+
+        var displayNames = new List<string>();
+        var codes = new List<string>();
+
+        foreach (var asset in sorted)
+        {
+            codes.Add(asset.name);
+            try
+            {
+                var dict = JsonConvert.DeserializeObject<Dictionary<string, string>>(asset.text);
+                if (dict != null && dict.TryGetValue("_language_name", out string name))
+                    displayNames.Add(name);
+                else
+                    displayNames.Add(asset.name);
+            }
+            catch
+            {
+                displayNames.Add(asset.name);
+            }
+        }
+
+        _settings["Language"].DropdownOptions = displayNames;
+
+        // Clamp saved value to valid range
+        int saved = 0;
+        try { saved = Convert.ToInt32(_settings["Language"].Value); } catch { }
+        if (saved < 0 || saved >= displayNames.Count)
+            _settings["Language"].Value = 0;
     }
 
     /// <summary>

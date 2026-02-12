@@ -632,7 +632,7 @@ public class EditorManager : MonoBehaviour
             // Export custom song to zip
             ExportCustomSongToZip(trackName, artistName);
 
-            AlertManager.Instance.ShowSuccess("Lyrics successfully created.", "You can now play this song by accessing your Downloaded Songs.", "Dismiss");
+            AlertManager.Instance.ShowSuccess(LocalizationManager.L("alert.lyrics_created.title", "Lyrics successfully created."), LocalizationManager.L("alert.lyrics_created.info", "You can now play this song by accessing your Downloaded Songs."), LocalizationManager.L("alert.dismiss", "Dismiss"));
             FavoritesManager.AddDownload(trackName, artistName, albumName, FormatTime(duration), "", GenerateRandomString(16), (int)(duration * 1000));
         }
     }
@@ -769,9 +769,9 @@ public class EditorManager : MonoBehaviour
             if (hasLyrics)
             {
                 AlertManager.Instance.ShowWarning(
-                    "Lyrics Already Exist",
-                    $"This song already has synced lyrics on LRCLib. If you want to edit the lyrics anyway, click the song again to confirm.",
-                    "OK"
+                    LocalizationManager.L("alert.lyrics_already_exist.title", "Lyrics Already Exist"),
+                    LocalizationManager.L("alert.lyrics_already_exist.info", "This song already has synced lyrics on LRCLib. If you want to edit the lyrics anyway, click the song again to confirm."),
+                    LocalizationManager.L("alert.ok", "OK")
                 );
                 hasConfirmedLyricsOverride = true;
                 return;
@@ -1054,7 +1054,7 @@ public class EditorManager : MonoBehaviour
         if (!File.Exists(zipFilePath))
         {
             Debug.LogError($"Zip file not found: {zipFilePath}");
-            AlertManager.Instance.ShowError("Import Failed", "The selected zip file could not be found.", "OK");
+            AlertManager.Instance.ShowError(LocalizationManager.L("alert.import_failed.title", "Import Failed"), LocalizationManager.L("alert.import_zip_not_found.info", "The selected zip file could not be found."), LocalizationManager.L("alert.ok", "OK"));
             return;
         }
 
@@ -1062,7 +1062,7 @@ public class EditorManager : MonoBehaviour
         if (string.IsNullOrEmpty(dataPath))
         {
             Debug.LogError("dataPath is not set in PlayerPrefs!");
-            AlertManager.Instance.ShowError("Import Failed", "Data path is not configured.", "OK");
+            AlertManager.Instance.ShowError(LocalizationManager.L("alert.import_failed.title", "Import Failed"), LocalizationManager.L("alert.import_data_path.info", "Data path is not configured."), LocalizationManager.L("alert.ok", "OK"));
             return;
         }
 
@@ -1159,12 +1159,12 @@ public class EditorManager : MonoBehaviour
             Directory.Delete(tempExtractPath, true);
 
             Debug.Log($"Successfully imported custom song: {artistName} - {trackName}");
-            AlertManager.Instance.ShowSuccess("Import Successful", $"Successfully imported '{trackName}' by {artistName}.", "OK");
+            AlertManager.Instance.ShowSuccess(LocalizationManager.L("alert.import_successful.title", "Import Successful"), string.Format(LocalizationManager.L("alert.import_successful.info", "Successfully imported '{0}' by {1}."), trackName, artistName), LocalizationManager.L("alert.ok", "OK"));
         }
         catch (Exception ex)
         {
             Debug.LogError($"Error importing zip file: {ex.Message}");
-            AlertManager.Instance.ShowError("Import Failed", $"Failed to import custom song: {ex.Message}", "OK");
+            AlertManager.Instance.ShowError(LocalizationManager.L("alert.import_failed.title", "Import Failed"), string.Format(LocalizationManager.L("alert.import_error.info", "Failed to import custom song: {0}"), ex.Message), LocalizationManager.L("alert.ok", "OK"));
         }
     }
 

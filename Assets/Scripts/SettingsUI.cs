@@ -134,7 +134,7 @@ public class SettingsUI : MonoBehaviour
                 {
                     if (profile.microphone == "Default")
                     {
-                        AlertManager.Instance.ShowWarning("There are micless profiles.", "One of your profiles has no microphone selected. If you aren't going to use said profile, please disable it.", "Dismiss");
+                        AlertManager.Instance.ShowWarning(LocalizationManager.L("alert.micless_profiles.title", "There are micless profiles."), LocalizationManager.L("alert.micless_profiles.info", "One of your profiles has no microphone selected. If you aren't going to use said profile, please disable it."), LocalizationManager.L("alert.dismiss", "Dismiss"));
                         return;
                     }
                 }
@@ -184,7 +184,7 @@ public class SettingsUI : MonoBehaviour
                 {
                     if (profile.microphone == "Default")
                     {
-                        AlertManager.Instance.ShowWarning("There are micless profiles.", "One of your profiles has no microphone selected. If you aren't going to use said profile, please disable it.", "Dismiss");
+                        AlertManager.Instance.ShowWarning(LocalizationManager.L("alert.micless_profiles.title", "There are micless profiles."), LocalizationManager.L("alert.micless_profiles.info", "One of your profiles has no microphone selected. If you aren't going to use said profile, please disable it."), LocalizationManager.L("alert.dismiss", "Dismiss"));
                         return;
                     }
                 }
@@ -370,13 +370,13 @@ public class SettingsUI : MonoBehaviour
     {
         if (ProfileManager.Instance.GetActiveProfiles().Count == 0)
         {
-            AlertManager.Instance.ShowError("You don't have any active profiles!", "Please go to the Settings (cogwheel on the bottom right) and either create a new profile or activate an existing one.", "Dismiss");
+            AlertManager.Instance.ShowError(LocalizationManager.L("alert.no_active_profiles.title", "You don't have any active profiles!"), LocalizationManager.L("alert.no_active_profiles.info", "Please go to the Settings (cogwheel on the bottom right) and either create a new profile or activate an existing one."), LocalizationManager.L("alert.dismiss", "Dismiss"));
             return;
         }
 
         if (ProfileManager.Instance.GetActiveProfiles().Count > 1)
         {
-            AlertManager.Instance.ShowError("You have more than one active profile!", "Multiplayer supports only one profile per client. Please deactivate profiles that are not going to be used.", "Dismiss");
+            AlertManager.Instance.ShowError(LocalizationManager.L("alert.too_many_profiles.title", "You have more than one active profile!"), LocalizationManager.L("alert.too_many_profiles.info", "Multiplayer supports only one profile per client. Please deactivate profiles that are not going to be used."), LocalizationManager.L("alert.dismiss", "Dismiss"));
             return;
         }
 
@@ -384,7 +384,7 @@ public class SettingsUI : MonoBehaviour
         {
             if (profile.microphone == "Default")
             {
-                AlertManager.Instance.ShowWarning("There are micless profiles.", "One of your profiles has no microphone selected. If you aren't going to use said profile, please disable it.", "Dismiss");
+                AlertManager.Instance.ShowWarning(LocalizationManager.L("alert.micless_profiles.title", "There are micless profiles."), LocalizationManager.L("alert.micless_profiles.info", "One of your profiles has no microphone selected. If you aren't going to use said profile, please disable it."), LocalizationManager.L("alert.dismiss", "Dismiss"));
                 return;
             }
         }

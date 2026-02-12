@@ -372,7 +372,7 @@ public class ProfileManager : MonoBehaviour
             Debug.Log($"Profile '{name}' is already active.");
             if(PlayerPrefs.GetInt("fromSettings") == 1)
             {
-                AlertManager.Instance.ShowInfo("This profile is already active.", "The profile you picked is already active. Please choose/create another one by clicking the Add Profile button.", "Dismiss");
+                AlertManager.Instance.ShowInfo(LocalizationManager.L("alert.profile_already_active.title", "This profile is already active."), LocalizationManager.L("alert.profile_already_active.info", "The profile you picked is already active. Please choose/create another one by clicking the Add Profile button."), LocalizationManager.L("alert.dismiss", "Dismiss"));
             }
             return 0;
         }

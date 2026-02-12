@@ -160,9 +160,9 @@ public class ConnectionUI : MonoBehaviour
     private IEnumerator ShowRoomNameErrorAndRevert()
     {
         AlertManager.Instance?.ShowError(
-            "Room name required.",
-            "Please enter a room name before creating a room.",
-            "Dismiss"
+            LocalizationManager.L("alert.room_name_required.title", "Room name required."),
+            LocalizationManager.L("alert.room_name_required.info", "Please enter a room name before creating a room."),
+            LocalizationManager.L("alert.dismiss", "Dismiss")
         );
         yield return null;
         RevertToMenuState();
@@ -203,9 +203,9 @@ public class ConnectionUI : MonoBehaviour
             {
                 Debug.LogError("ConnectionUI: Timed out waiting for server to start.");
                 AlertManager.Instance?.ShowError(
-                    "Failed to start server",
-                    "Could not start the server. Please try again.",
-                    "Dismiss"
+                    LocalizationManager.L("alert.server_start_failed.title", "Failed to start server"),
+                    LocalizationManager.L("alert.server_start_failed.info", "Could not start the server. Please try again."),
+                    LocalizationManager.L("alert.dismiss", "Dismiss")
                 );
                 RevertToMenuState();
                 yield break;
@@ -281,9 +281,9 @@ public class ConnectionUI : MonoBehaviour
             if (AlertManager.Instance != null)
             {
                 AlertManager.Instance.ShowError(
-                    "Invalid IP",
-                    "Please enter a valid IP address.",
-                    "Dismiss"
+                    LocalizationManager.L("alert.invalid_ip.title", "Invalid IP"),
+                    LocalizationManager.L("alert.invalid_ip.info", "Please enter a valid IP address."),
+                    LocalizationManager.L("alert.dismiss", "Dismiss")
                 );
             }
             yield return null;
@@ -341,9 +341,9 @@ public class ConnectionUI : MonoBehaviour
             {
                 Debug.Log("ConnectionUI: Showing error alert");
                 AlertManager.Instance.ShowError(
-                    "Cannot reach host",
-                    $"The IP address '{targetIp}' is not reachable. Please check the address and make sure the host is running.",
-                    "Dismiss"
+                    LocalizationManager.L("alert.cannot_reach_host.title", "Cannot reach host"),
+                    string.Format(LocalizationManager.L("alert.cannot_reach_host.info", "The IP address '{0}' is not reachable. Please check the address and make sure the host is running."), targetIp),
+                    LocalizationManager.L("alert.dismiss", "Dismiss")
                 );
             }
             else
@@ -427,9 +427,9 @@ public class ConnectionUI : MonoBehaviour
             if (AlertManager.Instance != null)
             {
                 AlertManager.Instance.ShowError(
-                    "Connection failed",
-                    $"Could not connect to room at '{targetIp}'. Make sure the host has created a room and try again.",
-                    "Dismiss"
+                    LocalizationManager.L("alert.connection_failed.title", "Connection failed"),
+                    string.Format(LocalizationManager.L("alert.connection_failed.info", "Could not connect to room at '{0}'. Make sure the host has created a room and try again."), targetIp),
+                    LocalizationManager.L("alert.dismiss", "Dismiss")
                 );
             }
 
@@ -1021,9 +1021,9 @@ public class ConnectionUI : MonoBehaviour
         if (PlayerPrefs.GetInt("HasSeenMultiplayerAlert", 0) == 0)
         {
             AlertManager.Instance.ShowInfo(
-                        "Welcome to Multiplayer!",
-                        "To play with others, you need to be on the same network as them. If you aren't, click <link=\"https://www.youtube.com/watch?v=sUTNHLu_utc\"><u>here</u></link> to learn how to be on the same network as them.",
-                        "OK"
+                        LocalizationManager.L("alert.mp_welcome.title", "Welcome to Multiplayer!"),
+                        LocalizationManager.L("alert.mp_welcome.info", "To play with others, you need to be on the same network as them. If you aren't, click <link=\"https://www.youtube.com/watch?v=sUTNHLu_utc\"><u>here</u></link> to learn how to be on the same network as them."),
+                        LocalizationManager.L("alert.ok", "OK")
                     );
             PlayerPrefs.SetInt("HasSeenMultiplayerAlert", 1);
             PlayerPrefs.Save();
@@ -1033,9 +1033,9 @@ public class ConnectionUI : MonoBehaviour
     public void ForceMultiplayerDisclaimer()
     {
         AlertManager.Instance.ShowInfo(
-                        "You need to be on the same network.",
-                        "To play with others, you need to be on the same network as them. If you aren't, click <link=\"https://www.youtube.com/watch?v=sUTNHLu_utc\"><u>here</u></link> to learn how to be on the same network as them.",
-                        "OK"
+                        LocalizationManager.L("alert.mp_same_network.title", "You need to be on the same network."),
+                        LocalizationManager.L("alert.mp_welcome.info", "To play with others, you need to be on the same network as them. If you aren't, click <link=\"https://www.youtube.com/watch?v=sUTNHLu_utc\"><u>here</u></link> to learn how to be on the same network as them."),
+                        LocalizationManager.L("alert.ok", "OK")
                     );
     }
 }

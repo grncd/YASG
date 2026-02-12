@@ -267,6 +267,7 @@ GameObject:
   - component: {fileID: 1953498383471140438}
   - component: {fileID: 6703239607022642101}
   - component: {fileID: 4489099332320034815}
+  - component: {fileID: 4722813770934557337}
   m_Layer: 5
   m_Name: MehLabel
   m_TagString: Untagged
@@ -393,6 +394,19 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &4722813770934557337
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 336412146466301635}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8d78a080d6d1a14d9cc5df126332fa6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LocalizedText
+  localizationKey: mehjudge
 --- !u!1 &646463812208619520
 GameObject:
   m_ObjectHideFlags: 0
@@ -1567,6 +1581,7 @@ GameObject:
   - component: {fileID: 5373050469773829737}
   - component: {fileID: 5725455217643928746}
   - component: {fileID: 4902426544939393585}
+  - component: {fileID: 2398012463972221507}
   m_Layer: 5
   m_Name: GreatLabel
   m_TagString: Untagged
@@ -1693,6 +1708,19 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &2398012463972221507
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3875105903672830473}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8d78a080d6d1a14d9cc5df126332fa6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LocalizedText
+  localizationKey: greatjudge
 --- !u!1 &3895864969047190418
 GameObject:
   m_ObjectHideFlags: 0
@@ -7071,6 +7099,7 @@ GameObject:
   - component: {fileID: 1644261267000417510}
   - component: {fileID: 5996358620041508133}
   - component: {fileID: 1085455195650571223}
+  - component: {fileID: 8481603479991072280}
   m_Layer: 5
   m_Name: PerfectLabel
   m_TagString: Untagged
@@ -7197,3 +7226,16 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!114 &8481603479991072280
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7683988789442464268}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8d78a080d6d1a14d9cc5df126332fa6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LocalizedText
+  localizationKey: perfectjudge
