@@ -2955,6 +2955,7 @@ MonoBehaviour:
   levelText: {fileID: 2214628639163338096}
   totalScoreText: {fileID: 8928785296188333039}
   micAmplitudeSlider: {fileID: 4275588690699124896}
+  fxMixerGroup: {fileID: 24300002, guid: bdb8f3dff423f3143bf13ff318516a30, type: 2}
   profileIdentifier: 
 --- !u!1 &8479565908042585634
 GameObject:

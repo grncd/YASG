@@ -10,6 +10,7 @@ using Unity.Collections;
 using MyAudioProcessing;
 using System.Collections.Generic;
 using MPUIKIT;
+using UnityEngine.Audio;
 
 public class RealTimePitchDetector : MonoBehaviour
 {
@@ -89,6 +90,10 @@ public class RealTimePitchDetector : MonoBehaviour
     public float _localScore = 0f;
     public MPImage micGlowImage;
 
+    [Header("Microphone Feedback")]
+    [Tooltip("Assign the FX AudioMixerGroup to route mic feedback through the SFX volume control.")]
+    public AudioMixerGroup fxMixerGroup;
+
     private AudioClip micClip;
     private float[] audioBuffer;
     private float currentPitch = 0f;
@@ -129,6 +134,8 @@ public class RealTimePitchDetector : MonoBehaviour
 
     private bool _isInitialized = false;
     private bool _isRecording = false;
+    private GameObject _feedbackGO;
+    private MicFeedbackFilter _feedbackFilter;
     private bool _scoreIncrementInitialized = false;
     private bool _scoreSaved = false;
     private int harmonicUsed = 0;
@@ -549,6 +556,7 @@ public class RealTimePitchDetector : MonoBehaviour
         }
 
         _isRecording = true;
+        StartMicFeedback();
 
         Debug.Log("[RealTimePitchDetector] Microphone started: " + selectedDevice + " | Sample Rate: " + sampleRate + " | Window: " + analysisWindowSize);
 
@@ -594,6 +602,29 @@ public class RealTimePitchDetector : MonoBehaviour
             !Mathf.Approximately(_previousLowShelfQ, lowShelfQ))
         {
             UpdateBiquadCoefficients();
+        }
+    }
+
+    private void StartMicFeedback()
+    {
+        if (micClip == null) return;
+
+        if (_feedbackGO == null)
+        {
+            _feedbackGO = new GameObject("MicFeedback");
+            _feedbackGO.transform.SetParent(transform);
+            _feedbackGO.AddComponent<AudioSource>();
+            _feedbackFilter = _feedbackGO.AddComponent<MicFeedbackFilter>();
+        }
+
+        _feedbackFilter.Activate(micClip, selectedDevice, fxMixerGroup);
+    }
+
+    private void StopMicFeedback()
+    {
+        if (_feedbackFilter != null)
+        {
+            _feedbackFilter.Deactivate();
         }
     }
 
@@ -1065,6 +1096,8 @@ public class RealTimePitchDetector : MonoBehaviour
         if (nativeAutocorrelation.IsCreated) nativeAutocorrelation.Dispose();
         if (nativePitchResult.IsCreated) nativePitchResult.Dispose();
         if (nativeCurrentPitch2Container.IsCreated) nativeCurrentPitch2Container.Dispose();
+
+        StopMicFeedback();
 
         if (_isRecording && !string.IsNullOrEmpty(selectedDevice))
         {
