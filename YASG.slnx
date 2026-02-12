@@ -8,7 +8,6 @@
   <Project Path="GameKit.Dependencies.csproj" />
   <Project Path="DualPlay.Settings.csproj" />
   <Project Path="MPUIKit.Editor.csproj" />
-  <Project Path="com.ben-w.erp.csproj" />
   <Project Path="Assembly-CSharp-firstpass.csproj" />
   <Project Path="MPUIKit.csproj" />
   <Project Path="Unity.PlayerPrefsEditor.Editor.csproj" />

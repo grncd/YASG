@@ -82,6 +82,8 @@ public class SettingsManager : MonoBehaviour
         string dataPath = PlayerPrefs.GetString("dataPath", Application.persistentDataPath);
         _settingsFilePath = Path.Combine(dataPath, "settings.json");
         LoadSettings();
+        PopulateResolutionOptions();
+        ApplyDisplaySettings();
     }
 
     /// <summary>
@@ -166,6 +168,7 @@ public class SettingsManager : MonoBehaviour
 
             { "DynamicVolumeThreshold", new Setting { Value = "-1.2", Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.TextInput, FormalName = "Dynamic Volume Threshold", Description = "Impacts scoring heavily. Lower means you will need to sing quieter parts of the vocal track and higher means the opposite. Ranges between -10dB and 10dB. Default is -1.2dB. Only change this if you know what you're doing."  } },
             { "PlayInstrumental", new Setting { Value = false, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Play Instrumental", Description = "If toggled on, the game will play the instrumental version of the song (no vocals) during gameplay."  } },
+            { "MicFeedback", new Setting { Value = true, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Microphone Feedback", Description = "If toggled on, you will hear your own voice through your speakers/headphones while singing. Disable this if you experience echo or don't want to hear yourself." } },
 
             { "LyricDisplayOffset", new Setting { Value = "0.75", Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.TextInput, FormalName = "Lyric Display Offset", Description = "Offset (in seconds) used to DISPLAY the lyrics, is only visual and does not affect scoring. Turn this up if you need more time to process the upcoming lyrics. Default is 1s."  } },
             { "ExtraLyricsDisplay", new Setting { Value = 1, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Extra Lyrics Display", Description = "Controls whether to show upcoming and/or previous lyric lines.", DropdownOptions = new List<string> { "Off", "Upcoming Only", "Upcoming & Previous" } } },
@@ -178,12 +181,15 @@ public class SettingsManager : MonoBehaviour
             { "PitchDetectionQuality", new Setting { Value = 2, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Real-Time Pitch Detection Quality", Description = "Turn this down if your FPS is dropping when singing in game. Only recommended to turn this up if you have a very low pitched voice or want precise pitch detection.", DropdownOptions = new List<string> { "Low", "Medium", "High", "Very High" } } },
             { "VocalProcessingMethod", new Setting { Value = 0, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Vocal Processing Method", Description = "Method used to extract vocals from the song. Only use vocalremover.org if you don't have a (good) GPU. Otherwise, use Demucs.", DropdownOptions = new List<string> { "VocalRemover.org", "Demucs" } } },
             { "DownloadMethod", new Setting { Value = 0, Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Download Method", Description = "Method used to download songs from YouTube. yt-dlp is more reliable and works on all platforms including Android. YoutubeExplode is an alternative.", DropdownOptions = new List<string> { "yt-dlp", "YoutubeExplode" } } },
+            { "WASAPILatency", new Setting { Value = "10", Category = SettingCategory.Processing, IsHidden = false, UIType = UIType.TextInput, FormalName = "Microphone Feedback Latency (ms)", Description = "WASAPI buffer latency in milliseconds for microphone feedback. Lower values mean less delay but may cause crackling on some systems. Default is 10ms. Only change this if you experience issues." } },
 
             // Misc
             { "MenuMusic", new Setting { Value = 2, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Music", Description = "Defines the song that will be played in the menu.", DropdownOptions = new List<string> { "None","Default","Random selection from downloaded songs" } } },
             { "MenuBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Background", Description = "Defines the background that will be displayed in the menu.", DropdownOptions = new List<string> { "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
             { "InGameBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "In-Game Background", Description = "Defines the background that will be displayed in-game.", DropdownOptions = new List<string> { "None", "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
             { "AudioReactiveBGInGame", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Background", Description = "Defines if the background will be audio-reactive or not. Currently, this only works if you are using the Rainbow Tunnel BG."  } },
+            { "Resolution", new Setting { Value = 0, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Resolution", Description = "Screen resolution. Only available on desktop platforms.", DropdownOptions = new List<string> { "Default" } } },
+            { "Fullscreen", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Fullscreen", Description = "Toggle fullscreen mode. Only available on desktop platforms." } },
             { "LimitFPS", new Setting { Value = false, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Limit FPS to 60", Description = "If enabled, limits the game to 60 FPS instead of your display's native refresh rate. Useful for power saving on high refresh rate monitors." } },
             { "BGResolution", new Setting { Value = 2, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Background Resolution", Description = "Lower this to improve GPU performance at the cost of background resolution.", DropdownOptions = new List<string> { "0.25x (Very Low)", "0.5x (Low)", "0.75x (Medium)", "1.0x (Native)" } } },
 
@@ -288,6 +294,38 @@ public class SettingsManager : MonoBehaviour
                     PlayerPrefs.SetInt("setupDone", 1);
                 }
             }
+            else if (key == "Resolution")
+            {
+                if (IsMobilePlatform())
+                {
+                    AlertManager.Instance?.ShowInfo(
+                        "Not available on mobile",
+                        "Resolution settings are only available on desktop platforms.",
+                        "OK"
+                    );
+                    return;
+                }
+                setting.Value = value;
+                ApplyResolution();
+                SaveSettings();
+                return;
+            }
+            else if (key == "Fullscreen")
+            {
+                if (IsMobilePlatform())
+                {
+                    AlertManager.Instance?.ShowInfo(
+                        "Not available on mobile",
+                        "Fullscreen settings are only available on desktop platforms.",
+                        "OK"
+                    );
+                    return;
+                }
+                setting.Value = value;
+                ApplyFullscreen();
+                SaveSettings();
+                return;
+            }
             else if (key == "LimitFPS")
             {
                 // Set the value first, then apply so ApplyFPSLimit reads the new value
@@ -332,6 +370,88 @@ public class SettingsManager : MonoBehaviour
                 Debug.Log("[SettingsManager] FPS set to unlimited (-1)");
             }
         }
+    }
+
+    /// <summary>
+    /// Populates the Resolution dropdown with available screen resolutions.
+    /// </summary>
+    private void PopulateResolutionOptions()
+    {
+        if (IsMobilePlatform()) return;
+        if (!_settings.ContainsKey("Resolution")) return;
+
+        Resolution[] resolutions = Screen.resolutions;
+        var options = new List<string>();
+        var seen = new HashSet<string>();
+
+        foreach (var res in resolutions)
+        {
+            string key = $"{res.width}x{res.height}";
+            if (seen.Add(key))
+                options.Add(key);
+        }
+
+        if (options.Count == 0)
+            options.Add($"{Screen.width}x{Screen.height}");
+
+        _settings["Resolution"].DropdownOptions = options;
+
+        // Try to match saved resolution, fall back to current screen resolution
+        string savedRes = PlayerPrefs.GetString("SavedResolution", $"{Screen.width}x{Screen.height}");
+        int idx = options.IndexOf(savedRes);
+        if (idx < 0)
+        {
+            string current = $"{Screen.width}x{Screen.height}";
+            idx = options.IndexOf(current);
+            if (idx < 0) idx = options.Count - 1;
+        }
+        _settings["Resolution"].Value = idx;
+    }
+
+    /// <summary>
+    /// Applies the saved resolution and fullscreen settings on startup.
+    /// </summary>
+    private void ApplyDisplaySettings()
+    {
+        if (IsMobilePlatform()) return;
+
+        bool fullscreen = GetSetting<bool>("Fullscreen", true);
+        Screen.fullScreen = fullscreen;
+
+        ApplyResolution();
+    }
+
+    /// <summary>
+    /// Applies the current Resolution setting.
+    /// </summary>
+    private void ApplyResolution()
+    {
+        if (IsMobilePlatform()) return;
+        if (!_settings.ContainsKey("Resolution")) return;
+
+        int resIndex = GetSetting<int>("Resolution", 0);
+        var options = _settings["Resolution"].DropdownOptions;
+        if (resIndex < 0 || resIndex >= options.Count) return;
+
+        string resStr = options[resIndex];
+        string[] parts = resStr.Split('x');
+        if (parts.Length == 2 && int.TryParse(parts[0], out int w) && int.TryParse(parts[1], out int h))
+        {
+            Screen.SetResolution(w, h, Screen.fullScreen);
+            PlayerPrefs.SetString("SavedResolution", resStr);
+            Debug.Log($"[SettingsManager] Resolution set to {w}x{h}");
+        }
+    }
+
+    /// <summary>
+    /// Applies the current Fullscreen setting.
+    /// </summary>
+    private void ApplyFullscreen()
+    {
+        if (IsMobilePlatform()) return;
+        bool fullscreen = GetSetting<bool>("Fullscreen", true);
+        Screen.fullScreen = fullscreen;
+        Debug.Log($"[SettingsManager] Fullscreen set to {fullscreen}");
     }
 
     /// <summary>
