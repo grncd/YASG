@@ -6,6 +6,7 @@ using System.Linq; // For LINQ methods like .SequenceEqual()
 using TMPro; // Make sure you have TextMeshPro imported
 using MPUIKIT;
 using System;
+using UnityEngine.Audio;
 
 public class MicDropdownUI : MonoBehaviour
 {
@@ -19,6 +20,10 @@ public class MicDropdownUI : MonoBehaviour
     [Header("Microphone Visualizer")]
     [Tooltip("Slider that visualizes microphone amplitude")]
     public Slider micAmplitudeSlider;
+
+    [Header("Microphone Feedback")]
+    [Tooltip("Assign the FX AudioMixerGroup to route mic feedback through the SFX volume control.")]
+    public AudioMixerGroup fxMixerGroup;
 
     [Header("Profile Configuration")]
     [Tooltip("The name of the profile this UI element will manage...")]
@@ -40,6 +45,8 @@ public class MicDropdownUI : MonoBehaviour
     private float _currentAmplitudeValue = 0f; // Current smoothed amplitude value
     private const float AMPLITUDE_SMOOTHING = 10f; // Speed of smoothing (higher = faster)
     private string _currentMicName = ""; // Track which mic is currently open
+    private GameObject _feedbackGO;
+    private MicFeedbackFilter _feedbackFilter;
 
     // Dynamic property that always gets the current index from ProfileManager
     private int PlayerIndex
@@ -360,6 +367,8 @@ public class MicDropdownUI : MonoBehaviour
 
     private void StopMicVisualizer()
     {
+        StopMicFeedback();
+
         if (_micVisualizerCoroutine != null)
         {
             StopCoroutine(_micVisualizerCoroutine);
@@ -379,6 +388,29 @@ public class MicDropdownUI : MonoBehaviour
         if (micAmplitudeSlider != null)
         {
             micAmplitudeSlider.value = 0f;
+        }
+    }
+
+    private void StartMicFeedback(AudioClip clip, string micName)
+    {
+        if (clip == null) return;
+
+        if (_feedbackGO == null)
+        {
+            _feedbackGO = new GameObject("MicFeedback");
+            _feedbackGO.transform.SetParent(transform);
+            _feedbackGO.AddComponent<AudioSource>();
+            _feedbackFilter = _feedbackGO.AddComponent<MicFeedbackFilter>();
+        }
+
+        _feedbackFilter.Activate(clip, micName, fxMixerGroup);
+    }
+
+    private void StopMicFeedback()
+    {
+        if (_feedbackFilter != null)
+        {
+            _feedbackFilter.Deactivate();
         }
     }
 
@@ -412,6 +444,9 @@ public class MicDropdownUI : MonoBehaviour
             }
             yield return null;
         }
+
+        // Start low-latency mic audio feedback
+        StartMicFeedback(_micClip, micName);
 
         float[] samples = new float[MIC_SAMPLE_LENGTH];
         _currentAmplitudeValue = 0f; // Reset smoothed value
