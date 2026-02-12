@@ -119,7 +119,7 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
         {
             if (!string.IsNullOrWhiteSpace(line) && !(char.IsUpper(line[0]) || char.IsDigit(line[0]) || line[0] == '\''))
             {
-                AlertManager.Instance.ShowWarning("Invalid lyric format.", "Each lyric line must start with a capitalized letter, or an apostrophe or a number.", "Dismiss");
+                AlertManager.Instance.ShowWarning(LocalizationManager.L("alert.invalid_lyric_format.title", "Invalid lyric format."), LocalizationManager.L("alert.invalid_lyric_format.info", "Each lyric line must start with a capitalized letter, or an apostrophe or a number."), LocalizationManager.L("alert.dismiss", "Dismiss"));
                 return;
             }
         }
@@ -151,13 +151,13 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
         int meaningfulPlainCount = lyricLines.Count(l => !string.IsNullOrWhiteSpace(l));
         if (filteredSyncedLines.Count < meaningfulPlainCount)
         {
-            AlertManager.Instance.ShowWarning("Not all lyrics are synced!", "Please make sure to sync all the lyrics before publishing.", "Dismiss");
+            AlertManager.Instance.ShowWarning(LocalizationManager.L("alert.lyrics_not_synced.title", "Not all lyrics are synced!"), LocalizationManager.L("alert.lyrics_not_synced.info", "Please make sure to sync all the lyrics before publishing."), LocalizationManager.L("alert.dismiss", "Dismiss"));
             return;
         }
 
         if (meaningfulPlainCount < 4)
         {
-            AlertManager.Instance.ShowError("The lyrics are too short.", "You need to have at least 4 verses (4 lines) to be able to submit.", "Dismiss");
+            AlertManager.Instance.ShowError(LocalizationManager.L("alert.lyrics_too_short.title", "The lyrics are too short."), LocalizationManager.L("alert.lyrics_too_short.info", "You need to have at least 4 verses (4 lines) to be able to submit."), LocalizationManager.L("alert.dismiss", "Dismiss"));
             return;
         }
 
@@ -224,7 +224,7 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
             {
                 LevelResourcesCompiler.Instance.ChallengeEnd(); // End loading on failure
                 Debug.LogError("Challenge solving failed. Could not find a valid nonce.");
-                AlertManager.Instance.ShowError("Challenge Failed.", "Could not solve the proof-of-work challenge.", "Dismiss");
+                AlertManager.Instance.ShowError(LocalizationManager.L("alert.challenge_failed.title", "Challenge Failed."), LocalizationManager.L("alert.challenge_failed.info", "Could not solve the proof-of-work challenge."), LocalizationManager.L("alert.dismiss", "Dismiss"));
             }
         }
     }
@@ -281,12 +281,12 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
 
             if (request.result != UnityWebRequest.Result.Success)
             {
-                AlertManager.Instance.ShowError("Error publishing lyrics.", request.downloadHandler.text, "Dismiss");
+                AlertManager.Instance.ShowError(LocalizationManager.L("alert.publish_error.title", "Error publishing lyrics."), request.downloadHandler.text, LocalizationManager.L("alert.dismiss", "Dismiss"));
                 Debug.LogError($"Error publishing lyrics: {request.error}\nServer Response: {request.downloadHandler.text}");
             }
             else
             {
-                AlertManager.Instance.ShowSuccess("Your lyrics have been sent!", "By contributing lyrics, you don't just help YASG, but also every other project that uses LRCLib. Thank you so much!\n(You and all YASG players are now able to play this song.)", "Dismiss");
+                AlertManager.Instance.ShowSuccess(LocalizationManager.L("alert.lyrics_sent.title", "Your lyrics have been sent!"), LocalizationManager.L("alert.lyrics_sent.info", "By contributing lyrics, you don't just help YASG, but also every other project that uses LRCLib. Thank you so much!\n(You and all YASG players are now able to play this song.)"), LocalizationManager.L("alert.dismiss", "Dismiss"));
                 Debug.Log($"Lyrics published successfully!\nServer Response: {request.downloadHandler.text}");
             }
         }

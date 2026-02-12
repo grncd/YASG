@@ -74,7 +74,7 @@ public class FileDropHandler : MonoBehaviour
         {
             Debug.LogError($"Zip file not found: {zipFilePath}");
             if (AlertManager.Instance != null)
-                AlertManager.Instance.ShowError("Import Failed", "The selected zip file could not be found.", "OK");
+                AlertManager.Instance.ShowError(LocalizationManager.L("alert.import_failed.title", "Import Failed"), LocalizationManager.L("alert.import_zip_not_found.info", "The selected zip file could not be found."), LocalizationManager.L("alert.ok", "OK"));
             return;
         }
 
@@ -83,7 +83,7 @@ public class FileDropHandler : MonoBehaviour
         {
             Debug.LogError("dataPath is not set in PlayerPrefs!");
             if (AlertManager.Instance != null)
-                AlertManager.Instance.ShowError("Import Failed", "Data path is not configured.", "OK");
+                AlertManager.Instance.ShowError(LocalizationManager.L("alert.import_failed.title", "Import Failed"), LocalizationManager.L("alert.import_data_path.info", "Data path is not configured."), LocalizationManager.L("alert.ok", "OK"));
             return;
         }
 
@@ -181,13 +181,13 @@ public class FileDropHandler : MonoBehaviour
 
             Debug.Log($"Successfully imported custom song: {artistName} - {trackName}");
             if (AlertManager.Instance != null)
-                AlertManager.Instance.ShowSuccess("Import Successful", $"Successfully imported '{trackName}' by {artistName}.", "OK");
+                AlertManager.Instance.ShowSuccess(LocalizationManager.L("alert.import_successful.title", "Import Successful"), string.Format(LocalizationManager.L("alert.import_successful.info", "Successfully imported '{0}' by {1}."), trackName, artistName), LocalizationManager.L("alert.ok", "OK"));
         }
         catch (Exception ex)
         {
             Debug.LogError($"Error importing zip file: {ex.Message}");
             if (AlertManager.Instance != null)
-                AlertManager.Instance.ShowError("Import Failed", $"Failed to import custom song: {ex.Message}", "OK");
+                AlertManager.Instance.ShowError(LocalizationManager.L("alert.import_failed.title", "Import Failed"), string.Format(LocalizationManager.L("alert.import_error.info", "Failed to import custom song: {0}"), ex.Message), LocalizationManager.L("alert.ok", "OK"));
         }
     }
 

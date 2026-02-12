@@ -273,7 +273,7 @@ public class PlayerPerformance : MonoBehaviour
         {
             Color temp = new Color(1f, 0.6941f, 0.2784f);
             judgmentGlow.color = temp;
-            judgmentText.text = "Meh...";
+            judgmentText.text = LocalizationManager.L("mehjudge", "Meh...");
             judgmentText.color = temp;
             judgmentGlow.GetComponent<Animator>()?.Play("JudgmentGlow", -1, 0f);
             judgmentText.GetComponent<Animator>()?.Play("Judgment", -1, 0f);
@@ -284,7 +284,7 @@ public class PlayerPerformance : MonoBehaviour
         {
             Color temp = new Color(91f / 255f, 1f, 71f / 255f);
             judgmentGlow.color = temp;
-            judgmentText.text = "Great!";
+            judgmentText.text = LocalizationManager.L("greatjudge", "Great!");
             judgmentText.color = temp;
             judgmentGlow.GetComponent<Animator>()?.Play("JudgmentGlow", -1, 0f);
             judgmentText.GetComponent<Animator>()?.Play("Judgment", -1, 0f);
@@ -295,7 +295,7 @@ public class PlayerPerformance : MonoBehaviour
         {
             Color temp = new Color(59f / 255f, 1f, 1f);
             judgmentGlow.color = temp;
-            judgmentText.text = "Perfect!";
+            judgmentText.text = LocalizationManager.L("perfectjudge", "Perfect!");
             judgmentText.color = temp;
             judgmentGlow.GetComponent<Animator>()?.Play("JudgmentGlow", -1, 0f);
             judgmentText.GetComponent<Animator>()?.Play("Judgment", -1, 0f);

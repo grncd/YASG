@@ -88,17 +88,17 @@ public class DifficultySelector : MonoBehaviour
             {
                 if (ProfileManager.Instance.GetProfileByName(PlayerPrefs.GetString(gameObject.name + "Name")).difficulty == 0) // easy
                 {
-                    transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().text = "Easy";
+                    transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().text = LocalizationManager.L("difficulty.easy", "Easy");
                     transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.3042734f, 1f, 0.2588235f);
                 }
                 else if (ProfileManager.Instance.GetProfileByName(PlayerPrefs.GetString(gameObject.name + "Name")).difficulty == 1) // medium
                 {
-                    transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().text = "Medium";
+                    transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().text = LocalizationManager.L("difficulty.medium", "Medium");
                     transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.9826014f, 1f, 0.259434f);
                 }
                 else // hard
                 {
-                    transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().text = "Hard";
+                    transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().text = LocalizationManager.L("difficulty.hard", "Hard");
                     transform.GetChild(1).GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(1f, 0.2588235f, 0.2657269f);
                 }
             }
@@ -106,17 +106,17 @@ public class DifficultySelector : MonoBehaviour
             {
                 if (PlayerPrefs.GetInt("Player1Difficulty") == 0) // easy
                 {
-                    transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = "Easy";
+                    transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = LocalizationManager.L("difficulty.easy", "Easy");
                     transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.3042734f, 1f, 0.2588235f);
                 }
                 else if (PlayerPrefs.GetInt("Player1Difficulty") == 1) // medium
                 {
-                    transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = "Medium";
+                    transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = LocalizationManager.L("difficulty.medium", "Medium");
                     transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(0.9826014f, 1f, 0.259434f);
                 }
                 else // hard
                 {
-                    transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = "Hard";
+                    transform.GetChild(0).GetComponent<TextMeshProUGUI>().text = LocalizationManager.L("difficulty.hard", "Hard");
                     transform.GetChild(0).GetComponent<TextMeshProUGUI>().color = new Color(1f, 0.2588235f, 0.2657269f);
                 }
             }

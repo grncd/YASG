@@ -459,14 +459,14 @@ public class SearchHandler : MonoBehaviour
 
         if (string.IsNullOrEmpty(anonymousAccessToken))
         {
-            AlertManager.Instance.ShowError("Failed to connect to Spotify.", "Could not obtain access token for anonymous search.", "Dismiss");
+            AlertManager.Instance.ShowError(LocalizationManager.L("alert.spotify_failed.title", "Failed to connect to Spotify."), LocalizationManager.L("alert.spotify_access_token.info", "Could not obtain access token for anonymous search."), LocalizationManager.L("alert.dismiss", "Dismiss"));
             yield break;
         }
 
         if (string.IsNullOrEmpty(clientToken))
         {
             Debug.LogError("Client token is missing!");
-            AlertManager.Instance.ShowError("Failed to connect to Spotify.", "Could not obtain client token for search.", "Dismiss");
+            AlertManager.Instance.ShowError(LocalizationManager.L("alert.spotify_failed.title", "Failed to connect to Spotify."), LocalizationManager.L("alert.spotify_client_token.info", "Could not obtain client token for search."), LocalizationManager.L("alert.dismiss", "Dismiss"));
             yield break;
         }
 
@@ -722,7 +722,7 @@ public class SearchHandler : MonoBehaviour
 
         if (favoriteSongs == null || favoriteSongs.Count == 0)
         {
-            alertManager.ShowInfo("No favorites found.", "You haven't added any favorite song yet! You can do so by clicking the heart icon next to the play button in any song.", "Dismiss");
+            alertManager.ShowInfo(LocalizationManager.L("alert.no_favorites.title", "No favorites found."), LocalizationManager.L("alert.no_favorites.info", "You haven't added any favorite song yet! You can do so by clicking the heart icon next to the play button in any song."), LocalizationManager.L("alert.dismiss", "Dismiss"));
             return;
         }
 
@@ -860,7 +860,7 @@ public class SearchHandler : MonoBehaviour
         if (downloadedSongs == null || downloadedSongs.Count == 0)
         {
             // Updated alert message for downloads
-            alertManager.ShowInfo("No downloads found.", "You haven't downloaded any songs yet! Songs you download will appear here.", "Dismiss");
+            alertManager.ShowInfo(LocalizationManager.L("alert.no_downloads.title", "No downloads found."), LocalizationManager.L("alert.no_downloads.info", "You haven't downloaded any songs yet! Songs you download will appear here."), LocalizationManager.L("alert.dismiss", "Dismiss"));
             return;
         }
 

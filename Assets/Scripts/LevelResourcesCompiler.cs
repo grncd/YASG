@@ -831,7 +831,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         {
             if (profile.microphone == "Default")
             {
-                AlertManager.Instance.ShowWarning("There are micless profiles.", "One of your profiles has no microphone selected. If you aren't going to use said profile, please disable it.", "Dismiss");
+                AlertManager.Instance.ShowWarning(LocalizationManager.L("alert.micless_profiles.title", "There are micless profiles."), LocalizationManager.L("alert.micless_profiles.info", "One of your profiles has no microphone selected. If you aren't going to use said profile, please disable it."), LocalizationManager.L("alert.dismiss", "Dismiss"));
                 return;
             }
         }
@@ -959,7 +959,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         loadingFirst.SetActive(false);
         BeginLoading();
         loadingFX.SetActive(true);
-        status.text = "Solving API Challenge... (can take a while)";
+        status.text = LocalizationManager.L("status.solving_challenge", "Solving API Challenge... (can take a while)");
     }
 
     public void ChallengeEnd()
@@ -983,7 +983,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         loadingFirst.SetActive(false);
         BeginLoading();
         loadingFX.SetActive(true);
-        status.text = "Downloading song for playback...";
+        status.text = LocalizationManager.L("status.downloading_playback", "Downloading song for playback...");
 
         try
         {
@@ -1042,7 +1042,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         loadingFirst.SetActive(false);
         BeginLoading(true);
         loadingFX.SetActive(true);
-        status.text = "Splitting vocals for use...";
+        status.text = LocalizationManager.L("status.splitting_vocals_use", "Splitting vocals for use...");
 
         splittingVocals = true;
         Color prev = bgDarken.color;
@@ -1255,7 +1255,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         if (filesVerified)
         {
-            status.text = "Already downloaded. Loading main scene...";
+            status.text = LocalizationManager.L("status.already_downloaded", "Already downloaded. Loading main scene...");
             PlayerPrefs.SetInt("saved", 1);
 
             UnityEngine.Debug.Log("Found all files. Preparing to load.");
@@ -1288,7 +1288,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
 
         loadingFX.SetActive(true);
-        status.text = "Fetching lyrics...";
+        status.text = LocalizationManager.L("status.fetching_lyrics", "Fetching lyrics...");
         compiling = true;
 
         GameObject stage1 = loadingSecond.transform.GetChild(4).GetChild(3).GetChild(0).gameObject;
@@ -1388,7 +1388,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         GetComponent<AudioSource>().clip = stage1FX;
         GetComponent<AudioSource>().Play();
 
-        status.text = "Downloading song...";
+        status.text = LocalizationManager.L("status.downloading_song", "Downloading song...");
         stage2.transform.GetChild(1).gameObject.SetActive(true);
 
         string expectedAudioPath = GetExpectedAudioFilePath(artist, name);
@@ -1507,7 +1507,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         GetComponent<AudioSource>().clip = stage2FX;
         GetComponent<AudioSource>().Play();
 
-        status.text = "Splitting vocals...";
+        status.text = LocalizationManager.L("status.splitting_vocals", "Splitting vocals...");
         splittingVocals = true;
         stage3.transform.GetChild(1).gameObject.SetActive(true);
 
@@ -1543,8 +1543,8 @@ public class LevelResourcesCompiler : MonoBehaviour
         GetComponent<AudioSource>().clip = stage3FX;
         GetComponent<AudioSource>().Play();
 
-        if (PlayerPrefs.GetInt("multiplayer") == 0) status.text = "Loading Main Scene...";
-        if (PlayerPrefs.GetInt("multiplayer") == 1) status.text = "Waiting for other players...";
+        if (PlayerPrefs.GetInt("multiplayer") == 0) status.text = LocalizationManager.L("status.loading_main", "Loading Main Scene...");
+        if (PlayerPrefs.GetInt("multiplayer") == 1) status.text = LocalizationManager.L("status.waiting_players", "Waiting for other players...");
         stage4.transform.GetChild(1).gameObject.SetActive(true);
         await Task.Delay(1010);
         if (PlayerPrefs.GetInt("multiplayer") == 0) LoadMain();
@@ -1754,7 +1754,7 @@ public class LevelResourcesCompiler : MonoBehaviour
                     if (isRetryable && attempt < maxRetries)
                     {
                         UnityEngine.Debug.LogWarning($"LRCLib transient error: {error}, retrying... ({attempt}/{maxRetries})");
-                        status.text = $"Retrying LRCLib... ({attempt}/{maxRetries})";
+                        status.text = string.Format(LocalizationManager.L("status.retrying_lrclib", "Retrying LRCLib... ({0}/{1})"), attempt, maxRetries);
                         await Task.Delay(1000 * attempt); // Exponential backoff
                         continue;
                     }
@@ -2010,7 +2010,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             return;
         }
 
-        status.text = "Starting...";
+        status.text = LocalizationManager.L("status.starting", "Starting...");
         progressBar.value = 0;
 
         loadingCanvas.SetActive(true);
@@ -2032,7 +2032,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         // Step 0: Download setup files
         Debug.Log("[RunFullInstall] Downloading setup files...");
-        QueueForMainThread(() => status.text = "Downloading setup files...");
+        QueueForMainThread(() => status.text = LocalizationManager.L("status.downloading_setup", "Downloading setup files..."));
         yield return StartCoroutine(DownloadSetupFilesForFullInstall(dataPath, isLinux));
 
         // Step 1: Check if Python venv exists
@@ -2043,13 +2043,13 @@ public class LevelResourcesCompiler : MonoBehaviour
         if (!venvExists)
         {
             Debug.Log("[RunFullInstall] Python venv not found. Running preinstall first...");
-            QueueForMainThread(() => status.text = "Installing Python... This may take a while.");
+            QueueForMainThread(() => status.text = LocalizationManager.L("status.installing_python", "Installing Python... This may take a while."));
             yield return StartCoroutine(RunPreinstallCoroutine());
         }
 
         // Step 3: Run final install
         Debug.Log("[RunFullInstall] Starting final install...");
-        QueueForMainThread(() => status.text = "Installing Demucs...");
+        QueueForMainThread(() => status.text = LocalizationManager.L("status.installing_demucs", "Installing Demucs..."));
         yield return StartCoroutine(RunFinalInstallCoroutine());
 
         CleanUpProcess();
@@ -2152,7 +2152,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         if (!File.Exists(scriptPath))
         {
             Debug.LogError($"Preinstall script not found at: {scriptPath}");
-            QueueForMainThread(() => status.text = "Error: Preinstall script not found.");
+            QueueForMainThread(() => status.text = LocalizationManager.L("status.error_preinstall_not_found", "Error: Preinstall script not found."));
             processIsRunning = false;
             yield break;
         }
@@ -2217,7 +2217,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         catch (Exception e)
         {
             Debug.LogError($"Failed to start preinstall: {e.Message}");
-            QueueForMainThread(() => status.text = "Error: Failed to start preinstall.");
+            QueueForMainThread(() => status.text = LocalizationManager.L("status.error_preinstall_start", "Error: Failed to start preinstall."));
             processIsRunning = false;
             yield break;
         }
@@ -2251,7 +2251,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         if (!File.Exists(scriptPath))
         {
             Debug.LogError($"Script not found at: {scriptPath}");
-            QueueForMainThread(() => status.text = "Error: Script not found.");
+            QueueForMainThread(() => status.text = LocalizationManager.L("status.error_script_not_found", "Error: Script not found."));
             processIsRunning = false;
             yield break;
         }
@@ -2291,7 +2291,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         catch (Exception e)
         {
             Debug.LogError($"Failed to start final install: {e.Message}");
-            QueueForMainThread(() => status.text = "Error: Failed to start.");
+            QueueForMainThread(() => status.text = LocalizationManager.L("status.error_failed_start", "Error: Failed to start."));
             processIsRunning = false;
             yield break;
         }
@@ -2350,7 +2350,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         Debug.LogError($"[Process Error] {line}");
         if (status != null)
         {
-            status.text = "An error occurred. Check console.";
+            status.text = LocalizationManager.L("status.error_occurred", "An error occurred. Check console.");
         }
     }
 
@@ -2620,9 +2620,9 @@ public class LevelResourcesCompiler : MonoBehaviour
                 if (latestVersion != currentVersion)
                 {
                     AlertManager.Instance.ShowInfo(
-                        "There is a new version of YASG available!",
-                        "Please visit <link=\"https://github.com/grncd/YASG/releases\"><u>https://github.com/grncd/YASG/releases</u></link> to download it.",
-                        "Dismiss"
+                        LocalizationManager.L("alert.new_version.title", "There is a new version of YASG available!"),
+                        LocalizationManager.L("alert.new_version.info", "Please visit <link=\"https://github.com/grncd/YASG/releases\"><u>https://github.com/grncd/YASG/releases</u></link> to download it."),
+                        LocalizationManager.L("alert.dismiss", "Dismiss")
                     );
                 }
             }
@@ -2854,7 +2854,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             Debug.Log("[YtDlpCheck] yt-dlp not found. Downloading...");
             _isUpdatingYtDlp = true;
             BeginLoading();
-            status.text = "Downloading yt-dlp...";
+            status.text = LocalizationManager.L("status.downloading_ytdlp", "Downloading yt-dlp...");
             progressBar.gameObject.SetActive(true);
             progressBar.value = 0f;
 
@@ -3102,7 +3102,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         if (useLoadingUI && progressBar != null)
         {
             progressBar.value = 1f;
-            status.text = "yt-dlp installed!";
+            status.text = LocalizationManager.L("status.ytdlp_installed", "yt-dlp installed!");
             yield return new WaitForSeconds(1f);
         }
     }
@@ -3114,7 +3114,7 @@ public class LevelResourcesCompiler : MonoBehaviour
     private IEnumerator DownloadAndInstallFFmpegForWindows()
     {
         BeginLoading();
-        status.text = "Initializing FFmpeg installation...";
+        status.text = LocalizationManager.L("status.ffmpeg_init", "Initializing FFmpeg installation...");
         progressBar.gameObject.SetActive(true);
         progressBar.value = 0f;
 
@@ -3143,7 +3143,7 @@ public class LevelResourcesCompiler : MonoBehaviour
 
         if (sevenZipExe == null)
         {
-            status.text = "Downloading 7-Zip...";
+            status.text = LocalizationManager.L("status.downloading_7zip", "Downloading 7-Zip...");
             Debug.Log("[FFmpegInstall] 7-Zip not found. Downloading portable version...");
 
             string sevenZipUrl = "https://www.7-zip.org/a/7zr.exe";
@@ -3156,7 +3156,7 @@ public class LevelResourcesCompiler : MonoBehaviour
                 if (www.result != UnityWebRequest.Result.Success)
                 {
                     Debug.LogError($"[FFmpegInstall] Failed to download 7-Zip: {www.error}");
-                    status.text = "Error: Failed to download 7-Zip.";
+                    status.text = LocalizationManager.L("status.error_7zip_download", "Error: Failed to download 7-Zip.");
                     yield return new WaitForSeconds(2f);
                     LoadingDone();
                     yield break;
@@ -3172,7 +3172,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             else
             {
                 Debug.LogError("[FFmpegInstall] Failed to save 7-Zip.");
-                status.text = "Error: Failed to download 7-Zip.";
+                status.text = LocalizationManager.L("status.error_7zip_download", "Error: Failed to download 7-Zip.");
                 yield return new WaitForSeconds(2f);
                 LoadingDone();
                 yield break;
@@ -3182,7 +3182,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         progressBar.value = 0.1f;
 
         // 2. Download FFmpeg
-        status.text = "Downloading FFmpeg...";
+        status.text = LocalizationManager.L("status.downloading_ffmpeg", "Downloading FFmpeg...");
         Debug.Log($"[FFmpegInstall] Downloading FFmpeg from {ffmpegUrl}...");
 
         using (UnityWebRequest www = UnityWebRequest.Get(ffmpegUrl))
@@ -3199,7 +3199,7 @@ public class LevelResourcesCompiler : MonoBehaviour
             if (www.result != UnityWebRequest.Result.Success)
             {
                 Debug.LogError($"[FFmpegInstall] Failed to download FFmpeg: {www.error}");
-                status.text = "Error: Failed to download FFmpeg.";
+                status.text = LocalizationManager.L("status.error_ffmpeg_download", "Error: Failed to download FFmpeg.");
                 yield return new WaitForSeconds(2f);
                 LoadingDone();
                 yield break;
@@ -3211,7 +3211,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         if (!File.Exists(downloadPath))
         {
             Debug.LogError("[FFmpegInstall] Failed to save FFmpeg archive.");
-            status.text = "Error: Failed to download FFmpeg.";
+            status.text = LocalizationManager.L("status.error_ffmpeg_download", "Error: Failed to download FFmpeg.");
             yield return new WaitForSeconds(2f);
             LoadingDone();
             yield break;
@@ -3220,7 +3220,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         progressBar.value = 0.5f;
 
         // 3. Extract FFmpeg
-        status.text = "Extracting FFmpeg...";
+        status.text = LocalizationManager.L("status.extracting_ffmpeg", "Extracting FFmpeg...");
         Debug.Log("[FFmpegInstall] Extracting FFmpeg...");
 
         if (Directory.Exists(extractPath))
@@ -3254,7 +3254,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         if (extractProcess.ExitCode != 0)
         {
             Debug.LogError($"[FFmpegInstall] 7-Zip extraction failed. Exit code: {extractProcess.ExitCode}");
-            status.text = "Error: FFmpeg extraction failed.";
+            status.text = LocalizationManager.L("status.error_ffmpeg_extraction", "Error: FFmpeg extraction failed.");
             yield return new WaitForSeconds(2f);
             LoadingDone();
             yield break;
@@ -3263,7 +3263,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         progressBar.value = 0.8f;
 
         // 4. Move files
-        status.text = "Installing FFmpeg...";
+        status.text = LocalizationManager.L("status.installing_ffmpeg", "Installing FFmpeg...");
         Debug.Log("[FFmpegInstall] Installing FFmpeg files...");
 
         string ffmpegBinSource = null;
@@ -3286,7 +3286,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         if (string.IsNullOrEmpty(ffmpegBinSource))
         {
             Debug.LogError("[FFmpegInstall] Could not find 'bin' folder in extracted archive.");
-            status.text = "Error: Invalid FFmpeg archive.";
+            status.text = LocalizationManager.L("status.error_invalid_archive", "Error: Invalid FFmpeg archive.");
             yield return new WaitForSeconds(2f);
             LoadingDone();
             yield break;
@@ -3314,7 +3314,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         catch (Exception e)
         {
             Debug.LogError($"[FFmpegInstall] Failed to copy files: {e.Message}");
-            status.text = "Error: Failed to install files.";
+            status.text = LocalizationManager.L("status.error_install_files", "Error: Failed to install files.");
             copyFailed = true;
         }
 
@@ -3328,7 +3328,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         progressBar.value = 1.0f;
 
         // 5. Cleanup
-        status.text = "Cleaning up...";
+        status.text = LocalizationManager.L("status.cleaning_up", "Cleaning up...");
         try
         {
             if (File.Exists(downloadPath)) File.Delete(downloadPath);
@@ -3340,7 +3340,7 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
 
         Debug.Log("[FFmpegInstall] FFmpeg installation complete!");
-        status.text = "FFmpeg installed successfully!";
+        status.text = LocalizationManager.L("status.ffmpeg_installed", "FFmpeg installed successfully!");
         yield return new WaitForSeconds(1f);
 
         LoadingDone();

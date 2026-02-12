@@ -22,9 +22,9 @@ public class HostActionGuard : MonoBehaviour
             else
             {
                 AlertManager.Instance.ShowError(
-                        "You are not the host.",
-                        "Only the room host can perform this action. (the player with a crown icon)",
-                        "OK"
+                        LocalizationManager.L("alert.not_host.title", "You are not the host."),
+                        LocalizationManager.L("alert.not_host.info", "Only the room host can perform this action. (the player with a crown icon)"),
+                        LocalizationManager.L("alert.ok", "OK")
                     );
             }
         }

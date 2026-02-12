@@ -785,9 +785,9 @@ public class PlayerData : NetworkBehaviour
             if (AlertManager.Instance != null)
             {
                 AlertManager.Instance.ShowError(
-                    "Connection failed",
-                    $"Could not connect to the master processor at any of the available IPs after {maxRetries} attempts. Please check your network connection.",
-                    "Dismiss"
+                    LocalizationManager.L("alert.connection_failed.title", "Connection failed"),
+                    string.Format(LocalizationManager.L("alert.master_connection_failed.info", "Could not connect to the master processor at any of the available IPs after {0} attempts. Please check your network connection."), maxRetries),
+                    LocalizationManager.L("alert.dismiss", "Dismiss")
                 );
             }
             yield break;
@@ -1266,9 +1266,9 @@ public class PlayerData : NetworkBehaviour
         if (AlertManager.Instance != null)
         {
             AlertManager.Instance.ShowError(
-                "This song does not have lyrics.",
-                "The song you've selected either has no lyrics or we couldn't find any synced lyrics for it. If this song has lyrics and you'd like to add them, <b>use the Add Lyrics button</b> located in the menu.",
-                "Dismiss"
+                LocalizationManager.L("alert.no_lyrics_mp.title", "This song does not have lyrics."),
+                LocalizationManager.L("alert.no_lyrics_mp.info", "The song you've selected either has no lyrics or we couldn't find any synced lyrics for it. If this song has lyrics and you'd like to add them, <b>use the Add Lyrics button</b> located in the menu."),
+                LocalizationManager.L("alert.dismiss", "Dismiss")
             );
         }
 
@@ -1292,9 +1292,9 @@ public class PlayerData : NetworkBehaviour
         if (AlertManager.Instance != null)
         {
             AlertManager.Instance.ShowError(
-                "Download failed",
-                "The master processor encountered an error downloading the song from YouTube. This could be due to connectivity issues or the video being unavailable. Please try again with a different song.",
-                "Dismiss"
+                LocalizationManager.L("alert.download_failed.title", "Download failed"),
+                LocalizationManager.L("alert.download_failed.info", "The master processor encountered an error downloading the song from YouTube. This could be due to connectivity issues or the video being unavailable. Please try again with a different song."),
+                LocalizationManager.L("alert.dismiss", "Dismiss")
             );
         }
 
