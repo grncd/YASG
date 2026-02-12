@@ -8,43 +8,132 @@ public class MicFeedbackFilter : MonoBehaviour
     private string _micDeviceName;
     private volatile bool _isActive;
 
-    // Lock-free SPSC ring buffer (main thread writes, audio thread reads)
+    // Native WASAPI monitoring
+    private bool _usingNativePath;
+    private static bool _nativeInitialized;
+    private AudioMixerGroup _mixerGroup;
+
+    // Ensures only one feedback instance is active at a time
+    private static MicFeedbackFilter _activeInstance;
+
+    // Lock-free SPSC ring buffer (main thread writes, audio thread reads) — fallback path
     private float[] _ringBuffer;
     private int _ringMask;
     private volatile int _writePos;
     private int _readPos;
 
-    // Main thread state
+    // Main thread state — fallback path
     private int _lastMicPos;
     private float[] _tempReadBuffer;
     private int _micSamples;
 
-    // Resampling
+    // Resampling — fallback path
     private int _micSampleRate;
     private int _outputSampleRate;
 
+    // Latency and drift correction — fallback path
+    private int _targetLatencySamples;
+    private float _resampleRatioAdjustment;
+    private float _lastSample;
+    private bool _bufferPrimed;
+
+    // Constants for fallback path tuning
+    private const float TARGET_LATENCY_MS = 35f;
+    private const float MAX_DRIFT_CORRECTION = 0.03f;
+    private const float DRIFT_SMOOTHING = 0.003f;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void OnDomainReload()
+    {
+        _activeInstance = null;
+        if (_nativeInitialized)
+        {
+            WasapiMicMonitorNative.Shutdown();
+            _nativeInitialized = false;
+        }
+    }
+
     public void Activate(AudioClip micClip, string micDeviceName, AudioMixerGroup mixerGroup)
     {
+        // Stop any other active feedback instance to prevent duplicates
+        if (_activeInstance != null && _activeInstance != this)
+            _activeInstance.Deactivate();
+        _activeInstance = this;
+
         _micClip = micClip;
         _micDeviceName = micDeviceName;
+        _mixerGroup = mixerGroup;
+        _usingNativePath = false;
+
+        // Read WASAPI latency from settings
+        float wasapiLatencyMs = 10f;
+        if (SettingsManager.Instance != null)
+        {
+            string latencyStr = SettingsManager.Instance.GetSetting<string>("WASAPILatency", "10");
+            if (!float.TryParse(latencyStr, out wasapiLatencyMs))
+                wasapiLatencyMs = 10f;
+            wasapiLatencyMs = Mathf.Clamp(wasapiLatencyMs, 1f, 100f);
+        }
+
+        // Attempt native WASAPI path
+        if (WasapiMicMonitorNative.IsSupported)
+        {
+            if (!_nativeInitialized)
+                _nativeInitialized = WasapiMicMonitorNative.Initialize();
+
+            if (_nativeInitialized)
+            {
+                int deviceIndex = WasapiMicMonitorNative.FindDeviceIndexByUnityName(micDeviceName);
+                if (deviceIndex >= 0)
+                {
+                    if (WasapiMicMonitorNative.StartMonitoring(deviceIndex, wasapiLatencyMs))
+                    {
+                        _usingNativePath = true;
+                        _isActive = true;
+                        Debug.Log($"[MicFeedbackFilter] Native WASAPI monitoring active. " +
+                                  $"Latency: {WasapiMicMonitorNative.GetActualLatencyMs():F1}ms");
+                        return;
+                    }
+                    else
+                    {
+                        Debug.LogWarning("[MicFeedbackFilter] Native start failed, falling back. " +
+                                         $"Error: {WasapiMicMonitorNative.GetLastError()}");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"[MicFeedbackFilter] Could not map mic '{micDeviceName}' " +
+                                     "to WASAPI device. Falling back.");
+                }
+            }
+        }
+
+        // Fallback: existing ring buffer path
+        SetupFallbackPath(micClip, micDeviceName, mixerGroup);
+    }
+
+    private void SetupFallbackPath(AudioClip micClip, string micDeviceName, AudioMixerGroup mixerGroup)
+    {
         _micSamples = micClip.samples;
         _micSampleRate = micClip.frequency;
         _outputSampleRate = AudioSettings.outputSampleRate;
 
-        // Ring buffer: ~200ms at mic sample rate (power of 2 for fast masking)
-        int ringSize = Mathf.NextPowerOfTwo(_micSampleRate / 5);
+        int ringSize = Mathf.NextPowerOfTwo(_micSampleRate / 2);
         _ringBuffer = new float[ringSize];
         _ringMask = ringSize - 1;
         _writePos = 0;
         _readPos = 0;
 
-        // Pre-allocate temp buffer large enough for worst-case frame intervals
+        _targetLatencySamples = Mathf.RoundToInt((_micSampleRate * TARGET_LATENCY_MS) / 1000f);
+        _resampleRatioAdjustment = 0f;
+        _lastSample = 0f;
+        _bufferPrimed = false;
+
         _tempReadBuffer = new float[Mathf.Max(4096, _micSampleRate / 10)];
         _lastMicPos = Microphone.GetPosition(micDeviceName);
 
         AudioSource src = GetComponent<AudioSource>();
         src.outputAudioMixerGroup = mixerGroup;
-        // Silent clip at output sample rate — its only purpose is to drive OnAudioFilterRead
         src.clip = AudioClip.Create("_mfSilence", _outputSampleRate, 1, _outputSampleRate, false);
         src.loop = true;
         src.volume = 1f;
@@ -55,23 +144,69 @@ public class MicFeedbackFilter : MonoBehaviour
 
     public void Deactivate()
     {
+        if (_activeInstance == this)
+            _activeInstance = null;
+
         _isActive = false;
-        AudioSource src = GetComponent<AudioSource>();
-        if (src != null)
+
+        if (_usingNativePath)
         {
-            src.Stop();
-            src.clip = null;
+            WasapiMicMonitorNative.StopMonitoring();
+            _usingNativePath = false;
         }
+        else
+        {
+            AudioSource src = GetComponent<AudioSource>();
+            if (src != null)
+            {
+                src.Stop();
+                src.clip = null;
+            }
+        }
+
         _micClip = null;
+    }
+
+    /// <summary>
+    /// Sets the mic feedback volume (0.0 = silent, 1.0 = full).
+    /// </summary>
+    public void SetVolume(float linearGain)
+    {
+        if (_usingNativePath)
+        {
+            WasapiMicMonitorNative.SetVolume(linearGain);
+        }
+        else
+        {
+            AudioSource src = GetComponent<AudioSource>();
+            if (src != null)
+                src.volume = linearGain;
+        }
     }
 
     void Update()
     {
-        if (!_isActive || _micClip == null) return;
+        if (!_isActive) return;
+
+        if (_usingNativePath)
+        {
+            // Check if native monitoring stopped unexpectedly (e.g. device disconnected)
+            if (!WasapiMicMonitorNative.IsMonitoring())
+            {
+                Debug.LogWarning("[MicFeedbackFilter] Native monitoring stopped unexpectedly. Falling back.");
+                _usingNativePath = false;
+
+                if (_micClip != null && Microphone.IsRecording(_micDeviceName))
+                    SetupFallbackPath(_micClip, _micDeviceName, _mixerGroup);
+            }
+            return;
+        }
+
+        // Fallback ring buffer path
+        if (_micClip == null) return;
 
         int micPos = Microphone.GetPosition(_micDeviceName);
 
-        // Calculate how many new samples the mic has written since last frame
         int newSamples;
         if (micPos >= _lastMicPos)
             newSamples = micPos - _lastMicPos;
@@ -82,16 +217,13 @@ public class MicFeedbackFilter : MonoBehaviour
 
         if (newSamples <= 0 || newSamples > _micSamples) return;
 
-        // Clamp to temp buffer capacity (handles extreme frame-rate drops)
         if (newSamples > _tempReadBuffer.Length)
             newSamples = _tempReadBuffer.Length;
 
-        // Read the latest newSamples from the mic clip (main thread only)
         int readStart = micPos - newSamples;
         if (readStart < 0) readStart += _micSamples;
         _micClip.GetData(_tempReadBuffer, readStart);
 
-        // Copy into the ring buffer
         int wp = _writePos;
         for (int i = 0; i < newSamples; i++)
         {
@@ -100,41 +232,88 @@ public class MicFeedbackFilter : MonoBehaviour
         _writePos = (wp + newSamples) & _ringMask;
     }
 
+    void OnApplicationQuit()
+    {
+        if (_usingNativePath)
+        {
+            WasapiMicMonitorNative.StopMonitoring();
+            _usingNativePath = false;
+        }
+    }
+
     void OnAudioFilterRead(float[] data, int channels)
     {
-        if (!_isActive || _ringBuffer == null) return;
+        if (!_isActive || _usingNativePath || _ringBuffer == null) return;
 
         int outputSamples = data.Length / channels;
-        float sampleRatio = (float)_micSampleRate / _outputSampleRate;
-        int micSamplesNeeded = Mathf.CeilToInt(outputSamples * sampleRatio) + 1;
+        float baseRatio = (float)_micSampleRate / _outputSampleRate;
 
         int wp = _writePos;
         int available = (wp - _readPos + _ringBuffer.Length) & _ringMask;
 
-        if (available < micSamplesNeeded)
-            return; // Not enough data yet — output silence
+        if (!_bufferPrimed)
+        {
+            if (available >= (_targetLatencySamples * 3) / 2)
+            {
+                _readPos = (wp - _targetLatencySamples) & _ringMask;
+                _bufferPrimed = true;
+            }
+            else
+            {
+                return;
+            }
+        }
 
-        // Stay close to the write head to minimize latency
-        if (available > micSamplesNeeded * 2)
-            _readPos = (wp - micSamplesNeeded) & _ringMask;
+        int latencyError = available - _targetLatencySamples;
 
-        // Read from ring buffer with linear-interpolation resampling
+        float targetAdjustment = Mathf.Clamp(
+            (float)latencyError / _targetLatencySamples * MAX_DRIFT_CORRECTION,
+            -MAX_DRIFT_CORRECTION,
+            MAX_DRIFT_CORRECTION
+        );
+        _resampleRatioAdjustment = Mathf.Lerp(_resampleRatioAdjustment, targetAdjustment, DRIFT_SMOOTHING);
+
+        float adjustedRatio = baseRatio * (1f + _resampleRatioAdjustment);
+        int micSamplesNeeded = Mathf.CeilToInt(outputSamples * adjustedRatio) + 2;
+
+        if (available < micSamplesNeeded / 2)
+        {
+            for (int i = 0; i < outputSamples; i++)
+            {
+                float fadeOut = 1f - (float)i / outputSamples;
+                float sample = _lastSample * fadeOut;
+                for (int ch = 0; ch < channels; ch++)
+                {
+                    data[i * channels + ch] = sample;
+                }
+            }
+            _lastSample = 0f;
+            _bufferPrimed = false;
+            return;
+        }
+
+        float srcPos = 0f;
         for (int i = 0; i < outputSamples; i++)
         {
-            float srcIndex = i * sampleRatio;
-            int idx0 = (int)srcIndex;
-            float frac = srcIndex - idx0;
+            int idx0 = (int)srcPos;
+            float frac = srcPos - idx0;
 
             float s0 = _ringBuffer[(_readPos + idx0) & _ringMask];
             float s1 = _ringBuffer[(_readPos + idx0 + 1) & _ringMask];
             float sample = s0 + (s1 - s0) * frac;
 
+            sample = _lastSample * 0.05f + sample * 0.95f;
+            _lastSample = sample;
+
             for (int ch = 0; ch < channels; ch++)
             {
                 data[i * channels + ch] = sample;
             }
+
+            srcPos += adjustedRatio;
         }
 
-        _readPos = (_readPos + micSamplesNeeded) & _ringMask;
+        int samplesConsumed = (int)srcPos;
+        _readPos = (_readPos + samplesConsumed) & _ringMask;
     }
 }

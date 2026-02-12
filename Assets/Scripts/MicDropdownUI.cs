@@ -25,6 +25,9 @@ public class MicDropdownUI : MonoBehaviour
     [Tooltip("Assign the FX AudioMixerGroup to route mic feedback through the SFX volume control.")]
     public AudioMixerGroup fxMixerGroup;
 
+    [Tooltip("Slider that controls microphone feedback volume for this profile.")]
+    public Slider micVolumeSlider;
+
     [Header("Profile Configuration")]
     [Tooltip("The name of the profile this UI element will manage...")]
     public string profileIdentifier;
@@ -72,6 +75,11 @@ public class MicDropdownUI : MonoBehaviour
                 StartMicVisualizer(selectedMic);
             }
         }
+    }
+
+    private void OnDisable()
+    {
+        StopMicVisualizer();
     }
 
     void Start()
@@ -263,6 +271,14 @@ public class MicDropdownUI : MonoBehaviour
     {
         nameInput.onEndEdit.AddListener(OnNameInputEndEdit);
         micDropdown.onValueChanged.AddListener(OnMicDropdownChanged);
+
+        if (micVolumeSlider != null)
+        {
+            // Load saved volume for this profile
+            float savedVolume = PlayerPrefs.GetFloat("Player" + PlayerIndex + "MicVolume", 0.5f);
+            micVolumeSlider.value = savedVolume;
+            micVolumeSlider.onValueChanged.AddListener(OnMicVolumeChanged);
+        }
     }
 
     void PopulateMicDropdown()
@@ -391,9 +407,20 @@ public class MicDropdownUI : MonoBehaviour
         }
     }
 
+    private void OnMicVolumeChanged(float value)
+    {
+        PlayerPrefs.SetFloat("Player" + PlayerIndex + "MicVolume", value);
+        if (_feedbackFilter != null)
+            _feedbackFilter.SetVolume(value * 2f);
+    }
+
     private void StartMicFeedback(AudioClip clip, string micName)
     {
         if (clip == null) return;
+
+        // Check global mic feedback toggle
+        if (SettingsManager.Instance != null && !SettingsManager.Instance.GetSetting<bool>("MicFeedback", true))
+            return;
 
         if (_feedbackGO == null)
         {
@@ -404,6 +431,10 @@ public class MicDropdownUI : MonoBehaviour
         }
 
         _feedbackFilter.Activate(clip, micName, fxMixerGroup);
+
+        // Apply saved volume (slider 0-1 maps to volume 0-2)
+        float savedVolume = PlayerPrefs.GetFloat("Player" + PlayerIndex + "MicVolume", 0.5f);
+        _feedbackFilter.SetVolume(savedVolume * 2f);
     }
 
     private void StopMicFeedback()
@@ -575,6 +606,7 @@ public class MicDropdownUI : MonoBehaviour
         _listenersAttached = false;
         if (nameInput != null) nameInput.onEndEdit.RemoveAllListeners();
         if (micDropdown != null) micDropdown.onValueChanged.RemoveAllListeners();
+        if (micVolumeSlider != null) micVolumeSlider.onValueChanged.RemoveAllListeners();
 
         // PopulateUIFromProfile will be called within InitializeWithProfile
     }

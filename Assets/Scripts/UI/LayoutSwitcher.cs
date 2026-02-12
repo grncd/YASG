@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using TMPro;
 
 public class LayoutSwitcher : MonoBehaviour
 {
@@ -15,6 +16,9 @@ public class LayoutSwitcher : MonoBehaviour
         public Vector3 localScale;
         public Vector3 localEulerAngles;
 
+        public bool hasTMPText;
+        public float fontSize;
+
         public void CaptureFrom(RectTransform rt)
         {
             anchorMin = rt.anchorMin;
@@ -24,6 +28,13 @@ public class LayoutSwitcher : MonoBehaviour
             sizeDelta = rt.sizeDelta;
             localScale = rt.localScale;
             localEulerAngles = rt.localEulerAngles;
+
+            var tmp = rt.GetComponent<TMP_Text>();
+            if (tmp != null)
+            {
+                hasTMPText = true;
+                fontSize = tmp.fontSize;
+            }
         }
 
         public void ApplyTo(RectTransform rt)
@@ -35,6 +46,13 @@ public class LayoutSwitcher : MonoBehaviour
             rt.sizeDelta = sizeDelta;
             rt.localScale = localScale;
             rt.localEulerAngles = localEulerAngles;
+
+            if (hasTMPText)
+            {
+                var tmp = rt.GetComponent<TMP_Text>();
+                if (tmp != null)
+                    tmp.fontSize = fontSize;
+            }
         }
     }
 

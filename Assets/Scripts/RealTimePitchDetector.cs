@@ -609,6 +609,10 @@ public class RealTimePitchDetector : MonoBehaviour
     {
         if (micClip == null) return;
 
+        // Check global mic feedback toggle
+        if (SettingsManager.Instance != null && !SettingsManager.Instance.GetSetting<bool>("MicFeedback", true))
+            return;
+
         if (_feedbackGO == null)
         {
             _feedbackGO = new GameObject("MicFeedback");
@@ -618,6 +622,10 @@ public class RealTimePitchDetector : MonoBehaviour
         }
 
         _feedbackFilter.Activate(micClip, selectedDevice, fxMixerGroup);
+
+        // Apply saved mic volume for this player (slider 0-1 maps to volume 0-2)
+        float savedVolume = PlayerPrefs.GetFloat("Player" + playerIndex + "MicVolume", 0.5f);
+        _feedbackFilter.SetVolume(savedVolume * 2f);
     }
 
     private void StopMicFeedback()
