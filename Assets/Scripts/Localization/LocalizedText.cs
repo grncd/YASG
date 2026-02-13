@@ -25,10 +25,16 @@ public class LocalizedText : MonoBehaviour
         LocalizationManager.OnLanguageChanged -= UpdateText;
     }
 
+    private void Start()
+    {
+        // Backup: if OnEnable's UpdateText failed (e.g. Instance wasn't ready), retry in Start
+        UpdateText();
+    }
+
     public void UpdateText()
     {
         if (_text == null) _text = GetComponent<TMP_Text>();
-        if (LocalizationManager.Instance == null || string.IsNullOrEmpty(localizationKey)) return;
-        _text.text = LocalizationManager.Instance.GetTranslation(localizationKey, _text.text);
+        if (string.IsNullOrEmpty(localizationKey)) return;
+        _text.text = LocalizationManager.L(localizationKey, _text.text);
     }
 }
