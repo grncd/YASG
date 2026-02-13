@@ -11,8 +11,29 @@ public static class YtDlpAndroidWrapper
 {
     private const string YOUTUBEDL_CLASS = "com.yausername.youtubedl_android.YoutubeDL";
     private const string REQUEST_CLASS = "com.yausername.youtubedl_android.YoutubeDLRequest";
+    private const string CALLBACK_CLASS = "com.yausername.youtubedl_android.DownloadProgressCallback";
     private static bool _initialized = false;
     private static bool _updated = false;
+
+    /// <summary>
+    /// AndroidJavaProxy that implements DownloadProgressCallback to receive progress from yt-dlp.
+    /// </summary>
+    private class ProgressCallback : AndroidJavaProxy
+    {
+        private readonly Action<double> _onProgress;
+
+        public ProgressCallback(Action<double> onProgress)
+            : base(CALLBACK_CLASS)
+        {
+            _onProgress = onProgress;
+        }
+
+        // Called by the Java library: void onProgressUpdate(float progress, long etaInSeconds, String line)
+        void onProgressUpdate(float progress, long etaInSeconds, string line)
+        {
+            _onProgress?.Invoke(progress / 100.0);
+        }
+    }
 
     /// <summary>
     /// Initialize the youtubedl-android library. Must be called before any download operations.
@@ -167,12 +188,14 @@ public static class YtDlpAndroidWrapper
                 // Generate a unique process ID for this download
                 string processId = Guid.NewGuid().ToString();
 
-                // Execute the download (synchronous call, without progress callback to avoid signature issues)
+                // Execute the download with progress callback
                 Debug.Log("[YtDlpAndroid] Executing download...");
+                ProgressCallback callback = onProgress != null ? new ProgressCallback(onProgress) : null;
                 AndroidJavaObject response = youtubeDL.Call<AndroidJavaObject>(
                     "execute",
                     request,
-                    processId
+                    processId,
+                    callback
                 );
 
                 // Check exit code

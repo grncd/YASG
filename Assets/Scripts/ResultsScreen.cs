@@ -596,10 +596,22 @@ public class ResultsScreen : MonoBehaviour
 
         bool isMobile = Application.platform == RuntimePlatform.Android ||
                         Application.platform == RuntimePlatform.IPhonePlayer;
-        int framesToSkip = isMobile ? 3 : 1;
 
         while (bgRenderTexture != null && backgroundMaterial != null)
         {
+            // Adaptive frame skip: target ~30fps background regardless of refresh rate
+            // At 120Hz: skip 3 → 30fps. At 60Hz: skip 1 → 30fps.
+            int framesToSkip;
+            if (isMobile)
+            {
+                int fps = Mathf.Max(30, Application.targetFrameRate);
+                framesToSkip = Mathf.Max(0, Mathf.RoundToInt((float)fps / 30f) - 1);
+            }
+            else
+            {
+                framesToSkip = 1;
+            }
+
             if (frameSkip % (framesToSkip + 1) == 0)
             {
                 Graphics.Blit(null, bgRenderTexture, backgroundMaterial);

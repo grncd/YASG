@@ -316,21 +316,29 @@ public class SettingsUI : MonoBehaviour
 
     private IEnumerator UpdateBackgroundRenderTexture()
     {
-        // Wait for end of frame to render
         WaitForEndOfFrame wait = new WaitForEndOfFrame();
         int frameSkip = 0;
 
-        // On mobile, skip more frames for better performance
         bool isMobile = Application.platform == RuntimePlatform.Android ||
                        Application.platform == RuntimePlatform.IPhonePlayer;
-        int framesToSkip = isMobile ? 3 : 1; // Skip 3 frames on mobile (20fps), 1 frame on desktop (30fps)
 
         while (bgRenderTexture != null && currentBgMaterial != null)
         {
-            // Update every N+1 frames for additional performance
+            // Adaptive frame skip: target ~30fps background regardless of refresh rate
+            // At 120Hz: skip 3 → 30fps. At 60Hz: skip 1 → 30fps.
+            int framesToSkip;
+            if (isMobile)
+            {
+                int fps = Mathf.Max(30, Application.targetFrameRate);
+                framesToSkip = Mathf.Max(0, Mathf.RoundToInt((float)fps / 30f) - 1);
+            }
+            else
+            {
+                framesToSkip = 1;
+            }
+
             if (frameSkip % (framesToSkip + 1) == 0)
             {
-                // Blit the material to the render texture
                 Graphics.Blit(null, bgRenderTexture, currentBgMaterial);
             }
             frameSkip++;
