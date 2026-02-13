@@ -332,13 +332,9 @@ public class SettingsManager : MonoBehaviour
             {
                 setting.Value = value;
                 SaveSettings();
-                if (LocalizationManager.Instance != null)
-                {
-                    int langIndex = Convert.ToInt32(value);
-                    var codes = LocalizationManager.Instance.AvailableLanguageCodes;
-                    if (langIndex >= 0 && langIndex < codes.Count)
-                        LocalizationManager.Instance.LoadLanguage(codes[langIndex]);
-                }
+                int langIndex = Convert.ToInt32(value);
+                Debug.Log($"[SettingsManager] Language setting changed to index {langIndex}");
+                LocalizationManager.SwitchLanguageByIndex(langIndex);
                 return;
             }
             else if (key == "LimitFPS")

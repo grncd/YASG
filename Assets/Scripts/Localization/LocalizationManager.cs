@@ -186,6 +186,71 @@ public class LocalizationManager : MonoBehaviour
         return fallback ?? key;
     }
 
+    /// <summary>
+    /// Fully static language switch by dropdown index. Does NOT depend on _instance.
+    /// Discovers languages from Resources, loads translations into static dicts,
+    /// updates all UI, and fires the event.
+    /// </summary>
+    public static void SwitchLanguageByIndex(int index)
+    {
+        // If instance exists, use it (updates both instance + static dicts)
+        if (_instance != null)
+        {
+            var codes = _instance._availableLanguageCodes;
+            if (index >= 0 && index < codes.Count)
+                _instance.LoadLanguage(codes[index]);
+            return;
+        }
+
+        // No instance available — discover languages and load directly into static dicts
+        Debug.LogWarning("[LocalizationManager] SwitchLanguageByIndex: _instance is null, using static fallback");
+        var textAssets = Resources.LoadAll<TextAsset>("Localization");
+        var langCodes = new List<string>();
+        foreach (var asset in textAssets)
+            langCodes.Add(asset.name);
+        langCodes.Sort((a, b) =>
+        {
+            if (a == "en") return -1;
+            if (b == "en") return 1;
+            return string.Compare(a, b, StringComparison.Ordinal);
+        });
+
+        if (index < 0 || index >= langCodes.Count) return;
+        LoadLanguageStatic(langCodes[index]);
+    }
+
+    /// <summary>
+    /// Loads a language entirely through static fields — no _instance needed.
+    /// </summary>
+    private static void LoadLanguageStatic(string languageCode)
+    {
+        var enAsset = Resources.Load<TextAsset>("Localization/en");
+        if (enAsset != null)
+            _staticFallback = JsonConvert.DeserializeObject<Dictionary<string, string>>(enAsset.text)
+                              ?? new Dictionary<string, string>();
+
+        if (languageCode == "en")
+        {
+            _staticTranslations = new Dictionary<string, string>(_staticFallback);
+        }
+        else
+        {
+            var textAsset = Resources.Load<TextAsset>("Localization/" + languageCode);
+            if (textAsset != null)
+                _staticTranslations = JsonConvert.DeserializeObject<Dictionary<string, string>>(textAsset.text)
+                                      ?? new Dictionary<string, string>();
+        }
+
+        _staticCurrentLanguage = languageCode;
+        PlayerPrefs.SetString("yasg_language", languageCode);
+        PlayerPrefs.Save();
+
+        Debug.Log($"[LocalizationManager] Loaded (static) '{languageCode}' — {_staticTranslations.Count} keys, {_staticFallback.Count} fallback keys");
+
+        UpdateAllLocalizedText();
+        FireLanguageChanged();
+    }
+
     public string CurrentLanguage => _currentLanguage;
     public static string CurrentLanguageCode => _staticCurrentLanguage;
     public List<string> AvailableLanguageCodes => _availableLanguageCodes;
