@@ -467,5 +467,13 @@
   "canvas.main.pages.page7.text_1": "Todas as ferramentas externas necessárias foram instaladas com sucesso.\n\nReabra o jogo após sair e estará tudo pronto.",
   "canvas.progress.progress1.text": "<b>1.</b> Avisos Legais",
   "canvas.progress.progress2.text_1": "<b>2.</b> Configurações",
-  "canvas.progress.progress3.text_1": "<b>3.</b> Instalação"
+  "canvas.progress.progress3.text_1": "<b>3.</b> Instalação",
+  "canvas.onboarding.skip.label": "Pular",
+  "canvas.onboarding.step1.info.text": "<b>Bem-vindo ao YASG!</b>\n\nVamos começar criando um perfil para você. Para isso, clique neste botão para acessar as configurações.",
+  "canvas.onboarding.step2.info.text": "Clique aqui para adicionar um perfil.",
+  "canvas.onboarding.step3.info.text": "Agora, clique aqui para criar um novo perfil. Dê um nome legal!",
+  "canvas.onboarding.step4.info.text": "Agora clique aqui para voltar ao menu.",
+  "canvas.onboarding.step5.info.text": "Agora você está pronto para jogar! Clique aqui para acessar o menu de seleção de músicas.",
+  "canvas.onboarding.step6.info.text": "<b>É isso!</b>\nVocê pode pesquisar qualquer música que quiser tocar usando esta barra de pesquisa.\nObrigado por instalar e divirta-se!",
+  "canvas.onboarding.step6.done.label": "Pronto"
 }

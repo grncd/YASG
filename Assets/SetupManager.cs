@@ -1186,6 +1186,7 @@ public class SetupManager : MonoBehaviour
     public async void CompleteSetup()
     {
         PlayerPrefs.SetInt("setupDone", 1);
+        PlayerPrefs.SetInt("onboarding", 1);
         PlayerPrefs.Save();
 
         UnityEngine.Debug.Log("Setup complete. Quitting application.");

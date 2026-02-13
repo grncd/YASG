@@ -38,6 +38,7 @@ public class SettingsUI : MonoBehaviour
     public Image darken;
     public RawImage BG;
     public AudioSource tabSwitchFX;
+    public GameObject onboardingOverlay;
 
     // Background rendering optimization
     private RenderTexture bgRenderTexture;
@@ -82,6 +83,13 @@ public class SettingsUI : MonoBehaviour
         {
             Application.targetFrameRate = 60;
         }
+
+        // Show onboarding overlay on first launch after setup
+        if (onboardingOverlay != null && PlayerPrefs.GetInt("onboarding") == 1)
+        {
+            onboardingOverlay.SetActive(true);
+        }
+
         for (int i = 1; i < 5; i++)
         {
             if (PlayerPrefs.GetInt("Player" + i) == 1)
@@ -356,6 +364,12 @@ public class SettingsUI : MonoBehaviour
         }
     }
 
+    public void CompleteOnboarding()
+    {
+        PlayerPrefs.SetInt("onboarding", 0);
+        PlayerPrefs.Save();
+    }
+
     public void FromSettings()
     {
         PlayerPrefs.SetInt("fromSettings", 1);
@@ -369,6 +383,18 @@ public class SettingsUI : MonoBehaviour
             ProfileManager.Instance.CreateProfile(name);
         }
         //ProfileManager.Instance.AddProfileTotalScore(name, 750000);
+
+        // During onboarding, auto-assign the default microphone
+        if (PlayerPrefs.GetInt("onboarding") == 1)
+        {
+            string[] devices = Microphone.devices;
+            if (devices.Length > 0)
+            {
+                ProfileManager.Instance.SetProfileMicrophone(name, devices[0]);
+                Debug.Log($"[Onboarding] Auto-assigned microphone '{devices[0]}' to profile '{name}'");
+            }
+        }
+
         ProfileDisplay.Instance.InstantiateProfile(ProfileManager.Instance.GetProfileByName(name));
         GameObject temp = Instantiate(playerPrefab, playerContainer);
         temp.name = name;

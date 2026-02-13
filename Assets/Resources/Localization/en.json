@@ -477,5 +477,13 @@
   "status.starting": "Starting...",
   "status.waiting_players": "Waiting for other players...",
   "status.ytdlp_installed": "yt-dlp installed!",
-  "teamscore": "Team Score:"
+  "teamscore": "Team Score:",
+  "canvas.onboarding.skip.label": "Skip",
+  "canvas.onboarding.step1.info.text": "<b>Welcome to YASG!</b>\n\nLet's start by creating a profile for you. To do so, click this button to access the settings.",
+  "canvas.onboarding.step2.info.text": "Click here to add a profile.",
+  "canvas.onboarding.step3.info.text": "Now, click here to create a new profile. Give it a cool name!",
+  "canvas.onboarding.step4.info.text": "Now click here to go back to the menu.",
+  "canvas.onboarding.step5.info.text": "Now you are ready to play! Click here to access the song selection menu.",
+  "canvas.onboarding.step6.info.text": "<b>That's it!</b>\nYou can search any song you'd like to play by using this search bar.\nThanks for installing and have fun!",
+  "canvas.onboarding.step6.done.label": "Done"
 }
