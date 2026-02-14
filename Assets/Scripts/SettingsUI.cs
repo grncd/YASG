@@ -403,6 +403,14 @@ public class SettingsUI : MonoBehaviour
 
         while (PlayerPrefs.GetInt("onboarding") == 1)
         {
+            // Skip frames with huge deltaTime (app was suspended by permission dialog, etc.)
+            if (Time.unscaledDeltaTime > 0.5f)
+            {
+                lowFpsTimer = 0f;
+                yield return null;
+                continue;
+            }
+
             float fps = 1f / Time.unscaledDeltaTime;
 
             if (fps < 45f)
