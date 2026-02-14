@@ -11,6 +11,9 @@ using System.Text;
 using System.Linq;
 using FishNet.Managing.Scened;
 using UnityEngine.InputSystem;
+#if UNITY_ANDROID
+using UnityEngine.Android;
+#endif
 
 public class SettingsUI : MonoBehaviour
 {
@@ -85,10 +88,34 @@ public class SettingsUI : MonoBehaviour
         }
 
         // Show onboarding overlay on first launch after setup
-        if (onboardingOverlay != null && PlayerPrefs.GetInt("onboarding") == 1)
+        bool isOnboarding = onboardingOverlay != null && PlayerPrefs.GetInt("onboarding") == 1;
+        if (isOnboarding)
         {
             onboardingOverlay.SetActive(true);
+            StartCoroutine(MonitorFPSDuringOnboarding());
         }
+
+        // Check mic permission on Android every scene start
+#if UNITY_ANDROID
+        if (!Permission.HasUserAuthorizedPermission(Permission.Microphone))
+        {
+            if (isOnboarding)
+            {
+                // During onboarding, use the retry flow so permission is granted before profile creation
+                RequestMicPermission();
+            }
+            else
+            {
+                // Outside onboarding, show a warning and direct to app settings on dismiss
+                AlertManager.Instance.ShowWarning(
+                    LocalizationManager.L("alert.mic_permission.title", "Microphone Permission Required"),
+                    LocalizationManager.L("alert.mic_permission.info", "YASG needs microphone access to work. Please enable it in your device's app settings."),
+                    LocalizationManager.L("alert.dismiss", "Dismiss"),
+                    OpenAndroidAppSettings
+                );
+            }
+        }
+#endif
 
         for (int i = 1; i < 5; i++)
         {
@@ -369,6 +396,111 @@ public class SettingsUI : MonoBehaviour
         PlayerPrefs.SetInt("onboarding", 0);
         PlayerPrefs.Save();
     }
+
+    private IEnumerator MonitorFPSDuringOnboarding()
+    {
+        float lowFpsTimer = 0f;
+
+        while (PlayerPrefs.GetInt("onboarding") == 1)
+        {
+            float fps = 1f / Time.unscaledDeltaTime;
+
+            if (fps < 45f)
+            {
+                lowFpsTimer += Time.unscaledDeltaTime;
+                if (lowFpsTimer >= 2f)
+                {
+                    int currentBG = SettingsManager.Instance.GetSetting<int>("BGResolution", 1);
+                    if (currentBG > 0)
+                    {
+                        SettingsManager.Instance.SetSetting("BGResolution", 0);
+                        Debug.Log($"[Onboarding] FPS was below 45 for 3s (last: {fps:F0}), auto-reduced BG quality to 0.25x");
+                        NotificationCenter.Info(
+                            LocalizationManager.L("notification.bg_quality_reduced.title", "Background Quality Reduced"),
+                            LocalizationManager.L("notification.bg_quality_reduced.info", "Background quality was automatically reduced to improve performance.")
+                        );
+                    }
+                    yield break;
+                }
+            }
+            else
+            {
+                lowFpsTimer = 0f;
+            }
+
+            yield return null;
+        }
+    }
+
+#if UNITY_ANDROID
+    private int _micPermissionAttempts;
+
+    private void RequestMicPermission()
+    {
+        _micPermissionAttempts++;
+        Debug.Log($"[Onboarding] Requesting mic permission (attempt {_micPermissionAttempts}/2)");
+
+        var callbacks = new PermissionCallbacks();
+        callbacks.PermissionGranted += _ =>
+        {
+            Debug.Log("[Onboarding] Microphone permission granted");
+        };
+        callbacks.PermissionDenied += _ =>
+        {
+            Debug.Log($"[Onboarding] Microphone permission denied (attempt {_micPermissionAttempts}/2)");
+            if (_micPermissionAttempts < 2)
+            {
+                StartCoroutine(RetryMicPermission());
+            }
+            else
+            {
+                ShowMicPermissionWarning();
+            }
+        };
+        callbacks.PermissionDeniedAndDontAskAgain += _ =>
+        {
+            Debug.Log("[Onboarding] Microphone permission denied permanently");
+            ShowMicPermissionWarning();
+        };
+        Permission.RequestUserPermission(Permission.Microphone, callbacks);
+    }
+
+    private IEnumerator RetryMicPermission()
+    {
+        yield return new WaitForSeconds(0.5f);
+        RequestMicPermission();
+    }
+
+    private void ShowMicPermissionWarning()
+    {
+        AlertManager.Instance.ShowWarning(
+            LocalizationManager.L("alert.mic_permission.title", "Microphone Permission Required"),
+            LocalizationManager.L("alert.mic_permission.info", "YASG needs microphone access to work. Please enable it in your device's app settings."),
+            LocalizationManager.L("alert.dismiss", "Dismiss"),
+            OpenAndroidAppSettings
+        );
+    }
+
+    private static void OpenAndroidAppSettings()
+    {
+        try
+        {
+            using (var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+            using (var activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
+            using (var intent = new AndroidJavaObject("android.content.Intent", "android.settings.APPLICATION_DETAILS_SETTINGS"))
+            using (var uri = new AndroidJavaClass("android.net.Uri"))
+            using (var uriData = uri.CallStatic<AndroidJavaObject>("parse", "package:" + Application.identifier))
+            {
+                intent.Call<AndroidJavaObject>("setData", uriData);
+                activity.Call("startActivity", intent);
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[Onboarding] Failed to open app settings: {e.Message}");
+        }
+    }
+#endif
 
     public void FromSettings()
     {

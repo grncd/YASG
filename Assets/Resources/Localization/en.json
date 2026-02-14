@@ -40,6 +40,8 @@
   "alert.master_connection_failed.info": "Could not connect to the master processor at any of the available IPs after {0} attempts. Please check your network connection.",
   "alert.mic_init_failed.info": "Please ensure your microphone is properly connected and that it works as expected. Check that no other application has exclusive control over it.",
   "alert.mic_init_failed.title": "Your microphone couldn't be initialized.",
+  "alert.mic_permission.info": "YASG needs microphone access to work. Please enable it in your device's app settings.",
+  "alert.mic_permission.title": "Microphone Permission Required",
   "alert.micless_profiles.info": "One of your profiles has no microphone selected. If you aren't going to use said profile, please disable it.",
   "alert.micless_profiles.title": "There are micless profiles.",
   "alert.mp_same_network.title": "You need to be on the same network.",
@@ -485,5 +487,7 @@
   "canvas.onboarding.step4.info.text": "Now click here to go back to the menu.",
   "canvas.onboarding.step5.info.text": "Now you are ready to play! Click here to access the song selection menu.",
   "canvas.onboarding.step6.info.text": "<b>That's it!</b>\nYou can search any song you'd like to play by using this search bar.\nThanks for installing and have fun!",
-  "canvas.onboarding.step6.done.label": "Done"
+  "canvas.onboarding.step6.done.label": "Done",
+  "notification.bg_quality_reduced.info": "Background quality was automatically reduced to improve performance.",
+  "notification.bg_quality_reduced.title": "Background Quality Reduced"
 }

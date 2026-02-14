@@ -9,12 +9,34 @@ using Newtonsoft.Json.Linq;
 /// <summary>
 /// Auto-adds LocalizedText to new TMP_Text components, auto-generates localization keys
 /// from the hierarchy path, and syncs text content to en.json in real time as you edit.
+/// Toggle via Tools > Localization > Auto-Setup Enabled.
 /// </summary>
 [InitializeOnLoad]
 public static class LocalizedTextAutoSetup
 {
     private static readonly Dictionary<int, string> _trackedTexts = new Dictionary<int, string>();
     private static readonly string _enJsonPath = Path.Combine(Application.dataPath, "Resources", "Localization", "en.json");
+    private const string PREF_KEY = "LocalizedTextAutoSetup_Enabled";
+
+    public static bool Enabled
+    {
+        get => EditorPrefs.GetBool(PREF_KEY, true);
+        set => EditorPrefs.SetBool(PREF_KEY, value);
+    }
+
+    [MenuItem("Tools/Localization/Auto-Setup Enabled")]
+    private static void ToggleAutoSetup()
+    {
+        Enabled = !Enabled;
+        Debug.Log($"[Localization] Auto-Setup {(Enabled ? "enabled" : "disabled")}");
+    }
+
+    [MenuItem("Tools/Localization/Auto-Setup Enabled", true)]
+    private static bool ToggleAutoSetupValidate()
+    {
+        Menu.SetChecked("Tools/Localization/Auto-Setup Enabled", Enabled);
+        return true;
+    }
 
     static LocalizedTextAutoSetup()
     {
@@ -28,6 +50,7 @@ public static class LocalizedTextAutoSetup
     // ──────────────────────────────────────────────
     private static void OnComponentAdded(Component component)
     {
+        if (!Enabled) return;
         if (Application.isPlaying) return;
         if (!(component is TMP_Text)) return;
 
@@ -36,6 +59,7 @@ public static class LocalizedTextAutoSetup
 
         EditorApplication.delayCall += () =>
         {
+            if (!Enabled) return;
             if (go == null || go.GetComponent<LocalizedText>() != null) return;
 
             var lt = Undo.AddComponent<LocalizedText>(go);
@@ -53,6 +77,7 @@ public static class LocalizedTextAutoSetup
     // ──────────────────────────────────────────────
     private static void OnHierarchyChanged()
     {
+        if (!Enabled) return;
         if (Application.isPlaying) return;
 
         var go = Selection.activeGameObject;
@@ -63,6 +88,7 @@ public static class LocalizedTextAutoSetup
 
         EditorApplication.delayCall += () =>
         {
+            if (!Enabled) return;
             if (go == null || go.GetComponent<LocalizedText>() != null) return;
 
             var lt = Undo.AddComponent<LocalizedText>(go);

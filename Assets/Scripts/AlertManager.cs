@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using TMPro;
@@ -90,6 +91,19 @@ public class AlertManager : MonoBehaviour
         this.transform.GetChild(1).GetComponent<AudioSource>().Play();
 
         this.GetComponent<Animator>().Play("ShowWarning");
+    }
+
+    public void ShowWarning(string title, string info, string button, Action onDismiss)
+    {
+        ShowWarning(title, info, button);
+
+        var btn = this.transform.GetChild(1).GetChild(5).GetComponent<UnityEngine.UI.Button>();
+        void Handler()
+        {
+            btn.onClick.RemoveListener(Handler);
+            onDismiss?.Invoke();
+        }
+        btn.onClick.AddListener(Handler);
     }
 
     public void ShowError(string title, string info, string button)

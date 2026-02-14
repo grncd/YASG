@@ -40,6 +40,8 @@
   "alert.master_connection_failed.info": "Não foi possível conectar ao processador mestre em nenhum dos IPs disponíveis após {0} tentativas. Por favor, verifique sua conexão de rede.",
   "alert.mic_init_failed.info": "Por favor, verifique se seu microfone está conectado corretamente e funcionando como esperado. Certifique-se de que nenhum outro aplicativo tenha controle exclusivo sobre ele.",
   "alert.mic_init_failed.title": "Seu microfone não pode ser inicializado.",
+  "alert.mic_permission.info": "O YASG precisa de acesso ao microfone para funcionar. Por favor, ative-o nas configurações do aplicativo no seu dispositivo.",
+  "alert.mic_permission.title": "Permissão de Microfone Necessária",
   "alert.micless_profiles.info": "Um dos seus perfis não tem microfone selecionado. Se você não vai usar esse perfil, por favor desative-o.",
   "alert.micless_profiles.title": "Existem perfis sem microfone.",
   "alert.mp_same_network.title": "Você precisa estar na mesma rede.",
@@ -475,5 +477,7 @@
   "canvas.onboarding.step4.info.text": "Agora clique aqui para voltar ao menu.",
   "canvas.onboarding.step5.info.text": "Agora você está pronto para jogar! Clique aqui para acessar o menu de seleção de músicas.",
   "canvas.onboarding.step6.info.text": "<b>É isso!</b>\nVocê pode pesquisar qualquer música que quiser tocar usando esta barra de pesquisa.\nObrigado por instalar e divirta-se!",
-  "canvas.onboarding.step6.done.label": "Pronto"
+  "canvas.onboarding.step6.done.label": "Pronto",
+  "notification.bg_quality_reduced.info": "A qualidade do plano de fundo foi reduzida automaticamente para melhorar o desempenho.",
+  "notification.bg_quality_reduced.title": "Qualidade do Plano de Fundo Reduzida"
 }
