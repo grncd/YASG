@@ -21597,7 +21597,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 1559463415}
   m_Direction: 0
   m_Value: 0
-  m_Size: 0.99999994
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -46380,7 +46380,6 @@ GameObject:
   - component: {fileID: 947821743}
   - component: {fileID: 947821745}
   - component: {fileID: 947821744}
-  - component: {fileID: 947821746}
   m_Layer: 0
   m_Name: songname
   m_TagString: Untagged
@@ -46507,19 +46506,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 947821742}
   m_CullTransparentMesh: 1
---- !u!114 &947821746
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 947821742}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e8d78a080d6d1a14d9cc5df126332fa6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::LocalizedText
-  localizationKey: canvas.editor.saved.songname
 --- !u!1 &948684423
 GameObject:
   m_ObjectHideFlags: 0
