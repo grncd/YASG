@@ -1487,7 +1487,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
             if (audioClip == null || audioClip.length == 0f) return;
 
             // --- CURRENT TIME LOGIC (for scoring, etc.) ---
-            float adjustedTime = audioSource.time + AUDIO_LATENCY_COMPENSATION;
+            float adjustedTime = audioSource.time + AUDIO_TRIM_TIME + AUDIO_LATENCY_COMPENSATION;
             int index = Mathf.FloorToInt((adjustedTime / audioClip.length) * pitchOverTime.Count);
             index = Mathf.Clamp(index, 0, pitchOverTime.Count - 1);
 

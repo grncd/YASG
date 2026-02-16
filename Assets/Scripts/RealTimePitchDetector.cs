@@ -139,6 +139,7 @@ public class RealTimePitchDetector : MonoBehaviour
     private bool _scoreIncrementInitialized = false;
     private bool _scoreSaved = false;
     private int harmonicUsed = 0;
+    private bool _autoplayEnabled = false;
 
 
     private void Start()
@@ -183,6 +184,7 @@ public class RealTimePitchDetector : MonoBehaviour
                 break;
         }
         showPitch = SettingsManager.Instance.GetSetting<bool>("ShowDetectedPitch");
+        _autoplayEnabled = SettingsManager.Instance.GetSetting<bool>("Autoplay", false);
 
         if (micGlowImage != null && !SettingsManager.Instance.GetSetting<bool>("AudioReactivePlayerCircle"))
         {
@@ -703,6 +705,20 @@ public class RealTimePitchDetector : MonoBehaviour
         }
         if (!Mathf.Approximately(oldGainForThisFrameCheck, lowShelfGainDB)) UpdateBiquadCoefficients();
 
+        // --- Autoplay Override ---
+        if (_autoplayEnabled && AudioClipPitchProcessor.Instance != null
+            && AudioClipPitchProcessor.Instance.currentPitch > 0f)
+        {
+            currentPitch = AudioClipPitchProcessor.Instance.currentPitch;
+
+            if (micGlowImage != null)
+            {
+                float simulatedAlpha = Mathf.Clamp01(0.4f + Mathf.Sin(Time.time * 7f) * 0.15f);
+                Color c = micGlowImage.color;
+                micGlowImage.color = new Color(c.r, c.g, c.b, simulatedAlpha);
+            }
+        }
+
         var pitchJob = new PitchDetectionJob
         {
             inputSamples = nativeAudioBuffer,
@@ -779,7 +795,7 @@ public class RealTimePitchDetector : MonoBehaviour
         }
         */
 
-        if (enableAdvancedAntiMonotony && AudioClipPitchProcessor.Instance != null && AudioClipPitchProcessor.Instance.pitchOverTime != null && AudioClipPitchProcessor.Instance.pitchOverTime.Count > 0 &&
+        if (enableAdvancedAntiMonotony && !_autoplayEnabled && AudioClipPitchProcessor.Instance != null && AudioClipPitchProcessor.Instance.pitchOverTime != null && AudioClipPitchProcessor.Instance.pitchOverTime.Count > 0 &&
         AudioClipPitchProcessor.Instance.audioSource != null && AudioClipPitchProcessor.Instance.audioSource.isPlaying && _scoreIncrementInitialized && LyricsHandler.Instance != null && !LyricsHandler.Instance.songOver)
         {
             timeSinceLastMonotonyPenalty += Time.fixedDeltaTime;

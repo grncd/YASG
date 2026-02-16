@@ -6,6 +6,7 @@ using Newtonsoft.Json;
 using System.Linq;
 using System;
 using UnityEngine.SceneManagement;
+using UnityEngine.EventSystems;
 
 /// <summary>
 /// Defines the categories for settings.
@@ -85,6 +86,8 @@ public class SettingsManager : MonoBehaviour
         PopulateLanguageOptions();
         PopulateResolutionOptions();
         ApplyDisplaySettings();
+        ApplyControllerInputSetting();
+        SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
     /// <summary>
@@ -170,6 +173,7 @@ public class SettingsManager : MonoBehaviour
             { "DynamicVolumeThreshold", new Setting { Value = "-1.2", Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.TextInput, FormalName = "Dynamic Volume Threshold", Description = "Impacts scoring heavily. Lower means you will need to sing quieter parts of the vocal track and higher means the opposite. Ranges between -10dB and 10dB. Default is -1.2dB. Only change this if you know what you're doing."  } },
             { "PlayInstrumental", new Setting { Value = false, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Play Instrumental", Description = "If toggled on, the game will play the instrumental version of the song (no vocals) during gameplay."  } },
             { "MicFeedback", new Setting { Value = !IsMobilePlatform(), Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Microphone Feedback", Description = "If toggled on, you will hear your own voice through your speakers/headphones while singing. Disable this if you experience echo or don't want to hear yourself." } },
+            { "Autoplay", new Setting { Value = false, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Toggle, FormalName = "Autoplay", Description = "If toggled on, the game will automatically hit all notes for you." } },
 
             { "LyricDisplayOffset", new Setting { Value = "0.75", Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.TextInput, FormalName = "Lyric Display Offset", Description = "Offset (in seconds) used to DISPLAY the lyrics, is only visual and does not affect scoring. Turn this up if you need more time to process the upcoming lyrics. Default is 1s."  } },
             { "ExtraLyricsDisplay", new Setting { Value = 1, Category = SettingCategory.Gameplay, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Extra Lyrics Display", Description = "Controls whether to show upcoming and/or previous lyric lines.", DropdownOptions = new List<string> { "Off", "Upcoming Only", "Upcoming & Previous" } } },
@@ -193,6 +197,7 @@ public class SettingsManager : MonoBehaviour
             { "Resolution", new Setting { Value = 0, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Resolution", Description = "Screen resolution. Only available on desktop platforms.", DropdownOptions = new List<string> { "Default" } } },
             { "Fullscreen", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Fullscreen", Description = "Toggle fullscreen mode. Only available on desktop platforms." } },
             { "LimitFPS", new Setting { Value = false, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Limit FPS to 60", Description = "If enabled, limits the game to 60 FPS instead of your display's native refresh rate. Useful for power saving on high refresh rate monitors." } },
+            { "IgnoreControllerInput", new Setting { Value = false, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Ignore Controller Input", Description = "If enabled, disables all gamepad/controller navigation of the UI. Useful if a connected controller is causing unwanted input." } },
             { "BGResolution", new Setting { Value = 1, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Background Resolution", Description = "Lower this to improve GPU performance at the cost of background resolution.", DropdownOptions = new List<string> { "0.25x (Very Low)", "0.5x (Low)", "0.75x (Medium)", "1.0x (Native)" } } },
 
             { "FullReset", new Setting { Value = false, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "FULL RESET", Description = "Turn this on and REOPEN THE GAME to go back to the setup screen. THIS WILL DELETE ALL OF YOUR YASG DATA."  } }
@@ -342,6 +347,13 @@ public class SettingsManager : MonoBehaviour
                 // Set the value first, then apply so ApplyFPSLimit reads the new value
                 setting.Value = value;
                 ApplyFPSLimit();
+                SaveSettings();
+                return;
+            }
+            else if (key == "IgnoreControllerInput")
+            {
+                setting.Value = value;
+                ApplyControllerInputSetting();
                 SaveSettings();
                 return;
             }
@@ -629,5 +641,28 @@ public class SettingsManager : MonoBehaviour
     private void ReloadMenuScene()
     {
         SceneManager.LoadScene("Menu");
+    }
+
+    /// <summary>
+    /// Applies the controller input setting to the current EventSystem.
+    /// </summary>
+    private void ApplyControllerInputSetting()
+    {
+        bool ignore = GetSetting<bool>("IgnoreControllerInput", false);
+        if (EventSystem.current != null)
+        {
+            EventSystem.current.sendNavigationEvents = !ignore;
+        }
+    }
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        ApplyControllerInputSetting();
+        ApplyFPSLimit();
+    }
+
+    private void OnDestroy()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 }
