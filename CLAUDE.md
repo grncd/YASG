@@ -1,4 +1,4 @@
-# YASG (Yet Another Singing Game) — Project Guide
+# How to use the Localization System
 
 ## Project Overview
 
