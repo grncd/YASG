@@ -65,6 +65,7 @@
   "alert.ok": "OK",
   "alert.profile_already_active.info": "The profile you picked is already active. Please choose/create another one by clicking the Add Profile button.",
   "alert.profile_already_active.title": "This profile is already active.",
+  "alert.publish_retry_failed.info": "Failed to publish after multiple retries due to connection issues. Please try again later.",
   "alert.publish_error.title": "Error publishing lyrics.",
   "alert.resolution_mobile.info": "Resolution settings are only available on desktop platforms.",
   "alert.room_name_required.info": "Please enter a room name before creating a room.",

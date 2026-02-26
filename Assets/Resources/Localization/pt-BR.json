@@ -65,6 +65,7 @@
   "alert.ok": "OK",
   "alert.profile_already_active.info": "O perfil que você escolheu já está ativo. Por favor, escolha/crie outro clicando no botão Adicionar Perfil.",
   "alert.profile_already_active.title": "Este perfil já está ativo.",
+  "alert.publish_retry_failed.info": "Falha ao publicar após várias tentativas devido a problemas de conexão. Tente novamente mais tarde.",
   "alert.publish_error.title": "Erro ao publicar letras.",
   "alert.resolution_mobile.info": "As configurações de resolução só estão disponíveis em plataformas desktop.",
   "alert.room_name_required.info": "Por favor, insira um nome de sala antes de criar uma sala.",

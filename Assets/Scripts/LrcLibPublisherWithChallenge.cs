@@ -218,7 +218,7 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
             {
                 Debug.Log($"Challenge solved. Nonce: {solvedNonce}");
                 // Step 3: Publish the lyrics using the solved token
-                StartCoroutine(PublishLyrics(lyricsToPublish, currentChallengePrefix, solvedNonce));
+                _ = PublishLyricsAsync(lyricsToPublish, currentChallengePrefix, solvedNonce);
             }
             else
             {
@@ -243,53 +243,106 @@ public class LrcLibPublisherWithChallenge : MonoBehaviour
     }
 
     // === PRIVATE HELPER METHODS ===
-    private async Task<ChallengeResponse> GetChallengeAsync()
+    private static bool IsRetryableError(UnityWebRequest request)
     {
-        using (var request = UnityWebRequest.PostWwwForm("https://lrclib.net/api/request-challenge", ""))
-        {
-            request.SetRequestHeader("User-Agent", "YASG-Challenge-Solver");
-            var asyncOp = request.SendWebRequest();
-            while (!asyncOp.isDone) await Task.Yield();
-            if (request.result != UnityWebRequest.Result.Success)
-            {
-                Debug.LogError($"Failed to get challenge: {request.error}");
-                return null;
-            }
-            Debug.Log($"Challenge received. Payload: {request.downloadHandler.text}");
-            return JsonUtility.FromJson<ChallengeResponse>(request.downloadHandler.text);
-        }
+        string error = request.error ?? "";
+        string errorLower = error.ToLowerInvariant();
+        return errorLower.Contains("curl error 52") ||
+               errorLower.Contains("empty reply") ||
+               errorLower.Contains("connection reset") ||
+               errorLower.Contains("connection refused") ||
+               errorLower.Contains("timed out") ||
+               errorLower.Contains("timeout") ||
+               errorLower.Contains("ssl") ||
+               request.result == UnityWebRequest.Result.ConnectionError;
     }
 
-    private System.Collections.IEnumerator PublishLyrics(LyricsData lyricsPayload, string prefix, long solvedNonce)
+    private async Task<ChallengeResponse> GetChallengeAsync()
+    {
+        int maxRetries = 25;
+        int attempt = 0;
+
+        while (attempt < maxRetries)
+        {
+            attempt++;
+            using (var request = UnityWebRequest.PostWwwForm("https://lrclib.net/api/request-challenge", ""))
+            {
+                request.SetRequestHeader("User-Agent", "YASG-Challenge-Solver");
+                var asyncOp = request.SendWebRequest();
+                while (!asyncOp.isDone) await Task.Yield();
+
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    if (IsRetryableError(request) && attempt < maxRetries)
+                    {
+                        Debug.LogWarning($"LRCLib challenge transient error: {request.error}, retrying... ({attempt}/{maxRetries})");
+                        await Task.Delay(1000 * attempt);
+                        continue;
+                    }
+
+                    Debug.LogError($"Failed to get challenge: {request.error}");
+                    return null;
+                }
+
+                Debug.Log($"Challenge received. Payload: {request.downloadHandler.text}");
+                return JsonUtility.FromJson<ChallengeResponse>(request.downloadHandler.text);
+            }
+        }
+
+        Debug.LogError($"Failed to get challenge after {maxRetries} retries.");
+        return null;
+    }
+
+    private async Task PublishLyricsAsync(LyricsData lyricsPayload, string prefix, long solvedNonce)
     {
         string publishToken = $"{prefix}:{solvedNonce}";
         Debug.Log($"Using publish token: {publishToken}");
         string url = "https://lrclib.net/api/publish";
         string jsonPayload = JsonUtility.ToJson(lyricsPayload);
 
-        using (var request = new UnityWebRequest(url, "POST"))
+        int maxRetries = 25;
+        int attempt = 0;
+
+        while (attempt < maxRetries)
         {
-            byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
-            request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-            request.downloadHandler = new DownloadHandlerBuffer();
-            request.SetRequestHeader("Content-Type", "application/json");
-            request.SetRequestHeader("User-Agent", "YASG (github.com/grncd/YASG)");
-            request.SetRequestHeader("X-Publish-Token", publishToken);
-
-            yield return request.SendWebRequest();
-            LevelResourcesCompiler.Instance.ChallengeEnd();
-
-            if (request.result != UnityWebRequest.Result.Success)
+            attempt++;
+            using (var request = new UnityWebRequest(url, "POST"))
             {
-                AlertManager.Instance.ShowError(LocalizationManager.L("alert.publish_error.title", "Error publishing lyrics."), request.downloadHandler.text, LocalizationManager.L("alert.dismiss", "Dismiss"));
-                Debug.LogError($"Error publishing lyrics: {request.error}\nServer Response: {request.downloadHandler.text}");
-            }
-            else
-            {
+                byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
+                request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.SetRequestHeader("Content-Type", "application/json");
+                request.SetRequestHeader("User-Agent", "YASG (github.com/grncd/YASG)");
+                request.SetRequestHeader("X-Publish-Token", publishToken);
+
+                var asyncOp = request.SendWebRequest();
+                while (!asyncOp.isDone) await Task.Yield();
+
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    if (IsRetryableError(request) && attempt < maxRetries)
+                    {
+                        Debug.LogWarning($"LRCLib publish transient error: {request.error}, retrying... ({attempt}/{maxRetries})");
+                        await Task.Delay(1000 * attempt);
+                        continue;
+                    }
+
+                    LevelResourcesCompiler.Instance.ChallengeEnd();
+                    AlertManager.Instance.ShowError(LocalizationManager.L("alert.publish_error.title", "Error publishing lyrics."), request.downloadHandler.text, LocalizationManager.L("alert.dismiss", "Dismiss"));
+                    Debug.LogError($"Error publishing lyrics: {request.error}\nServer Response: {request.downloadHandler.text}");
+                    return;
+                }
+
+                LevelResourcesCompiler.Instance.ChallengeEnd();
                 AlertManager.Instance.ShowSuccess(LocalizationManager.L("alert.lyrics_sent.title", "Your lyrics have been sent!"), LocalizationManager.L("alert.lyrics_sent.info", "By contributing lyrics, you don't just help YASG, but also every other project that uses LRCLib. Thank you so much!\n(You and all YASG players are now able to play this song.)"), LocalizationManager.L("alert.dismiss", "Dismiss"));
                 Debug.Log($"Lyrics published successfully!\nServer Response: {request.downloadHandler.text}");
+                return;
             }
         }
+
+        LevelResourcesCompiler.Instance.ChallengeEnd();
+        Debug.LogError($"Failed to publish lyrics after {maxRetries} retries.");
+        AlertManager.Instance.ShowError(LocalizationManager.L("alert.publish_error.title", "Error publishing lyrics."), LocalizationManager.L("alert.publish_retry_failed.info", "Failed to publish after multiple retries due to connection issues. Please try again later."), LocalizationManager.L("alert.dismiss", "Dismiss"));
     }
 
     

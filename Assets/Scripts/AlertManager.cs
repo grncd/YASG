@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class AlertManager : MonoBehaviour
 {
@@ -38,58 +39,33 @@ public class AlertManager : MonoBehaviour
 
     public void ShowSuccess(string title, string info, string button)
     {
-        //SelectorOutline.Instance.defaultObject = this.transform.GetChild(3).GetChild(5).gameObject;
-        //SelectorOutline.Instance.RestrictButtonSelection(gameObject);
-        this.transform.GetChild(3).GetChild(3).GetComponent<TextMeshProUGUI>().text = title;
-        this.transform.GetChild(3).GetChild(4).GetComponent<TextMeshProUGUI>().text = info;
-        this.transform.GetChild(3).GetChild(5).GetChild(0).GetComponent<TextMeshProUGUI>().text = button;
-        this.transform.GetChild(3).GetChild(5).GetComponent<UnityEngine.UI.Button>().onClick.AddListener(editorManager.ReloadScene);
-
         this.transform.GetChild(3).gameObject.SetActive(true);
+        SetAlertText(this.transform.GetChild(3), title, info, button);
+        this.transform.GetChild(3).GetChild(5).GetComponent<Button>().onClick.AddListener(editorManager.ReloadScene);
         this.transform.GetChild(3).GetComponent<AudioSource>().Play();
-
         this.GetComponent<Animator>().Play("ShowSuccess");
     }
     public void ShowSuccess(string title, string info, string button, bool none)
     {
-        //SelectorOutline.Instance.defaultObject = this.transform.GetChild(3).GetChild(5).gameObject;
-        //SelectorOutline.Instance.RestrictButtonSelection(gameObject);
-
-        this.transform.GetChild(3).GetChild(3).GetComponent<TextMeshProUGUI>().text = title;
-        this.transform.GetChild(3).GetChild(4).GetComponent<TextMeshProUGUI>().text = info;
-        this.transform.GetChild(3).GetChild(5).GetChild(0).GetComponent<TextMeshProUGUI>().text = button;
-
         this.transform.GetChild(3).gameObject.SetActive(true);
+        SetAlertText(this.transform.GetChild(3), title, info, button);
         this.transform.GetChild(3).GetComponent<AudioSource>().Play();
-
         this.GetComponent<Animator>().Play("ShowSuccess");
     }
 
     public void ShowInfo(string title, string info, string button)
     {
-        //SelectorOutline.Instance.defaultObject = this.transform.GetChild(2).GetChild(5).gameObject;
-        //SelectorOutline.Instance.RestrictButtonSelection(gameObject);
-        this.transform.GetChild(2).GetChild(3).GetComponent<TextMeshProUGUI>().text = title;
-        this.transform.GetChild(2).GetChild(4).GetComponent<TextMeshProUGUI>().text = info;
-        this.transform.GetChild(2).GetChild(5).GetChild(0).GetComponent<TextMeshProUGUI>().text = button;
-
         this.transform.GetChild(2).gameObject.SetActive(true);
+        SetAlertText(this.transform.GetChild(2), title, info, button);
         this.transform.GetChild(2).GetComponent<AudioSource>().Play();
-
         this.GetComponent<Animator>().Play("ShowInfo");
     }
 
     public void ShowWarning(string title, string info, string button)
     {
-        //SelectorOutline.Instance.defaultObject = this.transform.GetChild(1).GetChild(5).gameObject;
-        ////SelectorOutline.Instance.RestrictButtonSelection(gameObject);
-        this.transform.GetChild(1).GetChild(3).GetComponent<TextMeshProUGUI>().text = title;
-        this.transform.GetChild(1).GetChild(4).GetComponent<TextMeshProUGUI>().text = info;
-        this.transform.GetChild(1).GetChild(5).GetChild(0).GetComponent<TextMeshProUGUI>().text = button;
-
         this.transform.GetChild(1).gameObject.SetActive(true);
+        SetAlertText(this.transform.GetChild(1), title, info, button);
         this.transform.GetChild(1).GetComponent<AudioSource>().Play();
-
         this.GetComponent<Animator>().Play("ShowWarning");
     }
 
@@ -97,7 +73,7 @@ public class AlertManager : MonoBehaviour
     {
         ShowWarning(title, info, button);
 
-        var btn = this.transform.GetChild(1).GetChild(5).GetComponent<UnityEngine.UI.Button>();
+        var btn = this.transform.GetChild(1).GetChild(5).GetComponent<Button>();
         void Handler()
         {
             btn.onClick.RemoveListener(Handler);
@@ -108,15 +84,9 @@ public class AlertManager : MonoBehaviour
 
     public void ShowError(string title, string info, string button)
     {
-        ////SelectorOutline.Instance.defaultObject = this.transform.GetChild(0).GetChild(5).gameObject;
-        //SelectorOutline.Instance.RestrictButtonSelection(gameObject);
-        this.transform.GetChild(0).GetChild(3).GetComponent<TextMeshProUGUI>().text = title;
-        this.transform.GetChild(0).GetChild(4).GetComponent<TextMeshProUGUI>().text = info;
-        this.transform.GetChild(0).GetChild(5).GetChild(0).GetComponent<TextMeshProUGUI>().text = button;
-
         this.transform.GetChild(0).gameObject.SetActive(true);
+        SetAlertText(this.transform.GetChild(0), title, info, button);
         this.transform.GetChild(0).GetComponent<AudioSource>().Play();
-
         this.GetComponent<Animator>().Play("ShowError");
     }
 
@@ -126,8 +96,40 @@ public class AlertManager : MonoBehaviour
         //SelectorOutline.Instance.UnrestrictAllButtons();
     }
 
+    /// <summary>
+    /// Sets the title, info, and button text on an alert panel, clearing any LocalizedText
+    /// keys so they don't overwrite the dynamically-set text on Start/OnEnable.
+    /// </summary>
+    private void SetAlertText(Transform alertPanel, string title, string info, string button)
+    {
+        var titleTmp = alertPanel.GetChild(3);
+        var infoTmp = alertPanel.GetChild(4);
+        var buttonTmp = alertPanel.GetChild(5).GetChild(0);
+
+        titleTmp.GetComponent<TextMeshProUGUI>().text = title;
+        infoTmp.GetComponent<TextMeshProUGUI>().text = info;
+        buttonTmp.GetComponent<TextMeshProUGUI>().text = button;
+
+        // Clear localization keys so LocalizedText.Start()/OnEnable() don't overwrite
+        var lt = titleTmp.GetComponent<LocalizedText>();
+        if (lt != null) lt.localizationKey = "";
+        lt = infoTmp.GetComponent<LocalizedText>();
+        if (lt != null) lt.localizationKey = "";
+        lt = buttonTmp.GetComponent<LocalizedText>();
+        if (lt != null) lt.localizationKey = "";
+    }
+
     private void Start()
     {
+        // Delay by one frame so that all LocalizedText.Start() calls have finished
+        // before we set alert text, preventing them from overwriting our values.
+        StartCoroutine(CheckStartAlerts());
+    }
+
+    private IEnumerator CheckStartAlerts()
+    {
+        yield return null;
+
         if (PlayerPrefs.GetInt("ERR") == 1)
         {
             ShowError(LocalizationManager.L("alert.error_occurred.title", "An error occurred."), LocalizationManager.L("alert.error_occurred.info", "Please try playing the song again or performing a full reset (Settings > Misc > Full Reset). If the issue persists, open an issue in our GitHub page."), LocalizationManager.L("alert.close", "Close"));
