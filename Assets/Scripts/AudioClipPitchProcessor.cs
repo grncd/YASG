@@ -89,6 +89,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
     public LyricsHandler lyricsHandler;
     public GameObject loadingScreen;
     public float AUDIO_LATENCY_COMPENSATION = 0.1f;
+    private float _pitchDataPadding;
     public float ProcessedAudioLength;
     public Animator countdown;
     public TextMeshProUGUI countdownText;
@@ -107,6 +108,10 @@ public class AudioClipPitchProcessor : MonoBehaviour
     public Image darken;
     private bool showPitch;
     public CanvasGroup waitingMP;
+
+    // Pre-visualizer state (shows particles during countdown before audio plays)
+    private bool preVisualizerActive = false;
+    private float preVisualizerElapsed = 0f;
 
     // Background rendering optimization
     private RenderTexture bgRenderTexture;
@@ -394,6 +399,8 @@ public class AudioClipPitchProcessor : MonoBehaviour
         Application.targetFrameRate = -1;
         dynamicVolumeThresholdDbBoost = Mathf.Clamp(float.Parse(SettingsManager.Instance.GetSetting<string>("DynamicVolumeThreshold"), CultureInfo.InvariantCulture), -10f, 10f);
         AUDIO_TRIM_TIME = Mathf.Clamp(float.Parse(SettingsManager.Instance.GetSetting<string>("SongOffset"), CultureInfo.InvariantCulture), 0f, 1.5f);
+        AUDIO_LATENCY_COMPENSATION = Mathf.Clamp(float.Parse(SettingsManager.Instance.GetSetting<string>("AudioLatencyCompensation", "0.1"), CultureInfo.InvariantCulture), 0f, 1f);
+        _pitchDataPadding = Mathf.Clamp(float.Parse(SettingsManager.Instance.GetSetting<string>("PitchDataPadding", "0.15"), CultureInfo.InvariantCulture), 0f, 1f);
 
         if (PlayerPrefs.GetInt("Player1") == 0) GameObject.Find("Player1GPitch").gameObject.SetActive(false);
         if (PlayerPrefs.GetInt("Player2") == 0) GameObject.Find("Player2GPitch").gameObject.SetActive(false);
@@ -873,6 +880,9 @@ public class AudioClipPitchProcessor : MonoBehaviour
         }
         else scoreIncrement = 0f;
 
+        // PitchDataPadding and AudioLatencyCompensation are now subtracted from adjustedTime
+        // at runtime (in Update) instead of prepending zeros to pitchOverTime.
+
         if (audioClipFull == null)
         {
             UnityEngine.Debug.LogError("[AudioClipPitchProcessor] audioClipFull is null before trimming. Playback will fail.");
@@ -967,7 +977,11 @@ public class AudioClipPitchProcessor : MonoBehaviour
         if (musicSource != null) musicSource.Stop();
         if (musicSource2 != null) musicSource2.Stop();
         musicControl.audioMixer.SetFloat("LowpassCutoff", 20000f);
+        // Start the pre-visualizer so early vocals are shown before audio plays
+        preVisualizerActive = true;
+        preVisualizerElapsed = 0f;
         yield return new WaitForSeconds(1);
+        preVisualizerActive = false;
         countdownText.text = "0";
         if (lyricsHandler != null) lyricsHandler.StartLyrics();
         audioSource.Play();
@@ -1487,7 +1501,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
             if (audioClip == null || audioClip.length == 0f) return;
 
             // --- CURRENT TIME LOGIC (for scoring, etc.) ---
-            float adjustedTime = audioSource.time + AUDIO_TRIM_TIME + AUDIO_LATENCY_COMPENSATION;
+            float adjustedTime = audioSource.time + AUDIO_TRIM_TIME - _pitchDataPadding - AUDIO_LATENCY_COMPENSATION;
             int index = Mathf.FloorToInt((adjustedTime / audioClip.length) * pitchOverTime.Count);
             index = Mathf.Clamp(index, 0, pitchOverTime.Count - 1);
 
@@ -1565,6 +1579,42 @@ public class AudioClipPitchProcessor : MonoBehaviour
             //if (pitchSlider3 != null) pitchSlider3.value = minFrequency;
             //if (pitchSlider4 != null) pitchSlider4.value = minFrequency;
             //if (debugMode && pitchSliderDBG != null) pitchSliderDBG.value = minFrequency;
+        }
+
+        // Pre-visualizer: drive "Particle System Main" during the countdown so
+        // vocals at the very start of the song are visible before audio plays.
+        if (preVisualizerActive && audioSource != null && !audioSource.isPlaying
+            && pitchOverTime != null && pitchOverTime.Count > 0
+            && audioClip != null && audioClip.length > 0f)
+        {
+            preVisualizerElapsed += Time.deltaTime;
+
+            // Simulate the visualizer time as if audio were about to start.
+            // The pre-visualizer runs for 1s before audioSource.Play().
+            // At elapsed=0, we want visualizerTime ≈ TRIM - padding - latency + 0.9 - 1.0
+            // At elapsed=1, we want visualizerTime ≈ TRIM - padding - latency + 0.9 (matches first frame of playback)
+            float simulatedVisualizerTime = (preVisualizerElapsed - 1f)
+                + AUDIO_TRIM_TIME - _pitchDataPadding - AUDIO_LATENCY_COMPENSATION + 0.9f;
+
+            if (simulatedVisualizerTime >= 0f)
+            {
+                int visIndex = Mathf.FloorToInt((simulatedVisualizerTime / audioClip.length) * pitchOverTime.Count);
+                visIndex = Mathf.Clamp(visIndex, 0, pitchOverTime.Count - 1);
+
+                float futurePitch = pitchOverTime[visIndex];
+                bool futureSinging = futurePitch >= 32f;
+
+                foreach (ParticleSystem ps in FindObjectsOfType<ParticleSystem>())
+                {
+                    if (ps.gameObject.name == "Particle System Main")
+                    {
+                        if (futureSinging && !ps.isEmitting) ps.Play();
+                        else if (!futureSinging && ps.isEmitting) ps.Stop();
+                        var shape = ps.shape;
+                        shape.position = new Vector3(0f, Mathf.Clamp(futureSinging ? futurePitch : 0f, minFrequency, maxFrequency) * 0.0032f, 0f);
+                    }
+                }
+            }
         }
     }
 
