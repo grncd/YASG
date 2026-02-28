@@ -8,13 +8,15 @@ public class MicFeedbackFilter : MonoBehaviour
     private string _micDeviceName;
     private volatile bool _isActive;
 
-    // Native WASAPI monitoring
+    // Native WASAPI monitoring — per-instance session (supports multiple mics)
     private bool _usingNativePath;
-    private static bool _nativeInitialized;
     private AudioMixerGroup _mixerGroup;
 
-    // Ensures only one feedback instance is active at a time
-    private static MicFeedbackFilter _activeInstance;
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+    private WasapiMicSession _session;
+#endif
+
+    private static bool _nativeInitialized;
 
     // Lock-free SPSC ring buffer (main thread writes, audio thread reads) — fallback path
     private float[] _ringBuffer;
@@ -45,21 +47,18 @@ public class MicFeedbackFilter : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     static void OnDomainReload()
     {
-        _activeInstance = null;
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+        // Clear device cache on domain reload
         if (_nativeInitialized)
         {
             WasapiMicMonitorNative.Shutdown();
             _nativeInitialized = false;
         }
+#endif
     }
 
     public void Activate(AudioClip micClip, string micDeviceName, AudioMixerGroup mixerGroup)
     {
-        // Stop any other active feedback instance to prevent duplicates
-        if (_activeInstance != null && _activeInstance != this)
-            _activeInstance.Deactivate();
-        _activeInstance = this;
-
         _micClip = micClip;
         _micDeviceName = micDeviceName;
         _mixerGroup = mixerGroup;
@@ -75,7 +74,8 @@ public class MicFeedbackFilter : MonoBehaviour
             wasapiLatencyMs = Mathf.Clamp(wasapiLatencyMs, 1f, 100f);
         }
 
-        // Attempt native WASAPI path
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+        // Attempt native WASAPI path — each instance gets its own session
         if (WasapiMicMonitorNative.IsSupported)
         {
             if (!_nativeInitialized)
@@ -86,18 +86,21 @@ public class MicFeedbackFilter : MonoBehaviour
                 int deviceIndex = WasapiMicMonitorNative.FindDeviceIndexByUnityName(micDeviceName);
                 if (deviceIndex >= 0)
                 {
-                    if (WasapiMicMonitorNative.StartMonitoring(deviceIndex, wasapiLatencyMs))
+                    _session = new WasapiMicSession();
+                    if (_session.Start(deviceIndex, wasapiLatencyMs))
                     {
                         _usingNativePath = true;
                         _isActive = true;
-                        Debug.Log($"[MicFeedbackFilter] Native WASAPI monitoring active. " +
-                                  $"Latency: {WasapiMicMonitorNative.GetActualLatencyMs():F1}ms");
+                        Debug.Log($"[MicFeedbackFilter] Native WASAPI monitoring active for '{micDeviceName}'. " +
+                                  $"Latency: {_session.ActualLatencyMs:F1}ms");
                         return;
                     }
                     else
                     {
-                        Debug.LogWarning("[MicFeedbackFilter] Native start failed, falling back. " +
-                                         $"Error: {WasapiMicMonitorNative.GetLastError()}");
+                        Debug.LogWarning($"[MicFeedbackFilter] Native start failed, falling back. " +
+                                         $"Error: {_session.LastError}");
+                        _session.Dispose();
+                        _session = null;
                     }
                 }
                 else
@@ -107,8 +110,9 @@ public class MicFeedbackFilter : MonoBehaviour
                 }
             }
         }
+#endif
 
-        // Fallback: existing ring buffer path
+        // Fallback: ring buffer path
         SetupFallbackPath(micClip, micDeviceName, mixerGroup);
     }
 
@@ -144,14 +148,14 @@ public class MicFeedbackFilter : MonoBehaviour
 
     public void Deactivate()
     {
-        if (_activeInstance == this)
-            _activeInstance = null;
-
         _isActive = false;
 
         if (_usingNativePath)
         {
-            WasapiMicMonitorNative.StopMonitoring();
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+            _session?.Dispose();
+            _session = null;
+#endif
             _usingNativePath = false;
         }
         else
@@ -174,7 +178,10 @@ public class MicFeedbackFilter : MonoBehaviour
     {
         if (_usingNativePath)
         {
-            WasapiMicMonitorNative.SetVolume(linearGain);
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+            if (_session != null)
+                _session.Volume = linearGain;
+#endif
         }
         else
         {
@@ -190,15 +197,19 @@ public class MicFeedbackFilter : MonoBehaviour
 
         if (_usingNativePath)
         {
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
             // Check if native monitoring stopped unexpectedly (e.g. device disconnected)
-            if (!WasapiMicMonitorNative.IsMonitoring())
+            if (_session == null || !_session.IsActive)
             {
                 Debug.LogWarning("[MicFeedbackFilter] Native monitoring stopped unexpectedly. Falling back.");
+                _session?.Dispose();
+                _session = null;
                 _usingNativePath = false;
 
                 if (_micClip != null && Microphone.IsRecording(_micDeviceName))
                     SetupFallbackPath(_micClip, _micDeviceName, _mixerGroup);
             }
+#endif
             return;
         }
 
@@ -234,11 +245,14 @@ public class MicFeedbackFilter : MonoBehaviour
 
     void OnApplicationQuit()
     {
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
         if (_usingNativePath)
         {
-            WasapiMicMonitorNative.StopMonitoring();
+            _session?.Dispose();
+            _session = null;
             _usingNativePath = false;
         }
+#endif
     }
 
     void OnAudioFilterRead(float[] data, int channels)
