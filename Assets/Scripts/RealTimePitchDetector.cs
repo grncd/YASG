@@ -35,7 +35,7 @@ public class RealTimePitchDetector : MonoBehaviour
     public int analysisWindowSize = 2048;
 
     [Header("Detection Settings")]
-    public float smoothing = 0.9f;
+    public float smoothing = 0.3f;
 
     [Header("EQ Settings (Low Shelf)")]
     public float fixedLowShelfGainDB = 55f;
@@ -94,9 +94,11 @@ public class RealTimePitchDetector : MonoBehaviour
     [Tooltip("Assign the FX AudioMixerGroup to route mic feedback through the SFX volume control.")]
     public AudioMixerGroup fxMixerGroup;
 
+    [HideInInspector] public bool _calibrationMode = false;
     private AudioClip micClip;
     private float[] audioBuffer;
     private float currentPitch = 0f;
+    public float currentPitchPublic => currentPitch;
     private float currentPitch2 = 0f;
 
     public float vocalArrow;
@@ -110,6 +112,7 @@ public class RealTimePitchDetector : MonoBehaviour
     public Slider vocalArrowS3DBG;
     public Slider vocalArrowS4DBG;
     private ParticleSystem vocalArrowP;
+    private ParticleSystem arrowPS;
     public float score = 0f;
     public int placement = 0;
     public TextMeshProUGUI scoreDisplay;
@@ -144,6 +147,9 @@ public class RealTimePitchDetector : MonoBehaviour
 
     private void Start()
     {
+        // In calibration mode, Setup is handled by StartCalibrationMode — skip normal init
+        if (_calibrationMode) return;
+
         if (PlayerPrefs.GetInt("multiplayer") == 0)
         {
             Setup();
@@ -218,16 +224,26 @@ public class RealTimePitchDetector : MonoBehaviour
             analysisWindowSize = 1024;
         }
 
+        // Cache particle systems from slider handles using GetComponentInChildren
+        // to be robust against child ordering changes (Glow vs Particle System).
         if (vocalArrowS != null && vocalArrowS.transform.childCount > 1 &&
-            vocalArrowS.transform.GetChild(1).childCount > 0 &&
-            vocalArrowS.transform.GetChild(1).GetChild(0).childCount > 0)
+            vocalArrowS.transform.GetChild(1).childCount > 0)
         {
-            vocalArrowP = vocalArrowS.transform.GetChild(1).GetChild(0).GetChild(0).GetComponent<ParticleSystem>();
-            if (vocalArrowP == null) Debug.LogWarning("[RealTimePitchDetector] ParticleSystem not found at expected path in vocalArrowS.");
+            Transform handle = vocalArrowS.transform.GetChild(1).GetChild(0); // Handle Slide Area → Handle
+            vocalArrowP = handle.GetComponentInChildren<ParticleSystem>();
+            if (vocalArrowP == null) Debug.LogWarning("[RealTimePitchDetector] ParticleSystem not found in vocalArrowS Handle.");
         }
         else if (vocalArrowS != null)
-        { // Only log if vocalArrowS itself is assigned
+        {
             Debug.LogWarning("[RealTimePitchDetector] vocalArrowS hierarchy not as expected for ParticleSystem. Skipping ParticleSystem setup.");
+        }
+
+        if (vocalArrowSG != null && vocalArrowSG.transform.childCount > 1 &&
+            vocalArrowSG.transform.GetChild(1).childCount > 0)
+        {
+            Transform handleG = vocalArrowSG.transform.GetChild(1).GetChild(0); // Handle Slide Area → Handle
+            arrowPS = handleG.GetComponentInChildren<ParticleSystem>();
+            if (arrowPS == null) Debug.LogWarning("[RealTimePitchDetector] ParticleSystem not found in vocalArrowSG Handle.");
         }
 
 
@@ -269,6 +285,55 @@ public class RealTimePitchDetector : MonoBehaviour
         {
             Debug.Log("[RealTimePitchDetector] Setup complete. Waiting for activation signal to start microphone.");
         }
+    }
+
+    /// <summary>
+    /// Starts the pitch detector in calibration mode — mic + pitch detection only, no scoring.
+    /// Used by LatencyCalibrator to measure pitch detection latency.
+    /// </summary>
+    public void StartCalibrationMode()
+    {
+        if (_isRecording)
+        {
+            Debug.LogWarning("[RealTimePitchDetector] Already recording in calibration mode.");
+            return;
+        }
+
+        _calibrationMode = true;
+        _scoreIncrementInitialized = true; // Bypass WaitForScoreIncrement gate
+        Setup();
+        StartCoroutine(StartRecordingCoroutine());
+        Debug.Log("[RealTimePitchDetector] Calibration mode started.");
+    }
+
+    /// <summary>
+    /// Starts calibration mode with a specific microphone device name.
+    /// </summary>
+    public void StartCalibrationMode(string micName)
+    {
+        if (!string.IsNullOrEmpty(micName))
+        {
+            selectedDeviceNameOverride = micName;
+        }
+        StartCalibrationMode();
+    }
+
+    /// <summary>
+    /// Stops calibration mode and releases the microphone.
+    /// </summary>
+    public void StopCalibrationMode()
+    {
+        if (!_calibrationMode) return;
+
+        _calibrationMode = false;
+        _scoreIncrementInitialized = false;
+
+        if (_isRecording && !string.IsNullOrEmpty(selectedDevice))
+        {
+            Microphone.End(selectedDevice);
+        }
+        _isRecording = false;
+        Debug.Log("[RealTimePitchDetector] Calibration mode stopped.");
     }
 
     public void ActivateAndStartMicrophone()
@@ -387,17 +452,22 @@ public class RealTimePitchDetector : MonoBehaviour
     {
 
         Debug.Log("Recording coroutine called");
-        if (PlayerPrefs.GetInt("multiplayer") == 0 && PlayerPrefs.GetInt("partyMode") == 0)
+
+        // In calibration mode, skip difficulty lookup — it's not needed for pitch detection
+        if (!_calibrationMode)
         {
-            diffIndex = ProfileManager.Instance.GetProfileByName(PlayerPrefs.GetString(gameObject.name + "Name")).difficulty;
-        }
-        else if (PlayerPrefs.GetInt("partyMode") == 0)
-        {
-            diffIndex = PlayerPrefs.GetInt(gameObject.name + "Difficulty");
-        }
-        else
-        {
-            diffIndex = PlayerPrefs.GetInt("Player1Difficulty");
+            if (PlayerPrefs.GetInt("multiplayer") == 0 && PlayerPrefs.GetInt("partyMode") == 0)
+            {
+                diffIndex = ProfileManager.Instance.GetProfileByName(PlayerPrefs.GetString(gameObject.name + "Name")).difficulty;
+            }
+            else if (PlayerPrefs.GetInt("partyMode") == 0)
+            {
+                diffIndex = PlayerPrefs.GetInt(gameObject.name + "Difficulty");
+            }
+            else
+            {
+                diffIndex = PlayerPrefs.GetInt("Player1Difficulty");
+            }
         }
 
         if (Microphone.devices.Length == 0)
@@ -545,11 +615,19 @@ public class RealTimePitchDetector : MonoBehaviour
             Debug.LogError("[RealTimePitchDetector] FATAL: Could not initialize any microphone.");
             if (tempDebug != null) tempDebug.text = "Mic Start Fail!";
 
+            _isRecording = false;
+
+            // In calibration mode, just disable — don't reload scene or set error flags
+            if (_calibrationMode)
+            {
+                this.enabled = false;
+                yield break;
+            }
+
             // Set error flag for AlertManager in Menu scene
             PlayerPrefs.SetInt("ERR", 2);
             PlayerPrefs.Save();
 
-            _isRecording = false;
             this.enabled = false;
 
             // Return to Menu scene
@@ -640,7 +718,7 @@ public class RealTimePitchDetector : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (!_isInitialized || !_isRecording || micClip == null || !nativeAudioBuffer.IsCreated || !_scoreIncrementInitialized)
+        if (!_isInitialized || !_isRecording || micClip == null || !nativeAudioBuffer.IsCreated || (!_scoreIncrementInitialized && !_calibrationMode))
         {
             return;
         }
@@ -736,7 +814,8 @@ public class RealTimePitchDetector : MonoBehaviour
 
         // --- Scoring Logic ---
 
-
+        // In calibration mode, we only need pitch detection — skip scoring entirely
+        if (_calibrationMode) return;
 
         if (AudioClipPitchProcessor.Instance == null)
         {
@@ -933,12 +1012,6 @@ public class RealTimePitchDetector : MonoBehaviour
                 }
             }
 
-            if (showPitch && vocalArrowP != null && !vocalArrowP.isPlaying) vocalArrowP.Play();
-            vocalArrowSG.gameObject.GetComponent<CanvasGroup>().alpha = 1f;
-            vocalArrowSG.transform.GetChild(1).GetChild(0).transform.rotation = Quaternion.Euler(0f, 0f, 0f + bestDifference * 0.4f);
-            vocalArrowS.value = bestValue;
-            vocalArrowSG.value = bestValue;
-
             if (debugMode)
             {
                 if (vocalArrowSDBG != null) vocalArrowSDBG.value = vocalArrow;
@@ -947,11 +1020,10 @@ public class RealTimePitchDetector : MonoBehaviour
                 if (vocalArrowS4DBG != null) vocalArrowS4DBG.value = vocalArrow4;
             }
 
+            // --- Compute scoring first, then set arrow visuals based on result ---
             float valuingCoefficient = GetOctaveLeniency(AudioClipPitchProcessor.Instance.currentPitch);
             bool scoredThisFrame = false;
             float leniencyThreshold;
-
-
 
             if (currentPitch * 2 < 450f)
             {
@@ -961,8 +1033,6 @@ public class RealTimePitchDetector : MonoBehaviour
             {
                 leniencyThreshold = 17f * valuingCoefficient * currentLeniencyCoefficient;
             }
-            //if (debugMode && tempDebug != null) tempDebug.text = $"Leniency: {leniencyThreshold:F1}, BestDiff: {bestDifference:F1}";
-
 
             if (debugMode && (!ppJudge || !songNotOver))
             {
@@ -978,11 +1048,28 @@ public class RealTimePitchDetector : MonoBehaviour
                 if (debugMode && songDebugLeniency != null) songDebugLeniency.sizeDelta = new Vector2(leniencyThreshold * 7f, songDebugLeniency.sizeDelta.y);
             }
 
-
-            ParticleSystem arrowPS = vocalArrowSG.transform.GetChild(1).GetChild(0).GetChild(1).GetComponent<ParticleSystem>();
+            // --- Arrow visuals based on scoring result ---
             if (scoredThisFrame)
             {
-                if (!arrowPS.isEmitting) arrowPS.Play();
+                // BRIGHT: user is singing close enough to score
+                if (showPitch && vocalArrowP != null && !vocalArrowP.isPlaying) vocalArrowP.Play();
+                vocalArrowSG.gameObject.GetComponent<CanvasGroup>().alpha = 1f;
+
+                // Tilt: signed direction (positive = user too low, negative = user too high),
+                // reduced by ~50%, with dead zone for close matches
+                const float tiltDeadZone = 5f;
+                float tilt = 0f;
+                if (bestDifference > tiltDeadZone)
+                {
+                    float signedDiff = currentAppPitch - bestValue;
+                    tilt = signedDiff * 0.2f;
+                }
+                vocalArrowSG.transform.GetChild(1).GetChild(0).transform.rotation = Quaternion.Euler(0f, 0f, tilt);
+
+                vocalArrowS.value = bestValue;
+                vocalArrowSG.value = bestValue;
+
+                if (arrowPS != null && !arrowPS.isEmitting) arrowPS.Play();
 
                 if (PlayerPrefs.GetInt("multiplayer") == 0)
                 {
@@ -1029,18 +1116,30 @@ public class RealTimePitchDetector : MonoBehaviour
                     Debug.LogWarning($"[RealTimePitchDetector] SCORED! But scoreDisplay is null. Increment: {scoreIncrement}, New Score: {score}");
                 }
             }
-            else if (debugMode)
-            {
-                //Debug.Log($"[RealTimePitchDetector] NO SCORE. BestDiff: {bestDifference:F1}, Threshold: {leniencyThreshold:F1}, PPJudge: {ppJudge}, SongNotOver: {songNotOver}, ScoreInc: {scoreIncrement}");
-            }
             else
             {
-                if (arrowPS.isEmitting) arrowPS.Stop();
+                // DIM: user is singing but too far off to score — no tilt
+                if (vocalArrowP != null && vocalArrowP.isPlaying) vocalArrowP.Stop();
+                vocalArrowSG.gameObject.GetComponent<CanvasGroup>().alpha = 0.35f;
+                vocalArrowSG.transform.GetChild(1).GetChild(0).transform.rotation = Quaternion.Euler(0f, 0f, 0f);
+
+                // Position at user's pitch using the last-used harmonic
+                switch (harmonicUsed)
+                {
+                    case 1: vocalArrowSG.value = currentPitch; break;
+                    case 2: vocalArrowSG.value = currentPitch * 2f; break;
+                    case 3: vocalArrowSG.value = currentPitch / 2f; break;
+                    case 4: vocalArrowSG.value = currentPitch * 4f; break;
+                    default: vocalArrowSG.value = currentPitch; break;
+                }
+
+                if (arrowPS != null && arrowPS.isEmitting) arrowPS.Stop();
             }
         }
         else
         {
             if (vocalArrowP != null && vocalArrowP.isPlaying) vocalArrowP.Stop();
+            if (arrowPS != null && arrowPS.isEmitting) arrowPS.Stop();
             if (currentPitch > 32f)
             {
                 vocalArrowSG.gameObject.GetComponent<CanvasGroup>().alpha = 0.35f;
