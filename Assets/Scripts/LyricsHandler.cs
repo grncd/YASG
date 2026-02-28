@@ -359,6 +359,17 @@ public class LyricsHandler : MonoBehaviour
         startTime = Time.time;
         isPlaying = true;
 
+        // Fix last line duration to extend to the end of the song instead of a hardcoded 3s
+        if (parsedLyrics.Count > 0 && lineDurations.Count > 0)
+        {
+            float lastLyricTime = parsedLyrics[parsedLyrics.Count - 1].time;
+            float remaining = processedAudioLength - lastLyricTime;
+            if (remaining > lineDurations[lineDurations.Count - 1])
+            {
+                lineDurations[lineDurations.Count - 1] = remaining;
+            }
+        }
+
         if (parsedLyrics.Count > 0)
         {
             currentLineIndex = 0;

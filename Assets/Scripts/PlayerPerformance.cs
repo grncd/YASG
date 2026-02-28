@@ -160,6 +160,13 @@ public class PlayerPerformance : MonoBehaviour
         }
         totalPossibleScoreForLine = CalculatePerfectScoreForLine(lineIndex);
 
+        // If there's no pitch data for this line, treat it as a perfect performance
+        // so the player isn't penalized with a stale judgment from the previous line.
+        if (totalPossibleScoreForLine <= 0f)
+        {
+            currentRatio = 1f;
+        }
+
         performanceBar.fillAmount = 0f; // Reset instantly
         displayedFillAmount = 0f;
         previousJudge = judge;

@@ -452,4 +452,32 @@ public class BGMusic : MonoBehaviour
         }
         source.volume = targetVolume;
     }
+
+    private Coroutine _pauseFadeCoroutine;
+
+    public void FadeOutAndPause()
+    {
+        if (_pauseFadeCoroutine != null) StopCoroutine(_pauseFadeCoroutine);
+        _pauseFadeCoroutine = StartCoroutine(FadeOutAndPauseCoroutine());
+    }
+
+    public void FadeInAndResume()
+    {
+        if (_pauseFadeCoroutine != null) StopCoroutine(_pauseFadeCoroutine);
+        _pauseFadeCoroutine = StartCoroutine(FadeInAndResumeCoroutine());
+    }
+
+    IEnumerator FadeOutAndPauseCoroutine()
+    {
+        yield return FadeAudio(audioSource, 0.5f, 0f);
+        audioSource.Pause();
+        _pauseFadeCoroutine = null;
+    }
+
+    IEnumerator FadeInAndResumeCoroutine()
+    {
+        audioSource.UnPause();
+        yield return FadeAudio(audioSource, 0.5f, bgMusicVolume);
+        _pauseFadeCoroutine = null;
+    }
 }

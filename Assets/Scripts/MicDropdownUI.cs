@@ -591,6 +591,68 @@ public class MicDropdownUI : MonoBehaviour
         Destroy(gameObject);
     }
 
+    private bool _pausedForCalibration;
+    private string _pausedMicName;
+
+    /// <summary>
+    /// Stops mic capture (visualizer + feedback) so calibration can use the mic exclusively.
+    /// </summary>
+    public void PauseMicCapture()
+    {
+        if (_pausedForCalibration) return;
+
+        // Remember which mic was active so we can restore it
+        if (micDropdown != null && micDropdown.value > 0)
+            _pausedMicName = micDropdown.options[micDropdown.value].text;
+        else
+            _pausedMicName = null;
+
+        StopMicVisualizer();
+        _pausedForCalibration = true;
+    }
+
+    /// <summary>
+    /// Restores mic capture after calibration finishes.
+    /// </summary>
+    public void ResumeMicCapture()
+    {
+        if (!_pausedForCalibration) return;
+        _pausedForCalibration = false;
+
+        if (!string.IsNullOrEmpty(_pausedMicName) && micAmplitudeSlider != null)
+        {
+            StartMicVisualizer(_pausedMicName);
+        }
+        _pausedMicName = null;
+    }
+
+    /// <summary>
+    /// Starts latency calibration using the currently selected microphone.
+    /// </summary>
+    public void StartLatencyCalibration()
+    {
+        if (LatencyCalibrator.Instance == null)
+        {
+            Debug.LogError("[MicDropdownUI] LatencyCalibrator instance not found in scene.");
+            return;
+        }
+
+        if (micDropdown == null || micDropdown.value <= 0)
+        {
+            Debug.LogWarning("[MicDropdownUI] No microphone selected. Cannot start calibration.");
+            return;
+        }
+
+        string selectedMic = micDropdown.options[micDropdown.value].text;
+        if (selectedMic == "--- NONE ---")
+        {
+            Debug.LogWarning("[MicDropdownUI] No microphone selected. Cannot start calibration.");
+            return;
+        }
+
+        LatencyCalibrator.Instance.PrepareCalibrationWithMic(selectedMic);
+    }
+
     public void RefreshUIForProfile(string newProfileIdentifier = null)
     {
         StopMicVisualizer();
