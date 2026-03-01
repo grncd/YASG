@@ -144,6 +144,11 @@ public class RealTimePitchDetector : MonoBehaviour
     private int harmonicUsed = 0;
     private bool _autoplayEnabled = false;
 
+    // Scoring particle reactivity
+    private ParticleSystem _scoringParticles;
+    private CanvasGroup _scoringCanvasGroup;
+    private float _scoringAlpha;
+    private float _scoringSimSpeed = 3f;
 
     private void Start()
     {
@@ -249,6 +254,14 @@ public class RealTimePitchDetector : MonoBehaviour
 
         if (PP == null) PP = GetComponent<PlayerPerformance>();
         if (PP == null && debugMode) Debug.LogWarning("[RealTimePitchDetector] PlayerPerformance component not found (PP is null).");
+
+        if (!_calibrationMode && transform.childCount > 1 && transform.GetChild(1).childCount > 0)
+        {
+            Transform scoringFX = transform.GetChild(1).GetChild(0);
+            _scoringParticles = scoringFX.GetComponent<ParticleSystem>();
+            _scoringCanvasGroup = scoringFX.GetComponent<CanvasGroup>();
+            if (_scoringCanvasGroup != null) _scoringCanvasGroup.alpha = 0.47f;
+        }
 
         lowShelfFilterInstance = new Biquad();
         _previousLowShelfGainDB = lowShelfGainDB + 1f;
@@ -992,6 +1005,7 @@ public class RealTimePitchDetector : MonoBehaviour
             timeUserHasBeenMonotonous = 0f;
         }
 
+        bool scoredThisFrame = false;
         if (canAttemptScore)
         {
             float[] vocalValues = { vocalArrow, vocalArrow2, vocalArrow3, vocalArrow4 };
@@ -1022,7 +1036,6 @@ public class RealTimePitchDetector : MonoBehaviour
 
             // --- Compute scoring first, then set arrow visuals based on result ---
             float valuingCoefficient = GetOctaveLeniency(AudioClipPitchProcessor.Instance.currentPitch);
-            bool scoredThisFrame = false;
             float leniencyThreshold;
 
             if (currentPitch * 2 < 450f)
@@ -1169,6 +1182,8 @@ public class RealTimePitchDetector : MonoBehaviour
             }
         }
 
+        UpdateScoringParticles(scoredThisFrame);
+
         if (LyricsHandler.Instance != null && LyricsHandler.Instance.songOver && !_scoreSaved)
         {
             if (PlayerPrefs.GetInt("multiplayer") == 0)
@@ -1197,6 +1212,35 @@ public class RealTimePitchDetector : MonoBehaviour
         if (frequency < 150f) return 1.0f;
         if (frequency < 300f) return 1.2f;
         return 1.5f;
+    }
+
+    private void UpdateScoringParticles(bool isScoring)
+    {
+        if (_scoringParticles == null || _scoringCanvasGroup == null) return;
+
+        float dt = Time.fixedDeltaTime;
+
+        if (isScoring)
+        {
+            _scoringAlpha = Mathf.MoveTowards(_scoringAlpha, 1f, dt / 0.1f);
+
+            float rampRate;
+            if (_scoringSimSpeed < 8f)
+                rampRate = (8f - 3f) / 0.2f;
+            else
+                rampRate = (15f - 8f) / 4.5f;
+
+            _scoringSimSpeed = Mathf.MoveTowards(_scoringSimSpeed, 15f, rampRate * dt);
+        }
+        else
+        {
+            _scoringAlpha = Mathf.MoveTowards(_scoringAlpha, 0.47f, dt / 0.1f);
+            _scoringSimSpeed = Mathf.MoveTowards(_scoringSimSpeed, 3f, (15f - 3f) / 2f * dt);
+        }
+
+        _scoringCanvasGroup.alpha = _scoringAlpha;
+        var main = _scoringParticles.main;
+        main.simulationSpeed = _scoringSimSpeed;
     }
 
     void OnDisable()

@@ -64,6 +64,10 @@ public class AudioAnalyzer : MonoBehaviour
     {
         AudioListener.GetSpectrumData(spectrumData, 0, FFTWindow.BlackmanHarris);
 
+        // Compensate for player volume settings so the background reacts fully regardless
+        float effectiveVolume = PlayerPrefs.GetFloat("MasterVolume", 1f) * PlayerPrefs.GetFloat("MusicVolume", 1f);
+        float volumeCompensation = effectiveVolume > 0.01f ? 1f / effectiveVolume : 1f;
+
         float lowSum = 0;
         float midSum = 0;
         float highSum = 0;
@@ -91,9 +95,9 @@ public class AudioAnalyzer : MonoBehaviour
         // --- CHANGED LOGIC ---
         // We now add the minimumIntensity as a base, ensuring the value never drops below it.
         // This preserves the proportional reaction of the audio on top of the base glow.
-        float targetLow = minimumIntensity + (lowSum * lowMultiplier);
-        float targetMid = minimumIntensity + (midSum * midMultiplier);
-        float targetHigh = minimumIntensity + (highSum * highMultiplier);
+        float targetLow = minimumIntensity + (lowSum * volumeCompensation * lowMultiplier);
+        float targetMid = minimumIntensity + (midSum * volumeCompensation * midMultiplier);
+        float targetHigh = minimumIntensity + (highSum * volumeCompensation * highMultiplier);
 
         // Smooth the transitions to prevent overly jittery visuals
         currentLow = Mathf.Lerp(currentLow, targetLow, smoothing);
