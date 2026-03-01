@@ -2,10 +2,13 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
 
+public enum PopupAnimationType { Popup, FadeIn }
+
 [RequireComponent(typeof(CanvasGroup))]
 [RequireComponent(typeof(RectTransform))]
 public class PopupAnimator : MonoBehaviour
 {
+    public PopupAnimationType animationType = PopupAnimationType.Popup;
     public float appearDuration = 0.3f;
     public float disappearDuration = 0.12f;
     public bool enableDimOverlay = false;
@@ -17,11 +20,22 @@ public class PopupAnimator : MonoBehaviour
     private Coroutine currentCoroutine;
     private GameObject dimOverlay;
     private Image dimImage;
+    private RectTransform[] excludedRects;
+    private Vector2[] excludedOriginalPositions;
 
     void Awake()
     {
         canvasGroup = GetComponent<CanvasGroup>();
         rectTransform = GetComponent<RectTransform>();
+
+        var excluded = GetComponentsInChildren<PopupAnimatorExclude>(true);
+        excludedRects = new RectTransform[excluded.Length];
+        excludedOriginalPositions = new Vector2[excluded.Length];
+        for (int i = 0; i < excluded.Length; i++)
+        {
+            excludedRects[i] = excluded[i].GetComponent<RectTransform>();
+            excludedOriginalPositions[i] = excludedRects[i].anchoredPosition;
+        }
     }
 
     void OnEnable()
@@ -32,7 +46,11 @@ public class PopupAnimator : MonoBehaviour
 
         // Initial State
         canvasGroup.alpha = 0f;
-        rectTransform.anchoredPosition = originalPosition + new Vector2(0, -75f);
+        if (animationType == PopupAnimationType.Popup)
+        {
+            rectTransform.anchoredPosition = originalPosition + new Vector2(0, -75f);
+            SetExcludedOffset(new Vector2(0, -75f));
+        }
 
         if (enableDimOverlay) CreateDimOverlay();
 
@@ -43,9 +61,28 @@ public class PopupAnimator : MonoBehaviour
     {
         // Reset to original state to prevent "creeping" if disabled mid-animation
         rectTransform.anchoredPosition = originalPosition;
+        ResetExcludedPositions();
         canvasGroup.alpha = 1f;
         canvasGroup.blocksRaycasts = true;
         DestroyDimOverlay();
+    }
+
+    void SetExcludedOffset(Vector2 parentOffset)
+    {
+        for (int i = 0; i < excludedRects.Length; i++)
+        {
+            if (excludedRects[i] != null)
+                excludedRects[i].anchoredPosition = excludedOriginalPositions[i] - parentOffset;
+        }
+    }
+
+    void ResetExcludedPositions()
+    {
+        for (int i = 0; i < excludedRects.Length; i++)
+        {
+            if (excludedRects[i] != null)
+                excludedRects[i].anchoredPosition = excludedOriginalPositions[i];
+        }
     }
 
     void CreateDimOverlay()
@@ -97,10 +134,14 @@ public class PopupAnimator : MonoBehaviour
                 dimImage.color = new Color(0f, 0f, 0f, Mathf.Lerp(0f, dimAlpha, dimT));
             }
 
-            // Position: CubicOut Easing
-            // f(t) = 1 - (1 - t)^3
-            float ease = 1f - Mathf.Pow(1f - t, 3f);
-            rectTransform.anchoredPosition = Vector2.Lerp(startPos, originalPosition, ease);
+            // Position: CubicOut Easing (Popup mode only)
+            if (animationType == PopupAnimationType.Popup)
+            {
+                float ease = 1f - Mathf.Pow(1f - t, 3f);
+                Vector2 pos = Vector2.Lerp(startPos, originalPosition, ease);
+                rectTransform.anchoredPosition = pos;
+                SetExcludedOffset(pos - originalPosition);
+            }
 
             yield return null;
         }
@@ -108,6 +149,7 @@ public class PopupAnimator : MonoBehaviour
         // Finalize
         canvasGroup.alpha = 1f;
         rectTransform.anchoredPosition = originalPosition;
+        ResetExcludedPositions();
         if (dimImage != null) dimImage.color = new Color(0f, 0f, 0f, dimAlpha);
         currentCoroutine = null;
     }

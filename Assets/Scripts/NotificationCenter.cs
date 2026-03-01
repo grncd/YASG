@@ -58,6 +58,7 @@ public class NotificationCenter : MonoBehaviour
     /// </summary>
     public void ShowNotificationCenter()
     {
+        if (PlayerPrefs.GetInt("editing") != 0) return;
         animator.Play("NotificationsIn");
 
         // Fade out particle system
@@ -163,6 +164,7 @@ public class NotificationCenter : MonoBehaviour
     /// </summary>
     public void SendNotification(NotificationType type, string title, string info)
     {
+        if (PlayerPrefs.GetInt("editing") != 0) return;
         GameObject prefab = GetPrefab(type);
 
         // Create notification center entry
