@@ -7605,6 +7605,9 @@ MonoBehaviour:
   tapApplyButton: {fileID: 2077766870}
   tapRetryButton: {fileID: 1862891579}
   windowsOnlyObject: {fileID: 1793421291}
+  firstStep: {fileID: 1331142699}
+  secondStep: {fileID: 776519795}
+  thirdStep: {fileID: 987478445}
 --- !u!114 &120879354
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -100326,7 +100329,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 120879353}
         m_TargetAssemblyTypeName: LatencyCalibrator, Assembly-CSharp
-        m_MethodName: CloseCalibration
+        m_MethodName: StartTapTest
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}

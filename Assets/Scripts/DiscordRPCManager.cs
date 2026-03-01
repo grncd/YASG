@@ -11,7 +11,6 @@ public class DiscordRPCManager : MonoBehaviour
 {
     public static DiscordRPCManager Instance { get; private set; }
 
-    // Replace with your Discord Application ID
     private const string APPLICATION_ID = "1477705481303756810";
     private const float UPDATE_INTERVAL = 4f;
 
@@ -82,8 +81,6 @@ public class DiscordRPCManager : MonoBehaviour
     private void Update()
     {
         if (_client == null || _client.IsDisposed) return;
-
-        _client.Invoke();
 
         _timer += Time.unscaledDeltaTime;
         if (_timer < UPDATE_INTERVAL) return;

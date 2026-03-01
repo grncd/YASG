@@ -37,6 +37,9 @@ public class LatencyCalibrator : MonoBehaviour
     public Button tapApplyButton;
     public GameObject tapRetryButton;
     public GameObject windowsOnlyObject;
+    public GameObject firstStep;
+    public GameObject secondStep;
+    public GameObject thirdStep;
 
     // --- Events ---
     public event Action<CalibrationState> OnStateChanged;
@@ -222,6 +225,11 @@ public class LatencyCalibrator : MonoBehaviour
         // Show calibration UI
         if (calibrationUI != null)
             calibrationUI.SetActive(true);
+
+        // Show first step, hide the rest
+        if (firstStep != null) firstStep.SetActive(true);
+        if (secondStep != null) secondStep.SetActive(false);
+        if (thirdStep != null) thirdStep.SetActive(false);
 
         // Fade out background music
         if (BGMusic.Instance != null)

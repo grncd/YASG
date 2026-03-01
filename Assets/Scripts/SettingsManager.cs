@@ -364,8 +364,10 @@ public class SettingsManager : MonoBehaviour
             {
                 setting.Value = value;
                 SaveSettings();
+#if UNITY_STANDALONE
                 if (DiscordRPCManager.Instance != null)
                     DiscordRPCManager.Instance.SetEnabled(Convert.ToBoolean(value));
+#endif
                 return;
             }
             setting.Value = value;
