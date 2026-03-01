@@ -226,7 +226,7 @@ public class SettingsUI : MonoBehaviour
                 //SelectorOutline.Instance.defaultObject = settingsButton.gameObject;
                 StartCoroutine(FadeParticleSystem(mainMenuParticles, 0f, 0.06666667f, 0.2f));
                 canClick = false;
-                mainGO.SetActive(false);
+                mainGO.GetComponent<PopupAnimator>().Close();
                 menuGO.SetActive(true);
                 onSettings = !onSettings;
                 menuSettingsButton.GetComponent<AudioSource>().clip = settingsOut;
