@@ -276,7 +276,7 @@ public class PlayerPerformance : MonoBehaviour
             return;
         }
 
-        if (currentRatio < 0.45f)
+        if (currentRatio < 0.55f)
         {
             Color temp = new Color(1f, 0.6941f, 0.2784f);
             judgmentGlow.color = temp;
@@ -360,22 +360,22 @@ public class PlayerPerformance : MonoBehaviour
         {
             if (!scoreManager.enableAdvancedAntiMonotony)
             {
-                return (validNoteCount * AudioClipPitchProcessor.Instance.scoreIncrement) * 0.34f;
+                return (validNoteCount * AudioClipPitchProcessor.Instance.scoreIncrement) * 0.353f;
             }
             else
             {
-                return (validNoteCount * AudioClipPitchProcessor.Instance.scoreIncrement) * 0.34f * 0.85f;
+                return (validNoteCount * AudioClipPitchProcessor.Instance.scoreIncrement) * 0.353f * 0.85f;
             }
         }
         else
         {
             if (!scoreManager.enableAdvancedAntiMonotony)
             {
-                return (validNoteCount * AudioClipPitchProcessor.Instance.scoreIncrement) * 0.366f;
+                return (validNoteCount * AudioClipPitchProcessor.Instance.scoreIncrement) * 0.37f;
             }
             else
             {
-                return (validNoteCount * AudioClipPitchProcessor.Instance.scoreIncrement) * 0.366f * 0.85f;
+                return (validNoteCount * AudioClipPitchProcessor.Instance.scoreIncrement) * 0.37f * 0.85f;
             }
         }
     }
