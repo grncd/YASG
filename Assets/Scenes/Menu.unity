@@ -43527,7 +43527,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 67.61, y: -622.78}
+  m_AnchoredPosition: {x: 67.609985, y: -622.78}
   m_SizeDelta: {x: 135.23, y: 74.83}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &854793006
@@ -102131,7 +102131,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e8d78a080d6d1a14d9cc5df126332fa6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedText
-  localizationKey: canvas.calibration.1.modes.advancedmode.title
+  localizationKey: canvas.calibration.1.exit.title
 --- !u!114 &1987652107
 MonoBehaviour:
   m_ObjectHideFlags: 0
