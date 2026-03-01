@@ -38,7 +38,7 @@ At the moment, YASG supports up to 4 players **locally** or **remotely** via the
 
 ---
 
-# 🔽 [DOWNLOAD HERE](https://github.com/grncd/YASG/releases/tag/v0.1.2a)
+# 🔽 [DOWNLOAD HERE](https://github.com/grncd/YASG/releases/tag/v0.1.3LB)
 > **Currently supports Windows, Linux and Android.**
 
 ---
