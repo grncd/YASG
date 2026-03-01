@@ -496,7 +496,7 @@
   "notification.bg_quality_reduced.info": "Background quality was automatically reduced to improve performance.",
   "notification.bg_quality_reduced.title": "Background Quality Reduced",
   "prefab_mode_in_context.playerprefab.extra.popup.button.text": "Calibrate Mic",
-  "canvas.calibration.text": "Calibration",
+  "canvas.calibration.text": "Hi! Looks like you are on Windows.",
   "canvas.calibration.1.text": "What method would you like to use?",
   "canvas.calibration.1.modes.easymode.text": "Good enough for casual playing, medium accuracy. \n\nInvolves <b>one simple, automatic step.",
   "canvas.calibration.1.modes.advancedmode.subtitle": "Provides better accuracy than Easy Mode.\n\nHowever, involves a more <b>complicated 2-step process.",
@@ -514,5 +514,14 @@
   "canvas.calibration.3.div2.tap.label": "Click here!",
   "canvas.calibration.3.div2.tryagain.label": "Try again",
   "canvas.calibration.3.div2.finish.label": "Done",
-  "canvas.calibration.1.exit.title": "Exit"
+  "canvas.calibration.1.exit.title": "Exit",
+  "canvas.calibration.windowsadvice.title": "Hi! Looks like you are on Windows.",
+  "canvas.calibration.windowsadvice.label1": "Windows, by default, enables a setting in some microphones that causes extra audio delay.\n\nIt's recommended that you follow these steps before performing calibration.",
+  "canvas.calibration.windowsadvice.div.label1": "Windows, by default, enables a setting in some microphones that causes extra audio delay.\n\nIt's recommended that you follow these steps before performing calibration.",
+  "canvas.calibration.windowsadvice.ok.label": "OK",
+  "canvas.calibration.windowsadvice.div.steps.1.text": "Press Win+R in your keyboard, type <b>mmsys.cpl,</b> and hit enter.",
+  "canvas.calibration.windowsadvice.div.steps.2.text": "Go to the Recording tab and double-click the mic you are using.",
+  "canvas.calibration.windowsadvice.div.steps.3.text": "Go to the Advanced tab, and uncheck \"Disable audio enhancements\", IF its there.",
+  "canvas.calibration.1.windows.title": "?",
+  "canvas.calibration.title": "Calibration"
 }

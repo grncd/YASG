@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using TMPro;
 
@@ -35,6 +36,7 @@ public class LatencyCalibrator : MonoBehaviour
     public GameObject finishButton2;
     public Button tapApplyButton;
     public GameObject tapRetryButton;
+    public GameObject windowsOnlyObject;
 
     // --- Events ---
     public event Action<CalibrationState> OnStateChanged;
@@ -75,6 +77,7 @@ public class LatencyCalibrator : MonoBehaviour
 
     // --- Internal state ---
     private bool _advancedMode;
+    private bool _windowsObjectShown;
     private int _tapCount;
     private AudioClip sineClip;
     private AudioClip clickClip;
@@ -132,6 +135,14 @@ public class LatencyCalibrator : MonoBehaviour
 
         if (flashImage != null)
             flashImage.color = Color.black;
+    }
+
+    private void Update()
+    {
+        if (State == CalibrationState.TapTest && Keyboard.current != null && Keyboard.current.anyKey.wasPressedThisFrame)
+        {
+            TapButton();
+        }
     }
 
     private void OnDestroy()
@@ -217,6 +228,14 @@ public class LatencyCalibrator : MonoBehaviour
             BGMusic.Instance.FadeOutAndPause();
 
         SetState(CalibrationState.Idle);
+
+        if (!_windowsObjectShown && windowsOnlyObject != null
+            && (Application.platform == RuntimePlatform.WindowsPlayer
+            || Application.platform == RuntimePlatform.WindowsEditor))
+        {
+            windowsOnlyObject.SetActive(true);
+            _windowsObjectShown = true;
+        }
     }
 
     /// <summary>
