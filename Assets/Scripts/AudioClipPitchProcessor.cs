@@ -702,6 +702,7 @@ public class AudioClipPitchProcessor : MonoBehaviour
         {
             audioSource = gameObject.AddComponent<AudioSource>();
             audioSource.playOnAwake = false;
+            audioSource.volume = 0.7f;
             audioSource.outputAudioMixerGroup = mixerForMusic;
         }
         SetPhaseProgress(0.05f);

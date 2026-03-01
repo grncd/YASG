@@ -645,8 +645,9 @@ public class LevelResourcesCompiler : MonoBehaviour
         }
         if (splittingVocals && !partyMode)
         {
+            progressBar.value = currentPercentage;
             GameObject progress3 = loadingSecond.transform.GetChild(4).GetChild(2).gameObject;
-            progress3.GetComponent<Slider>().value = progressBar.value;
+            progress3.GetComponent<Slider>().value = currentPercentage;
         }
         if (!string.IsNullOrEmpty(extractedFileName))
         {
