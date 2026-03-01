@@ -7,6 +7,7 @@ using UnityEngine.UI;
 public class PlayerPerformance : MonoBehaviour
 {
     public Image performanceBar;
+    public Image previousHit;
     public MPImage judgmentGlow;
     public RealTimePitchDetector scoreManager;
     public ParticleSystem mehParticles;
@@ -35,6 +36,14 @@ public class PlayerPerformance : MonoBehaviour
     private bool paused = false;
     private bool local;
     private int remoteScore = 0;
+
+    // previousHit fade
+    private static readonly Color PreviousHitPerfect = new Color(0x86 / 255f, 0xE2 / 255f, 0xFF / 255f);
+    private static readonly Color PreviousHitGreat   = new Color(0x86 / 255f, 0xFF / 255f, 0x94 / 255f);
+    private static readonly Color PreviousHitMeh     = new Color(0xFF / 255f, 0xDF / 255f, 0x86 / 255f);
+    private const float PREVIOUS_HIT_FADE_DURATION = 1f;
+    private float _previousHitFadeTimer = -1f;
+    private Color _previousHitBaseColor;
 
     // Added to store the start time of the current lyric line
     private float currentLineStartTime = 0f;
@@ -96,6 +105,7 @@ public class PlayerPerformance : MonoBehaviour
             }
             //Debug.Log(remoteScore);
         }
+        UpdatePreviousHitFade();
         if (!LyricsHandler.Instance.songOver)
         {
             UpdatePerformanceBar();
@@ -268,6 +278,32 @@ public class PlayerPerformance : MonoBehaviour
         }
     }
 
+    private void UpdatePreviousHitFade()
+    {
+        if (previousHit == null || _previousHitFadeTimer < 0f) return;
+
+        _previousHitFadeTimer += Time.deltaTime;
+        float t = Mathf.Clamp01(_previousHitFadeTimer / PREVIOUS_HIT_FADE_DURATION);
+        // Cubic out easing: 1 - (1-t)^3
+        float eased = 1f - (1f - t) * (1f - t) * (1f - t);
+        float alpha = 1f - eased;
+
+        Color c = _previousHitBaseColor;
+        c.a = alpha;
+        previousHit.color = c;
+    }
+
+    private void FlashPreviousHit(Color color)
+    {
+        if (previousHit == null) return;
+
+        previousHit.fillAmount = displayedFillAmount;
+        _previousHitBaseColor = color;
+        _previousHitFadeTimer = 0f;
+        color.a = 1f;
+        previousHit.color = color;
+    }
+
     public void Judge()
     {
         // Check if this component is still valid (player hasn't left)
@@ -286,6 +322,7 @@ public class PlayerPerformance : MonoBehaviour
             judgmentText.GetComponent<Animator>()?.Play("Judgment", -1, 0f);
             mehParticles?.Play();
             mehCount++;
+            FlashPreviousHit(PreviousHitMeh);
         }
         else if (currentRatio < 0.915f)
         {
@@ -297,6 +334,7 @@ public class PlayerPerformance : MonoBehaviour
             judgmentText.GetComponent<Animator>()?.Play("Judgment", -1, 0f);
             greatParticles?.Play();
             greatCount++;
+            FlashPreviousHit(PreviousHitGreat);
         }
         else
         {
@@ -308,6 +346,7 @@ public class PlayerPerformance : MonoBehaviour
             judgmentText.GetComponent<Animator>()?.Play("Judgment", -1, 0f);
             perfectParticles?.Play();
             perfectCount++;
+            FlashPreviousHit(PreviousHitPerfect);
         }
     }
 

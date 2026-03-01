@@ -6,6 +6,9 @@ Shader "Custom/OptimizedShaderToyUI"
         _TimeMult("Time Multiplier", Float) = 0.5
         _MaxSteps("Max Ray Steps", Int) = 50 // Configurable max steps
         _TargetFPS("Target FPS", Range(30, 120)) = 60.0 // Target frame rate for background rendering
+        _LowIntensity("Low Frequency Intensity", Float) = 0.0
+        _MidIntensity("Mid Frequency Intensity", Float) = 0.0
+        _HighIntensity("High Frequency Intensity", Float) = 0.0
     }
         SubShader
         {
@@ -23,6 +26,9 @@ Shader "Custom/OptimizedShaderToyUI"
                 float _TimeMult;
                 int _MaxSteps;
                 float _TargetFPS;
+                float _LowIntensity;
+                float _MidIntensity;
+                float _HighIntensity;
 
                 struct appdata
                 {
@@ -82,6 +88,10 @@ Shader "Custom/OptimizedShaderToyUI"
                     float3 Z = normalize(P(t + 1.0) - p);
                     float3 X = normalize(float3(Z.z,0,-Z.x));
 
+                    // Audio reactivity - weighted mix biased toward bass
+                    float audioMix = _LowIntensity * 0.5 + _MidIntensity * 0.35 + _HighIntensity * 0.15;
+                    float colorBoost = audioMix * 0.06;
+
                     // Precompute values used in inner loop
                     float sinHalfT = sin(t * 0.5);
                     float detailFreqBase = 10.0 + sinHalfT;
@@ -122,7 +132,7 @@ Shader "Custom/OptimizedShaderToyUI"
                         }
                         s = length(q) * rcp(w);
 
-                        col += (half3)abs(sin(p)) * 0.025h;
+                        col += (half3)abs(sin(p)) * (0.025h + (half)colorBoost);
 
                         // Precomputed detail frequencies - unrolled with MAD
                         float a = 0.2;
@@ -133,13 +143,17 @@ Shader "Custom/OptimizedShaderToyUI"
                             s -= abs(dot(sin(pScaled * a), dotWeight)) * rcp(a) * 0.005;
                             a += a;
                         }
+                        // High-frequency surface lights: bright spots on the fractal surface
+                        float surfaceGlow = exp(-abs(s) * 300.0);
+                        col += (half3)(abs(sin(p * 2.5)) * surfaceGlow * _HighIntensity * 0.1);
+
                         d += s;
 
                         // Early exit if color is negligible
                         if (dot(col, col) < 0.0001h) break;
                     }
 
-                    float expFactor = exp(-d * rcp(abs(4.0 + sin(p.z))));
+                    float expFactor = exp(-d * rcp(abs(4.0 + _LowIntensity * 1.5 + sin(p.z))));
                     col *= (half)expFactor;
                     col = pow(col, 0.45h);
                     return half4(col, 1.0h);

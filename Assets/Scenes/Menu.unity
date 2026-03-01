@@ -291,6 +291,50 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::LocalizedText
   localizationKey: canvas.main.main.panel.settings.addprofilespopup.panel.profilescontainer.viewport.content.add.creation.nameinput.text_area.placeholder
+--- !u!1 &78698
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 78700}
+  - component: {fileID: 78699}
+  m_Layer: 0
+  m_Name: DiscordRPC
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &78699
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 78698}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 962e04c9161bd7f53af47dfe8a7e264a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DiscordRPCManager
+--- !u!4 &78700
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 78698}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.86562, y: 0.59883, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &287377
 GameObject:
   m_ObjectHideFlags: 0
@@ -7182,6 +7226,7 @@ GameObject:
   - component: {fileID: 120879351}
   - component: {fileID: 120879353}
   - component: {fileID: 120879352}
+  - component: {fileID: 120879354}
   m_Layer: 0
   m_Name: Handlers
   m_TagString: Untagged
@@ -7258,7 +7303,7 @@ MonoBehaviour:
   - {r: 0, g: 0, b: 0, a: 0.35686275}
   - {r: 0, g: 0, b: 0, a: 0.14117648}
   - {r: 0, g: 0, b: 0, a: 0.40392157}
-  - {r: 0, g: 0, b: 0, a: 0}
+  - {r: 0, g: 0, b: 0, a: 0.02745098}
   darken: {fileID: 1667790197}
   BG: {fileID: 1030584432}
   tabSwitchFX: {fileID: 193488099}
@@ -7409,6 +7454,29 @@ MonoBehaviour:
   tapApplyButton: {fileID: 2077766870}
   tapRetryButton: {fileID: 1862891579}
   windowsOnlyObject: {fileID: 1793421291}
+--- !u!114 &120879354
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 120879345}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b92d53f26eb5f74b9fde962d5f2259b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AudioAnalyzer
+  audioMaterials:
+  - {fileID: 2100000, guid: 1d3d58bccaf5e4f4fb907947460c18a2, type: 2}
+  - {fileID: 2100000, guid: b34f40b271be2d5438e40a2f43e23747, type: 2}
+  numSamples: 512
+  minimumIntensity: 0
+  lowFrequencyThreshold: 200
+  midFrequencyThreshold: 4000
+  lowMultiplier: 0.8
+  midMultiplier: 0.25
+  highMultiplier: 0.48
+  smoothing: 0.1
 --- !u!1 &122075133
 GameObject:
   m_ObjectHideFlags: 0
@@ -23241,6 +23309,8 @@ GameObject:
   - component: {fileID: 442346706}
   - component: {fileID: 442346705}
   - component: {fileID: 442346704}
+  - component: {fileID: 442346709}
+  - component: {fileID: 442346708}
   m_Layer: 0
   m_Name: ProfilesDisplay
   m_TagString: Untagged
@@ -23419,6 +23489,35 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 442346702}
   m_CullTransparentMesh: 1
+--- !u!114 &442346708
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 442346702}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 410523d83e74fca4db5c38c3e5cb3d98, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PopupAnimator
+  animationType: 1
+  appearDuration: 0.3
+  disappearDuration: 0.12
+  enableDimOverlay: 0
+  dimAlpha: 0.5
+--- !u!225 &442346709
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 442346702}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &447973878
 GameObject:
   m_ObjectHideFlags: 0
@@ -107269,6 +107368,8 @@ GameObject:
   - component: {fileID: 2034107948}
   - component: {fileID: 2034107950}
   - component: {fileID: 2034107949}
+  - component: {fileID: 2034107952}
+  - component: {fileID: 2034107951}
   m_Layer: 0
   m_Name: Gradient
   m_TagString: Untagged
@@ -107409,6 +107510,35 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2034107947}
   m_CullTransparentMesh: 1
+--- !u!114 &2034107951
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2034107947}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 410523d83e74fca4db5c38c3e5cb3d98, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PopupAnimator
+  animationType: 1
+  appearDuration: 0.3
+  disappearDuration: 0.12
+  enableDimOverlay: 0
+  dimAlpha: 0.5
+--- !u!225 &2034107952
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2034107947}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &2034392104
 GameObject:
   m_ObjectHideFlags: 0
@@ -115650,3 +115780,4 @@ SceneRoots:
   - {fileID: 1641015001}
   - {fileID: 693321664}
   - {fileID: 846060847}
+  - {fileID: 78700}

@@ -249,7 +249,7 @@ public class BGMusic : MonoBehaviour
                                 using (UnityWebRequest www = new UnityWebRequest(fileUrl, UnityWebRequest.kHttpVerbGET))
                                 {
                                     DownloadHandlerAudioClip handler = new DownloadHandlerAudioClip(fileUrl, AudioType.MPEG);
-                                    handler.compressed = false; // Decompress on load to avoid real-time decoding
+                                    handler.streamAudio = true;
                                     www.downloadHandler = handler;
 
                                     yield return www.SendWebRequest();

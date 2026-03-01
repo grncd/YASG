@@ -255,9 +255,9 @@ public class RealTimePitchDetector : MonoBehaviour
         if (PP == null) PP = GetComponent<PlayerPerformance>();
         if (PP == null && debugMode) Debug.LogWarning("[RealTimePitchDetector] PlayerPerformance component not found (PP is null).");
 
-        if (!_calibrationMode && transform.childCount > 1 && transform.GetChild(1).childCount > 0)
+        if (!_calibrationMode && transform.childCount > 1 && transform.GetChild(2).childCount > 0)
         {
-            Transform scoringFX = transform.GetChild(1).GetChild(0);
+            Transform scoringFX = transform.GetChild(2).GetChild(0);
             _scoringParticles = scoringFX.GetComponent<ParticleSystem>();
             _scoringCanvasGroup = scoringFX.GetComponent<CanvasGroup>();
             if (_scoringCanvasGroup != null) _scoringCanvasGroup.alpha = 0.47f;
@@ -370,8 +370,8 @@ public class RealTimePitchDetector : MonoBehaviour
                 vocalArrowS2DBG = debugContent.GetChild(1).GetComponent<Slider>();
                 vocalArrowS3DBG = debugContent.GetChild(2).GetComponent<Slider>();
                 vocalArrowS4DBG = debugContent.GetChild(3).GetComponent<Slider>();
-                
-                if (debugContent.GetChild(4).childCount > 0 && debugContent.GetChild(4).GetChild(0).childCount > 0) 
+
+                if (debugContent.GetChild(4).childCount > 0 && debugContent.GetChild(4).GetChild(0).childCount > 0)
                 {
                     songDebugLeniency = debugContent.GetChild(4).GetChild(0).GetChild(0).GetComponent<RectTransform>();
                 }

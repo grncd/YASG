@@ -33781,6 +33781,18 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.x
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8190024703796606832, guid: d5cd1d0e61a189a4dbdf3c0b7a6e0fc1, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8190024703796606832, guid: d5cd1d0e61a189a4dbdf3c0b7a6e0fc1, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8190024703796606832, guid: d5cd1d0e61a189a4dbdf3c0b7a6e0fc1, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 8259055457979967571, guid: d5cd1d0e61a189a4dbdf3c0b7a6e0fc1, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -49622,7 +49634,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7b92d53f26eb5f74b9fde962d5f2259b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  audioMaterial: {fileID: 2100000, guid: b34f40b271be2d5438e40a2f43e23747, type: 2}
+  audioMaterials:
+  - {fileID: 2100000, guid: 1d3d58bccaf5e4f4fb907947460c18a2, type: 2}
+  - {fileID: 2100000, guid: b34f40b271be2d5438e40a2f43e23747, type: 2}
   numSamples: 512
   minimumIntensity: 0.18
   lowFrequencyThreshold: 300

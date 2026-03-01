@@ -2,8 +2,8 @@ using UnityEngine;
 
 public class AudioAnalyzer : MonoBehaviour
 {
-    [Tooltip("The Material using the audio-reactive shader.")]
-    public Material audioMaterial;
+    [Tooltip("Materials using audio-reactive shaders.")]
+    public Material[] audioMaterials;
 
     [Header("Audio Analysis")]
     [SerializeField, Tooltip("Number of samples, must be a power of 2")]
@@ -36,13 +36,9 @@ public class AudioAnalyzer : MonoBehaviour
 
     void Start()
     {
-        if(SettingsManager.Instance.GetSetting<int>("InGameBG") != 3 || !SettingsManager.Instance.GetSetting<bool>("AudioReactiveBGInGame"))
+        if (audioMaterials == null || audioMaterials.Length == 0)
         {
-            enabled = false;
-        }
-        if (audioMaterial == null)
-        {
-            Debug.LogError("Audio Material is not assigned!");
+            Debug.LogError("Audio Materials are not assigned!");
             this.enabled = false;
             return;
         }
@@ -53,8 +49,26 @@ public class AudioAnalyzer : MonoBehaviour
         midIntensityID = Shader.PropertyToID("_MidIntensity");
         highIntensityID = Shader.PropertyToID("_HighIntensity");
 
-        // --- NEW ---
-        // Initialize the values at the minimum intensity to prevent starting at 0.
+        currentLow = minimumIntensity;
+        currentMid = minimumIntensity;
+        currentHigh = minimumIntensity;
+    }
+
+    private bool IsActiveForCurrentSettings()
+    {
+        int bgIndex = SettingsManager.Instance.GetSetting<int>("InGameBG");
+        return (bgIndex == 1 || bgIndex == 3) && SettingsManager.Instance.GetSetting<bool>("AudioReactiveBGInGame");
+    }
+
+    private void ResetMaterials()
+    {
+        foreach (Material mat in audioMaterials)
+        {
+            if (mat == null) continue;
+            mat.SetFloat(lowIntensityID, 0f);
+            mat.SetFloat(midIntensityID, 0f);
+            mat.SetFloat(highIntensityID, 0f);
+        }
         currentLow = minimumIntensity;
         currentMid = minimumIntensity;
         currentHigh = minimumIntensity;
@@ -62,6 +76,12 @@ public class AudioAnalyzer : MonoBehaviour
 
     void Update()
     {
+        if (!IsActiveForCurrentSettings())
+        {
+            ResetMaterials();
+            return;
+        }
+
         AudioListener.GetSpectrumData(spectrumData, 0, FFTWindow.BlackmanHarris);
 
         // Compensate for player volume settings so the background reacts fully regardless
@@ -104,9 +124,13 @@ public class AudioAnalyzer : MonoBehaviour
         currentMid = Mathf.Lerp(currentMid, targetMid, smoothing);
         currentHigh = Mathf.Lerp(currentHigh, targetHigh, smoothing);
 
-        // Send the smoothed values to the shader
-        audioMaterial.SetFloat(lowIntensityID, currentLow);
-        audioMaterial.SetFloat(midIntensityID, currentMid);
-        audioMaterial.SetFloat(highIntensityID, currentHigh);
+        // Send the smoothed values to all audio-reactive materials
+        foreach (Material mat in audioMaterials)
+        {
+            if (mat == null) continue;
+            mat.SetFloat(lowIntensityID, currentLow);
+            mat.SetFloat(midIntensityID, currentMid);
+            mat.SetFloat(highIntensityID, currentHigh);
+        }
     }
 }

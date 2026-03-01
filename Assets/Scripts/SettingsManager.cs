@@ -193,13 +193,15 @@ public class SettingsManager : MonoBehaviour
             { "MenuMusic", new Setting { Value = 2, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Music", Description = "Defines the song that will be played in the menu.", DropdownOptions = new List<string> { "None","Default","Random selection from downloaded songs" } } },
             { "MenuBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Menu Background", Description = "Defines the background that will be displayed in the menu.", DropdownOptions = new List<string> { "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
             { "InGameBG", new Setting { Value = 3, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "In-Game Background", Description = "Defines the background that will be displayed in-game.", DropdownOptions = new List<string> { "None", "Rainbow Vortex", "Abstract", "Rainbow Tunnel", "Landing Planet" } } },
-            { "AudioReactiveBGInGame", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Background", Description = "Defines if the background will be audio-reactive or not. Currently, this only works if you are using the Rainbow Tunnel BG."  } },
+            { "AudioReactiveBGInGame", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Audio-Reactive Backgrounds", Description = "Defines if the backgrounds will be audio-reactive or not."  } },
             { "Language", new Setting { Value = 0, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Language", Description = "Select your preferred game language.", DropdownOptions = new List<string> { "English" } } },
             { "Resolution", new Setting { Value = 0, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Resolution", Description = "Screen resolution. Only available on desktop platforms.", DropdownOptions = new List<string> { "Default" } } },
             { "Fullscreen", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Fullscreen", Description = "Toggle fullscreen mode. Only available on desktop platforms." } },
             { "LimitFPS", new Setting { Value = false, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Limit FPS to 60", Description = "If enabled, limits the game to 60 FPS instead of your display's native refresh rate. Useful for power saving on high refresh rate monitors." } },
             { "IgnoreControllerInput", new Setting { Value = false, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "Ignore Controller Input", Description = "If enabled, disables all gamepad/controller navigation of the UI. Useful if a connected controller is causing unwanted input." } },
             { "BGResolution", new Setting { Value = 1, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Dropdown, FormalName = "Background Resolution", Description = "Lower this to improve GPU performance at the cost of background resolution.", DropdownOptions = new List<string> { "0.25x (Very Low)", "0.5x (Low)", "0.75x (Medium)", "1.0x (Native)" } } },
+
+            { "DiscordRPC", new Setting { Value = true, Category = SettingCategory.Misc, IsHidden = IsMobilePlatform(), UIType = UIType.Toggle, FormalName = "Discord Rich Presence", Description = "If toggled on, shows your current activity in Discord (e.g. what song you're singing)." } },
 
             { "FullReset", new Setting { Value = false, Category = SettingCategory.Misc, IsHidden = false, UIType = UIType.Toggle, FormalName = "FULL RESET", Description = "Turn this on and REOPEN THE GAME to go back to the setup screen. THIS WILL DELETE ALL OF YOUR YASG DATA."  } }
         };
@@ -356,6 +358,14 @@ public class SettingsManager : MonoBehaviour
                 setting.Value = value;
                 ApplyControllerInputSetting();
                 SaveSettings();
+                return;
+            }
+            else if (key == "DiscordRPC")
+            {
+                setting.Value = value;
+                SaveSettings();
+                if (DiscordRPCManager.Instance != null)
+                    DiscordRPCManager.Instance.SetEnabled(Convert.ToBoolean(value));
                 return;
             }
             setting.Value = value;
