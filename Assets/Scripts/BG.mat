@@ -29,10 +29,10 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _HighIntensity: 0.18000011
-    - _LowIntensity: 0.18009394
+    - _HighIntensity: 0.052410413
+    - _LowIntensity: 0.055192973
     - _MaxSteps: 20.34
-    - _MidIntensity: 0.1800001
+    - _MidIntensity: 0.045566507
     - _ResolutionScale: 0.5
     - _TargetFPS: 60
     - _TimeMult: 0.2

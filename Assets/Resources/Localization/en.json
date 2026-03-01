@@ -491,9 +491,9 @@
   "canvas.onboarding.step1.info.text": "<b>Welcome to YASG!</b>\n\nLet's start by creating a profile for you. To do so, click this button to access the settings.",
   "canvas.onboarding.step2.info.text": "Click here to add a profile.",
   "canvas.onboarding.step3.info.text": "Now, click here to create a new profile. Give it a cool name!",
-  "canvas.onboarding.step4.info.text": "Now click here to go back to the menu.",
-  "canvas.onboarding.step5.info.text": "Now you are ready to play! Click here to access the song selection menu.",
-  "canvas.onboarding.step6.info.text": "<b>That's it!</b>\nYou can search any song you'd like to play by using this search bar.\nThanks for installing and have fun!",
+  "canvas.onboarding.step4.info.text": "Also, if you experience delay issues, feel free to perform calibration by clicking this button later.",
+  "canvas.onboarding.step5.info.text": "Now click here to go back to the menu.",
+  "canvas.onboarding.step6.info.text": "Now you are ready to play! Click here to access the song selection menu.",
   "canvas.onboarding.step6.done.label": "Done",
   "notification.bg_quality_reduced.info": "Background quality was automatically reduced to improve performance.",
   "notification.bg_quality_reduced.title": "Background Quality Reduced",
@@ -525,5 +525,7 @@
   "canvas.calibration.windowsadvice.div.steps.2.text": "Go to the Recording tab and double-click the mic you are using.",
   "canvas.calibration.windowsadvice.div.steps.3.text": "Go to the Advanced tab, and uncheck \"Disable audio enhancements\", IF its there.",
   "canvas.calibration.1.windows.title": "?",
-  "canvas.calibration.title": "Calibration"
+  "canvas.calibration.title": "Calibration",
+  "canvas.onboarding.step4.ok.label": "OK",
+  "canvas.onboarding.step7.info.text": "<b>That's it!</b>\nYou can search any song you'd like to play by using this search bar.\nThanks for installing and have fun!"
 }
